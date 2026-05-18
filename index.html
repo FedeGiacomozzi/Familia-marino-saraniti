@@ -212,6 +212,79 @@ body {
   50%       { opacity: 0.3; }
 }
 
+.gracias-overlay {
+  position: fixed;
+  inset: 0;
+  background: #fdf6ed;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 24px;
+  text-align: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.8s ease;
+}
+
+.gracias-overlay.visible {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.gracias-linea {
+  width: 40px;
+  height: 1px;
+  background: #c8a96e;
+  margin: 0 auto 32px;
+}
+
+.gracias-titulo {
+  font-family: 'Playfair Display', serif;
+  font-size: 32px;
+  font-weight: 400;
+  color: #3d2b0a;
+  line-height: 1.3;
+  margin-bottom: 20px;
+  max-width: 480px;
+}
+
+.gracias-sub {
+  font-size: 14px;
+  color: #8b6914;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin-bottom: 48px;
+}
+
+.gracias-firma {
+  font-family: 'Playfair Display', serif;
+  font-size: 15px;
+  font-style: italic;
+  color: #c8a96e;
+  margin-bottom: 48px;
+}
+
+.btn-volver {
+  padding: 12px 28px;
+  border: 1.5px solid #c8a96e;
+  border-radius: 99px;
+  background: transparent;
+  color: #3d2b0a;
+  font-size: 13px;
+  font-family: 'Lato', sans-serif;
+  cursor: pointer;
+  letter-spacing: 1px;
+  transition: all 0.2s;
+}
+
+.btn-volver:hover {
+  background: #3d2b0a;
+  color: #fdf6ed;
+  border-color: #3d2b0a;
+}
+
 .progreso {
   position: fixed;
   bottom: 0; left: 0; right: 0;
@@ -303,6 +376,14 @@ body {
     </div>
 
   </div>
+</div>
+
+<div class="gracias-overlay" id="gracias">
+  <div class="gracias-linea"></div>
+  <div class="gracias-titulo">Gracias por dejar un poquito de vos en esta gran historia.</div>
+  <div class="gracias-firma">— Familia Mariño · Saraniti</div>
+  <div class="gracias-sub">Tu historia ya es parte de algo más grande</div>
+  <button class="btn-volver" onclick="volverAlFormulario()">← Revisar mis respuestas</button>
 </div>
 
 <div class="progreso hidden" id="progreso">
@@ -487,6 +568,14 @@ function actualizarProgreso() {
   document.getElementById('prog-texto').textContent = enviados + ' / ' + total;
   document.getElementById('prog-pct').textContent   = pct + '%';
   document.getElementById('barra').style.width      = pct + '%';
+  if (enviados === total) {
+    setTimeout(() => document.getElementById('gracias').classList.add('visible'), 600);
+  }
+}
+
+function volverAlFormulario() {
+  document.getElementById('gracias').classList.remove('visible');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 </script>
 </body>
