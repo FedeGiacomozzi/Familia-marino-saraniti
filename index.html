@@ -328,7 +328,9 @@ body {
 
   <div class="step-nombre" id="paso-nombre">
     <h2>¿Cómo te llamás?</h2>
-    <input type="text" id="nombre-input" placeholder="Tu nombre..." />
+    <input type="text" id="nombre-input" placeholder="Nombre..." />
+    <input type="text" id="apellido-input" placeholder="Apellido..." style="margin-top:10px" />
+    <input type="text" id="fecha-input" placeholder="Fecha de nacimiento (dd-mm-aaaa)" style="margin-top:10px" maxlength="10" oninput="formatFecha(this)" />
     <button class="btn-start" onclick="iniciar()">Empezar →</button>
   </div>
 
@@ -417,12 +419,25 @@ const preguntas = [
 ];
 
 let nombre   = '';
+let apellido = '';
+let fechaNac = '';
 let enviados = 0;
-const state  = {}; // per-question: { recorder, chunks, blob, timer, seconds }
+const state  = {};
+
+function formatFecha(input) {
+  let v = input.value.replace(/\D/g, '').slice(0, 8);
+  if (v.length >= 5) v = v.slice(0,2) + '-' + v.slice(2,4) + '-' + v.slice(4);
+  else if (v.length >= 3) v = v.slice(0,2) + '-' + v.slice(2);
+  input.value = v;
+}
 
 function iniciar() {
-  nombre = document.getElementById('nombre-input').value.trim();
-  if (!nombre) { alert('Escribí tu nombre primero'); return; }
+  nombre   = document.getElementById('nombre-input').value.trim();
+  apellido = document.getElementById('apellido-input').value.trim();
+  fechaNac = document.getElementById('fecha-input').value.trim();
+  if (!nombre)   { alert('Escribí tu nombre primero'); return; }
+  if (!apellido) { alert('Escribí tu apellido'); return; }
+  if (!/^\d{2}-\d{2}-\d{4}$/.test(fechaNac)) { alert('Ingresá la fecha en formato dd-mm-aaaa'); return; }
   document.getElementById('paso-nombre').classList.add('hidden');
   document.getElementById('formulario').classList.remove('hidden');
   document.getElementById('progreso').classList.remove('hidden');
@@ -523,7 +538,8 @@ function enviarAudio(id) {
   reader.onloadend = () => {
     const base64 = reader.result.split(',')[1];
     const body   = JSON.stringify({
-      persona:  nombre,
+      persona:  nombre + ' ' + apellido,
+      fechaNac: fechaNac,
       pregunta: id,
       audio:    base64,
       mimeType: s.blob.type
