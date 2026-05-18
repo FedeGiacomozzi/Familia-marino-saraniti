@@ -61,7 +61,7 @@ function doPost(e) {
 
     var folder  = DriveApp.getFolderById(FOLDER_ID);
     var file    = folder.createFile(blob);
-    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    try { file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch(e) {}
     var fileUrl = file.getUrl();
 
     Logger.log('Archivo creado: ' + fileUrl);
@@ -96,7 +96,7 @@ function testTodo() {
   var folder  = DriveApp.getFolderById(FOLDER_ID);
   var content = 'test-' + new Date().toISOString();
   var file    = folder.createFile('test_script.txt', content, 'text/plain');
-  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  try { file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch(e) { Logger.log('setSharing no disponible: ' + e); }
   Logger.log('Drive OK: ' + file.getUrl());
 
   // Agregar fila al Sheet
