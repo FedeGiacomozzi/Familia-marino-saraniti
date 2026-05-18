@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Grabador de Audio</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #f0f2f5;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 32px;
+      width: 100%;
+      max-width: 480px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+    }
+    h1 { font-size: 1.4rem; font-weight: 600; margin-bottom: 24px; color: #1a1a2e; }
+    label { display: block; font-size: 0.85rem; font-weight: 500; color: #555; margin-bottom: 6px; }
+    input, select {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1.5px solid #ddd;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      margin-bottom: 18px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input:focus, select:focus { border-color: #4f6ef7; }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 11px 20px;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: opacity 0.2s, background 0.2s;
+    }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-record { background: #e74c3c; color: white; }
+    .btn-stop   { background: #95a5a6; color: white; }
+    .btn-send   { background: #4f6ef7; color: white; }
+    .btn-diag   { background: #f39c12; color: white; font-size: 0.8rem; padding: 8px 14px; }
+    .controls { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 18px; }
+    #timer {
+      font-size: 0.85rem;
+      color: #e74c3c;
+      font-weight: 500;
+      min-width: 60px;
+      align-self: center;
+    }
+    audio { width: 100%; margin-bottom: 18px; display: none; border-radius: 8px; }
+    #status {
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      margin-top: 4px;
+      display: none;
+    }
+    #status.info    { background: #e8f4fd; color: #1a6fa8; display: block; }
+    #status.success { background: #e8f8f0; color: #1a7a47; display: block; }
+    #status.error   { background: #fdecea; color: #a81a1a; display: block; }
+    #status.warning { background: #fef9e7; color: #7a6010; display: block; }
+    #log {
+      background: #1a1a2e;
+      color: #a8d8a8;
+      font-family: monospace;
+      font-size: 0.78rem;
+      padding: 12px;
+      border-radius: 8px;
+      margin-top: 14px;
+      max-height: 220px;
+      overflow-y: auto;
+      display: none;
+    }
+    .recording-dot {
+      display: inline-block;
+      width: 10px; height: 10px;
+      background: white;
+      border-radius: 50%;
+      animation: blink 1s infinite;
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+    .progress-bar {
+      height: 4px;
+      background: #e0e0e0;
+      border-radius: 4px;
+      margin-bottom: 18px;
+      overflow: hidden;
+      display: none;
+    }
+    .progress-fill {
+      height: 100%;
+      background: #4f6ef7;
+      width: 0%;
+      transition: width 0.3s;
+    }
+  </style>
+</head>
+<body>
+<div class="card">
+  <h1>🎙️ Grabador de Respuestas</h1>
+
+  <label for="persona">Nombre de la persona</label>
+  <input type="text" id="persona" placeholder="Ej: Juan García" />
+
+  <label for="pregunta">Número de pregunta</label>
+  <select id="pregunta">
+    <option value="">-- Seleccioná la pregunta --</option>
+    <option value="1">Pregunta 1</option>
+    <option value="2">Pregunta 2</option>
+    <option value="3">Pregunta 3</option>
+    <option value="4">Pregunta 4</option>
+    <option value="5">Pregunta 5</option>
+  </select>
+
+  <div class="controls">
+    <button class="btn btn-record" id="btnRecord">
+      <span class="recording-dot" style="display:none"></span>
+      ⏺ Grabar
+    </button>
+    <button class="btn btn-stop" id="btnStop" disabled>⏹ Detener</button>
+    <span id="timer"></span>
+  </div>
+
+  <audio id="audioPreview" controls></audio>
+
+  <div class="progress-bar" id="progressBar">
+    <div class="progress-fill" id="progressFill"></div>
+  </div>
+
+  <div class="controls">
+    <button class="btn btn-send" id="btnSend" disabled>📤 Enviar</button>
+    <button class="btn btn-diag" id="btnDiag">🔍 Diagnóstico</button>
+  </div>
+
+  <div id="status"></div>
+  <div id="log"></div>
+</div>
+
+<script>
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx-OPl1upkfAN3l46srKKLle95kDOPtjS2cL9y_dKXkPgYDoNSXalky9MO2vO5exwvV/exec';
+
+// ── UI helpers ────────────────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const statusEl  = $('status');
+const logEl     = $('log');
+const audioEl   = $('audioPreview');
+const timerEl   = $('timer');
+const progBar   = $('progressBar');
+const progFill  = $('progressFill');
+
+function setStatus(msg, type = 'info') {
+  statusEl.textContent = msg;
+  statusEl.className = type;
+}
+
+function log(msg, color = '#a8d8a8') {
+  logEl.style.display = 'block';
+  const ts = new Date().toLocaleTimeString('es-AR', { hour12: false });
+  const line = document.createElement('div');
+  line.style.color = color;
+  line.textContent = `[${ts}] ${msg}`;
+  logEl.appendChild(line);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+// ── Recording state ───────────────────────────────────────────────────────────
+let mediaRecorder = null;
+let chunks        = [];
+let audioBlob     = null;
+let timerInterval = null;
+let seconds       = 0;
+
+function updateTimer() {
+  seconds++;
+  const m = String(Math.floor(seconds / 60)).padStart(2, '0');
+  const s = String(seconds % 60).padStart(2, '0');
+  timerEl.textContent = `${m}:${s}`;
+}
+
+$('btnRecord').addEventListener('click', async () => {
+  const persona  = $('persona').value.trim();
+  const pregunta = $('pregunta').value;
+
+  if (!persona)  { setStatus('Ingresá tu nombre antes de grabar.', 'warning'); return; }
+  if (!pregunta) { setStatus('Seleccioná una pregunta antes de grabar.', 'warning'); return; }
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    chunks = [];
+
+    // Prefer webm/opus, fall back to whatever the browser supports
+    const mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', '']
+      .find(m => m === '' || MediaRecorder.isTypeSupported(m));
+
+    mediaRecorder = mimeType
+      ? new MediaRecorder(stream, { mimeType })
+      : new MediaRecorder(stream);
+
+    log(`Grabando con MIME: ${mediaRecorder.mimeType}`);
+
+    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+    mediaRecorder.onstop = () => {
+      stream.getTracks().forEach(t => t.stop());
+      audioBlob = new Blob(chunks, { type: mediaRecorder.mimeType || 'audio/webm' });
+      const url = URL.createObjectURL(audioBlob);
+      audioEl.src = url;
+      audioEl.style.display = 'block';
+      $('btnSend').disabled = false;
+      log(`Grabación detenida. Tamaño: ${(audioBlob.size / 1024).toFixed(1)} KB`);
+      setStatus('Audio listo. Revisalo y enviá.', 'info');
+    };
+
+    mediaRecorder.start(1000); // collect chunks every second
+    seconds = 0;
+    timerEl.textContent = '00:00';
+    timerInterval = setInterval(updateTimer, 1000);
+
+    $('btnRecord').disabled = true;
+    $('btnStop').disabled   = false;
+    $('btnSend').disabled   = true;
+    const dot = $('btnRecord').querySelector('.recording-dot');
+    dot.style.display = 'inline-block';
+    setStatus('Grabando…', 'info');
+    log('Grabación iniciada');
+  } catch (err) {
+    setStatus(`No se pudo acceder al micrófono: ${err.message}`, 'error');
+    log(`ERROR micrófono: ${err.message}`, '#ff6b6b');
+  }
+});
+
+$('btnStop').addEventListener('click', () => {
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    mediaRecorder.stop();
+    clearInterval(timerInterval);
+    $('btnRecord').disabled = false;
+    $('btnStop').disabled   = true;
+    const dot = $('btnRecord').querySelector('.recording-dot');
+    dot.style.display = 'none';
+  }
+});
+
+// ── Send ─────────────────────────────────────────────────────────────────────
+$('btnSend').addEventListener('click', () => {
+  if (!audioBlob) { setStatus('No hay audio grabado.', 'warning'); return; }
+  const persona  = $('persona').value.trim();
+  const pregunta = $('pregunta').value;
+  if (!persona || !pregunta) { setStatus('Completá nombre y pregunta.', 'warning'); return; }
+
+  setStatus('Convirtiendo audio…', 'info');
+  log('Iniciando envío…');
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    const base64 = reader.result.split(',')[1];
+    log(`Base64 listo (${(base64.length / 1024).toFixed(1)} KB). Enviando…`);
+    sendToScript({ persona, pregunta, audio: base64, mimeType: audioBlob.type });
+  };
+  reader.onerror = () => {
+    setStatus('Error al leer el archivo de audio.', 'error');
+    log(`ERROR FileReader: ${reader.error}`, '#ff6b6b');
+  };
+  reader.readAsDataURL(audioBlob);
+});
+
+function sendToScript(payload) {
+  $('btnSend').disabled = true;
+  progBar.style.display = 'block';
+  progFill.style.width  = '30%';
+
+  const body = JSON.stringify(payload);
+  log(`Payload ${(body.length / 1024).toFixed(1)} KB → ${SCRIPT_URL.slice(0, 60)}…`);
+
+  // Strategy: XHR with text/plain avoids CORS preflight on simple requests.
+  // Apps Script only needs the body to arrive — headers don't matter server-side.
+  const xhr = new XMLHttpRequest();
+  xhr.open('POST', SCRIPT_URL, true);
+  xhr.setRequestHeader('Content-Type', 'text/plain');
+
+  xhr.upload.onprogress = e => {
+    if (e.lengthComputable) {
+      progFill.style.width = `${Math.round(30 + (e.loaded / e.total) * 50)}%`;
+    }
+  };
+
+  xhr.onload = () => {
+    progFill.style.width = '100%';
+    log(`Respuesta HTTP ${xhr.status}: ${xhr.responseText.slice(0, 200)}`);
+    if (xhr.status >= 200 && xhr.status < 400) {
+      setStatus('¡Enviado correctamente! El audio ya está en Drive y el registro en el Sheet.', 'success');
+      log('Envío exitoso ✓', '#69db7c');
+    } else {
+      setStatus(`Respuesta inesperada del servidor (HTTP ${xhr.status}). Revisá el log.`, 'error');
+    }
+    setTimeout(() => { progBar.style.display = 'none'; progFill.style.width = '0%'; }, 1500);
+    $('btnSend').disabled = false;
+  };
+
+  xhr.onerror = () => {
+    progFill.style.width = '100%';
+    // With no-cors XHR, onerror fires even on success when the browser blocks reading the response.
+    // The request likely DID reach the server — mark as sent and advise user to verify in Sheets.
+    setStatus(
+      'La petición se envió pero el navegador bloqueó la respuesta (CORS normal). ' +
+      'Verificá en el Google Sheet si aparece la fila.',
+      'warning'
+    );
+    log('onerror disparado (probable éxito bloqueado por CORS). Verificar Sheet.', '#ffd43b');
+    setTimeout(() => { progBar.style.display = 'none'; progFill.style.width = '0%'; }, 1500);
+    $('btnSend').disabled = false;
+  };
+
+  xhr.ontimeout = () => {
+    setStatus('Timeout: el servidor tardó demasiado. Intentá de nuevo.', 'error');
+    log('TIMEOUT en la petición', '#ff6b6b');
+    $('btnSend').disabled = false;
+  };
+
+  xhr.timeout = 60000; // 60 s — audio b64 puede ser grande
+  xhr.send(body);
+}
+
+// ── Diagnostics ───────────────────────────────────────────────────────────────
+$('btnDiag').addEventListener('click', async () => {
+  log('=== DIAGNÓSTICO ===', '#74c0fc');
+
+  // 1. Can we reach Google at all?
+  log('Verificando conectividad con Google…');
+  try {
+    const r = await fetch('https://www.google.com/generate_204', { mode: 'no-cors', cache: 'no-store' });
+    log('Google alcanzable ✓', '#69db7c');
+  } catch (e) {
+    log(`Google NO alcanzable: ${e.message}`, '#ff6b6b');
+  }
+
+  // 2. Can we reach the Apps Script URL via a GET (should redirect/return something)?
+  log('Probando GET al Script URL…');
+  const xhrGet = new XMLHttpRequest();
+  xhrGet.open('GET', SCRIPT_URL + '?test=diag', true);
+  xhrGet.timeout = 10000;
+  xhrGet.onload  = () => log(`GET Script → HTTP ${xhrGet.status}, body: ${xhrGet.responseText.slice(0,100)}`, '#69db7c');
+  xhrGet.onerror = () => log('GET Script → onerror (CORS o red bloqueada)', '#ffd43b');
+  xhrGet.ontimeout = () => log('GET Script → TIMEOUT', '#ff6b6b');
+  xhrGet.send();
+
+  // 3. Mini POST with text/plain (no audio, just ping)
+  log('Enviando POST de prueba (sin audio)…');
+  const xhrPost = new XMLHttpRequest();
+  xhrPost.open('POST', SCRIPT_URL, true);
+  xhrPost.setRequestHeader('Content-Type', 'text/plain');
+  xhrPost.timeout = 15000;
+  xhrPost.onload  = () => log(`POST test → HTTP ${xhrPost.status}: ${xhrPost.responseText.slice(0,200)}`, '#69db7c');
+  xhrPost.onerror = () => log('POST test → onerror. Si el Script está deployado como "Cualquier persona", la petición igual llegó.', '#ffd43b');
+  xhrPost.ontimeout = () => log('POST test → TIMEOUT', '#ff6b6b');
+  xhrPost.send(JSON.stringify({ test: true, ts: Date.now() }));
+
+  // 4. Browser info
+  log(`UA: ${navigator.userAgent}`);
+  log(`Protocolo: ${location.protocol}`);
+  log(`Online: ${navigator.onLine}`);
+});
+</script>
+</body>
+</html>
