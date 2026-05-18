@@ -40,6 +40,7 @@ function doPost(e) {
     }
 
     var persona  = data.persona   || 'Sin nombre';
+    var fechaNac = data.fechaNac  || '';
     var pregunta = data.pregunta  || '?';
     var audioB64 = data.audio     || '';
     var mime     = data.mimeType  || 'audio/webm';
@@ -73,11 +74,11 @@ function doPost(e) {
     if (!sheet) {
       // Crear la hoja si no existe
       sheet = ss.insertSheet(SHEET_NAME);
-      sheet.appendRow(['Fecha/hora', 'Nombre persona', 'Nº pregunta', 'Link audio Drive', 'Transcripción']);
+      sheet.appendRow(['Fecha/hora', 'Nombre persona', 'Fecha nacimiento', 'Nº pregunta', 'Link audio Drive', 'Transcripción']);
     }
 
     var ts = Utilities.formatDate(new Date(), 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy HH:mm:ss');
-    sheet.appendRow([ts, persona, pregunta, fileUrl, '']);
+    sheet.appendRow([ts, persona, fechaNac, pregunta, fileUrl, '']);
 
     Logger.log('Fila agregada. Persona: ' + persona + ' | Pregunta: ' + pregunta);
 
