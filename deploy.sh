@@ -1,26 +1,56 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
-SERVICE_NAME=${1:-familia-marino}
-PROJECT_ID="familia-marino"
-REGION="us-central1"
-IMAGE="gcr.io/$PROJECT_ID/$SERVICE_NAME"
+PROJECT="${GCP_PROJECT_ID:-familia-marino}"
+REGION="${GCP_REGION:-us-central1}"
+SERVICE="familia-pipeline"
+IMAGE="gcr.io/${PROJECT}/${SERVICE}"
 
-echo "Building and deploying $SERVICE_NAME to Cloud Run..."
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --project) PROJECT="$2"; shift 2 ;;
+    --region)  REGION="$2";  shift 2 ;;
+    *) echo "Argumento desconocido: $1"; exit 1 ;;
+  esac
+done
 
-gcloud builds submit --tag "$IMAGE" --project "$PROJECT_ID"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo " Proyecto : $PROJECT"
+echo " Región   : $REGION"
+echo " Servicio : $SERVICE"
+echo " Imagen   : $IMAGE"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-gcloud run deploy "$SERVICE_NAME" \
-  --image "$IMAGE" \
-  --platform managed \
-  --region "$REGION" \
-  --project "$PROJECT_ID" \
-  --allow-unauthenticated \
-  --service-account "familia-pipeline@familia-marino.iam.gserviceaccount.com" \
-  --set-secrets="ANTHROPIC_API_KEY=ANTHROPIC_API_KEY:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,GOOGLE_CREDENTIALS_JSON=GOOGLE_CREDENTIALS:latest"
+echo "[1/3] Building Docker image..."
+cd pipeline
+gcloud builds submit \
+  --project="$PROJECT" \
+  --tag="$IMAGE" \
+  .
 
-echo "Deploy complete!"
-gcloud run services describe "$SERVICE_NAME" \
-  --region "$REGION" \
-  --project "$PROJECT_ID" \
-  --format="value(status.url)"
+echo "[2/3] Deploying to Cloud Run..."
+gcloud run deploy "$SERVICE" \
+  --project="$PROJECT" \
+  --region="$REGION" \
+  --image="$IMAGE" \
+  --platform=managed \
+  --no-allow-unauthenticated \
+  --service-account="familia-pipeline@${PROJECT}.iam.gserviceaccount.com" \
+  --set-env-vars="GCP_PROJECT_ID=${PROJECT}" \
+  --memory=1Gi \
+  --cpu=1 \
+  --timeout=540 \
+  --max-instances=3
+
+echo "[3/3] Obteniendo URL del servicio..."
+SERVICE_URL=$(gcloud run services describe "$SERVICE" \
+  --project="$PROJECT" \
+  --region="$REGION" \
+  --format="value(status.url)")
+
+echo ""
+echo "Deploy exitoso"
+echo "  URL: $SERVICE_URL"
+echo ""
+echo "Probá el health check:"
+echo "  curl -H \"Authorization: Bearer \$(gcloud auth print-identity-token)\" ${SERVICE_URL}/health"
