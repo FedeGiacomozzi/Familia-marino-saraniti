@@ -73,6 +73,42 @@ body {
 
 .step-nombre input:focus { border-color: #c8a96e; }
 
+.foto-wrap {
+  margin-top: 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.foto-preview {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #e8d9b8;
+  display: none;
+}
+
+.foto-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border: 1.5px dashed #c8a96e;
+  border-radius: 99px;
+  font-size: 14px;
+  color: #5a3e1a;
+  background: #fdf6ed;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: 'Lato', sans-serif;
+}
+
+.foto-label:hover { background: #fdf6ed; border-style: solid; }
+.foto-label input { display: none; }
+
+.foto-status { font-size: 11px; color: #8b6914; margin-top: 4px; }
+
 .btn-start {
   width: 100%;
   margin-top: 16px;
@@ -331,6 +367,16 @@ body {
     <input type="text" id="nombre-input" placeholder="Nombre..." />
     <input type="text" id="apellido-input" placeholder="Apellido..." style="margin-top:10px" />
     <input type="text" id="fecha-input" placeholder="Fecha de nacimiento (dd-mm-aaaa)" style="margin-top:10px" maxlength="10" oninput="formatFecha(this)" />
+    <div class="foto-wrap">
+      <img class="foto-preview" id="foto-preview" src="" alt="preview" />
+      <div>
+        <label class="foto-label">
+          📷 Agregar foto (opcional)
+          <input type="file" id="foto-input" accept="image/*" onchange="previsualizarFoto(this)" />
+        </label>
+        <div class="foto-status" id="foto-status"></div>
+      </div>
+    </div>
     <button class="btn-start" onclick="iniciar()">Empezar →</button>
   </div>
 
@@ -397,7 +443,7 @@ body {
 </div>
 
 <script>
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzklN-6K-HI4uEHBOmvre16NU4MKdvlUV3gLMvL4hGpy87aV1RRb1tD42ytC4TXXxDwjw/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbws7S0ofVsvKoiI2fMc4qo-xpqEVaogS9M_67oFGTdNVpO_5y_7566f0pZM4ZoDldDpYg/exec';
 
 const preguntas = [
   { id: 1,  texto: '¿Cómo te llaman en tu familia — y de dónde viene ese nombre o apodo?' },
@@ -431,6 +477,46 @@ function formatFecha(input) {
   input.value = v;
 }
 
+function previsualizarFoto(input) {
+  if (!input.files || !input.files[0]) return;
+  const file    = input.files[0];
+  const preview = document.getElementById('foto-preview');
+  const reader  = new FileReader();
+  reader.onload = e => {
+    preview.src   = e.target.result;
+    preview.style.display = 'block';
+    document.getElementById('foto-status').textContent = file.name;
+  };
+  reader.readAsDataURL(file);
+}
+
+function enviarFoto() {
+  const input = document.getElementById('foto-input');
+  if (!input.files || !input.files[0]) return;
+
+  const file   = input.files[0];
+  const reader = new FileReader();
+  reader.readAsDataURL(file);
+  reader.onloadend = () => {
+    const base64 = reader.result.split(',')[1];
+    const body   = JSON.stringify({
+      tipo:     'foto',
+      persona:  nombre + ' ' + apellido,
+      foto:     base64,
+      mimeType: file.type || 'image/jpeg',
+    });
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', SCRIPT_URL, true);
+    xhr.setRequestHeader('Content-Type', 'text/plain');
+    xhr.timeout = 60000;
+    xhr.onload = xhr.onerror = () => {
+      document.getElementById('foto-status').textContent = '✓ Foto guardada';
+    };
+    xhr.send(body);
+  };
+}
+
 function iniciar() {
   nombre   = document.getElementById('nombre-input').value.trim();
   apellido = document.getElementById('apellido-input').value.trim();
@@ -438,6 +524,10 @@ function iniciar() {
   if (!nombre)   { alert('Escribí tu nombre primero'); return; }
   if (!apellido) { alert('Escribí tu apellido'); return; }
   if (!/^\d{2}-\d{2}-\d{4}$/.test(fechaNac)) { alert('Ingresá la fecha en formato dd-mm-aaaa'); return; }
+
+  // Non-blocking foto upload before navigating to questions
+  enviarFoto();
+
   document.getElementById('paso-nombre').classList.add('hidden');
   document.getElementById('formulario').classList.remove('hidden');
   document.getElementById('progreso').classList.remove('hidden');

@@ -1,196 +1,354 @@
-"""
-Cliente para leer y escribir en Google Sheets.
+import os
+import json
+import re
+import tempfile
 
-Sheet "Respuestas" — columnas (0-indexed):
-  0 Fecha/hora | 1 Nombre | 2 FechaNac | 3 Pregunta | 4 LinkAudio | 5 Transcripción
-
-Sheet "Perfiles" — columnas (0-indexed):
-  0 Nombre | 1 FechaProcess | 2 PerfilVoz (JSON) | 3 TranscripciónCompleta | 4 Capítulo | 5 CapítuloRevisado
-"""
-
-import logging
-from datetime import datetime, timezone
-from typing import Any
-
+import gspread
+from google.oauth2 import service_account
 from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseDownload
 
-logger = logging.getLogger(__name__)
+SHEET_ID = "1A1M79ITLeRVWkwct7pqjUTmLu9NWXn9uDLpKWMMomgM"   # Respuestas + Perfiles
+FAMILIA_SHEET_ID = "1iEpnly_f3OQL6nLH41XU76zg1iM2vHZQyQdF0RLVQFE"  # Integrantes + Relaciones
+FOLDER_ID = "1rZmvh5WC9KEPSQ99AtC3ZvJkJRKJp6L3"
 
-SHEET_ID = "1A1M79ITLeRVWkwct7pqjUTmLu9NWXn9uDLpKWMMomgM"
-
-RESPUESTAS = "Respuestas"
-PERFILES   = "Perfiles"
-
-# Índices columnas "Respuestas"
-COL_R_NOMBRE        = 1
-COL_R_FECHA_NAC     = 2
-COL_R_PREGUNTA      = 3
-COL_R_LINK          = 4
-COL_R_TRANSCRIPCION = 5
-COL_R_FOTOGRAFIA    = 6
-
-# Índices columnas "Perfiles"
-COL_P_NOMBRE         = 0
-COL_P_FECHA_PROCESS  = 1
-COL_P_PERFIL_VOZ     = 2
-COL_P_TRANSCRIPCION  = 3
-COL_P_CAPITULO       = 4
-COL_P_CAP_REVISADO   = 5
-
-PERFILES_HEADERS = [
-    "Nombre",
-    "Fecha procesado",
-    "Perfil Voz (JSON)",
-    "Transcripción completa",
-    "Capítulo",
-    "Capítulo revisado",
+SCOPES = [
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive",
 ]
 
-
-class SheetsClient:
-    def __init__(self, credentials):
-        self._svc = build("sheets", "v4", credentials=credentials)
-        self._sheets = self._svc.spreadsheets()
-
-    # ── helpers internos ──────────────────────────────────────────────────────
-
-    def _read_range(self, sheet_name: str, rng: str) -> list[list[Any]]:
-        result = (
-            self._sheets.values()
-            .get(spreadsheetId=SHEET_ID, range=f"{sheet_name}!{rng}")
-            .execute()
-        )
-        return result.get("values", [])
-
-    def _write_cell(self, sheet_name: str, row: int, col: int, value: str) -> None:
-        """row y col son 1-indexed (notación Sheets)."""
-        col_letter = _col_letter(col)
-        cell = f"{sheet_name}!{col_letter}{row}"
-        self._sheets.values().update(
-            spreadsheetId=SHEET_ID,
-            range=cell,
-            valueInputOption="RAW",
-            body={"values": [[value]]},
-        ).execute()
-        logger.debug("Wrote %s → %s", cell, value[:60] if isinstance(value, str) else value)
-
-    def _append_row(self, sheet_name: str, values: list[Any]) -> None:
-        self._sheets.values().append(
-            spreadsheetId=SHEET_ID,
-            range=f"{sheet_name}!A1",
-            valueInputOption="RAW",
-            insertDataOption="INSERT_ROWS",
-            body={"values": [values]},
-        ).execute()
-
-    # ── Sheet "Respuestas" ────────────────────────────────────────────────────
-
-    def get_respuestas(self) -> list[dict]:
-        """
-        Devuelve todas las filas de datos (sin header) como lista de dicts.
-        Incluye 'row_index' (1-indexed, con header) para poder escribir de vuelta.
-        """
-        rows = self._read_range(RESPUESTAS, "A1:Z")
-        if not rows:
-            return []
-        headers = rows[0]
-        result = []
-        for i, row in enumerate(rows[1:], start=2):  # start=2: fila 1 es header
-            padded = row + [""] * (max(7, len(headers)) - len(row))
-            result.append({
-                "row_index":    i,
-                "fecha":        padded[0],
-                "nombre":       padded[COL_R_NOMBRE],
-                "fecha_nac":    padded[COL_R_FECHA_NAC],
-                "pregunta":     padded[COL_R_PREGUNTA],
-                "link_audio":   padded[COL_R_LINK],
-                "transcripcion": padded[COL_R_TRANSCRIPCION],
-                "fotografia":   padded[COL_R_FOTOGRAFIA],
-            })
-        return result
-
-    def write_transcripcion(self, row_index: int, transcripcion: str) -> None:
-        self._write_cell(RESPUESTAS, row_index, COL_R_TRANSCRIPCION + 1, transcripcion)
-
-    def get_foto_url(self, nombre: str) -> str:
-        """Devuelve la URL de Drive de la foto de la persona, o '' si no tiene."""
-        for row in self.get_respuestas():
-            if row["nombre"].strip() == nombre and row["fotografia"].strip():
-                return row["fotografia"].strip()
-        return ""
-
-    # ── Sheet "Perfiles" ──────────────────────────────────────────────────────
-
-    def _ensure_perfiles_sheet(self) -> None:
-        """Crea la hoja Perfiles con headers si no existe."""
-        meta = self._sheets.get(spreadsheetId=SHEET_ID).execute()
-        nombres = [s["properties"]["title"] for s in meta["sheets"]]
-        if PERFILES not in nombres:
-            body = {"requests": [{"addSheet": {"properties": {"title": PERFILES}}}]}
-            self._sheets.batchUpdate(spreadsheetId=SHEET_ID, body=body).execute()
-            self._append_row(PERFILES, PERFILES_HEADERS)
-            logger.info("Hoja 'Perfiles' creada.")
-
-    def get_perfiles(self) -> list[dict]:
-        self._ensure_perfiles_sheet()
-        rows = self._read_range(PERFILES, "A1:Z")
-        if len(rows) <= 1:
-            return []
-        result = []
-        for i, row in enumerate(rows[1:], start=2):
-            padded = row + [""] * (6 - len(row))
-            result.append({
-                "row_index":       i,
-                "nombre":          padded[COL_P_NOMBRE],
-                "fecha_process":   padded[COL_P_FECHA_PROCESS],
-                "perfil_voz":      padded[COL_P_PERFIL_VOZ],
-                "transcripcion":   padded[COL_P_TRANSCRIPCION],
-                "capitulo":        padded[COL_P_CAPITULO],
-                "cap_revisado":    padded[COL_P_CAP_REVISADO],
-            })
-        return result
-
-    def upsert_perfil(self, nombre: str, **fields) -> None:
-        """
-        Crea o actualiza la fila del protagonista en "Perfiles".
-        'fields' puede tener: perfil_voz, transcripcion, capitulo, cap_revisado.
-        """
-        self._ensure_perfiles_sheet()
-        perfiles = self.get_perfiles()
-        existing = next((p for p in perfiles if p["nombre"] == nombre), None)
-
-        col_map = {
-            "perfil_voz":    COL_P_PERFIL_VOZ + 1,
-            "transcripcion": COL_P_TRANSCRIPCION + 1,
-            "capitulo":      COL_P_CAPITULO + 1,
-            "cap_revisado":  COL_P_CAP_REVISADO + 1,
-        }
-
-        ts = datetime.now(tz=timezone.utc).strftime("%d/%m/%Y %H:%M UTC")
-
-        if existing:
-            row_idx = existing["row_index"]
-            self._write_cell(PERFILES, row_idx, COL_P_FECHA_PROCESS + 1, ts)
-            for field, value in fields.items():
-                if field in col_map:
-                    self._write_cell(PERFILES, row_idx, col_map[field], str(value))
-        else:
-            row = [""] * 6
-            row[COL_P_NOMBRE]        = nombre
-            row[COL_P_FECHA_PROCESS] = ts
-            for field, value in fields.items():
-                idx = col_map.get(field)
-                if idx:
-                    row[idx - 1] = str(value)
-            self._append_row(PERFILES, row)
-
-        logger.info("Perfil actualizado: %s — campos: %s", nombre, list(fields.keys()))
+# Column indices (1-based for gspread)
+COL_FECHA = 1
+COL_NOMBRE = 2
+COL_FECHA_NAC = 3
+COL_PREGUNTA = 4
+COL_LINK_AUDIO = 5
+COL_TRANSCRIPCION = 6
+COL_FOTO = 7
 
 
-def _col_letter(n: int) -> str:
-    """Convierte número de columna 1-indexed a letra(s). Ej: 1→A, 27→AA."""
-    result = ""
-    while n > 0:
-        n, rem = divmod(n - 1, 26)
-        result = chr(65 + rem) + result
+def _get_creds():
+    creds_json = os.environ.get("GOOGLE_CREDENTIALS_JSON")
+    if creds_json:
+        info = json.loads(creds_json)
+    else:
+        path = os.environ.get("GOOGLE_CREDENTIALS_FILE", "/secrets/credentials.json")
+        with open(path) as f:
+            info = json.load(f)
+    return service_account.Credentials.from_service_account_info(info, scopes=SCOPES)
+
+
+def _gc():
+    return gspread.authorize(_get_creds())
+
+
+def _ss():
+    return _gc().open_by_key(SHEET_ID)
+
+
+def _ensure_sheet(ss, name: str, headers: list[str]):
+    try:
+        ws = ss.worksheet(name)
+    except gspread.WorksheetNotFound:
+        ws = ss.add_worksheet(name, rows=1000, cols=len(headers))
+        ws.append_row(headers)
+    return ws
+
+
+def respuestas_sheet():
+    ss = _ss()
+    return _ensure_sheet(
+        ss,
+        "Respuestas",
+        ["Fecha/hora", "Nombre", "FechaNac", "Nº pregunta", "Link Audio", "Transcripción", "Fotografía"],
+    )
+
+
+def perfiles_sheet():
+    ss = _ss()
+    return _ensure_sheet(
+        ss,
+        "Perfiles",
+        ["Nombre", "FechaProcess", "PerfilVoz(JSON)", "TranscripciónCompleta", "Capítulo", "CapítuloRevisado"],
+    )
+
+
+def _familia_ss():
+    return _gc().open_by_key(FAMILIA_SHEET_ID)
+
+
+def integrantes_sheet():
+    ss = _familia_ss()
+    return _ensure_sheet(
+        ss,
+        "Integrantes",
+        ["Nombre completo", "Fecha Nac (YYYY-MM-DD)", "Fecha Fallec (YYYY-MM-DD)", "Rol familiar", "¿Es menor de edad?"],
+    )
+
+
+def relaciones_sheet():
+    ss = _familia_ss()
+    return _ensure_sheet(
+        ss,
+        "Relaciones",
+        ["Persona A", "Relación", "Persona B"],
+    )
+
+
+# ─── Respuestas ───────────────────────────────────────────────────────────────
+
+def get_all_rows() -> list[list[str]]:
+    ws = respuestas_sheet()
+    return ws.get_all_values()
+
+
+def get_rows_for_name(nombre: str) -> list[tuple[int, list[str]]]:
+    """Return [(sheet_row_index, row_data), ...] for a persona (1-based, includes header offset)."""
+    all_rows = get_all_rows()
+    result = []
+    for i, row in enumerate(all_rows[1:], start=2):
+        if len(row) >= 2 and row[1].strip().lower() == nombre.strip().lower():
+            result.append((i, row))
     return result
+
+
+def save_transcription(row_index: int, text: str):
+    ws = respuestas_sheet()
+    ws.update_cell(row_index, COL_TRANSCRIPCION, text)
+
+
+def get_foto_url(nombre: str) -> str | None:
+    all_rows = get_all_rows()
+    for row in all_rows[1:]:
+        if (
+            len(row) >= COL_FOTO
+            and row[COL_NOMBRE - 1].strip().lower() == nombre.strip().lower()
+            and row[COL_FOTO - 1].strip()
+        ):
+            return row[COL_FOTO - 1].strip()
+    return None
+
+
+def get_transcripciones(nombre: str) -> list[dict]:
+    rows = get_rows_for_name(nombre)
+    result = []
+    for _, row in rows:
+        transcripcion = row[COL_TRANSCRIPCION - 1].strip() if len(row) >= COL_TRANSCRIPCION else ""
+        if transcripcion:
+            result.append(
+                {
+                    "pregunta": row[COL_PREGUNTA - 1] if len(row) >= COL_PREGUNTA else "",
+                    "transcripcion": transcripcion,
+                }
+            )
+    return result
+
+
+def get_fecha_nac(nombre: str) -> str:
+    rows = get_rows_for_name(nombre)
+    if rows:
+        row = rows[0][1]
+        return row[COL_FECHA_NAC - 1] if len(row) >= COL_FECHA_NAC else ""
+    return ""
+
+
+def get_all_nombres() -> list[str]:
+    all_rows = get_all_rows()
+    nombres = set()
+    for row in all_rows[1:]:
+        if len(row) >= 2 and row[1].strip():
+            nombres.add(row[1].strip())
+    return sorted(nombres)
+
+
+# ─── Perfiles ─────────────────────────────────────────────────────────────────
+
+def save_profile(nombre: str, fecha_process: str, perfil_json: str, transcripcion_completa: str):
+    ws = perfiles_sheet()
+    all_rows = ws.get_all_values()
+    for i, row in enumerate(all_rows[1:], start=2):
+        if row and row[0].strip().lower() == nombre.strip().lower():
+            ws.update(f"A{i}:D{i}", [[nombre, fecha_process, perfil_json, transcripcion_completa]])
+            return
+    ws.append_row([nombre, fecha_process, perfil_json, transcripcion_completa, "", ""])
+
+
+def save_chapter(nombre: str, capitulo: str, capitulo_revisado: str = ""):
+    ws = perfiles_sheet()
+    all_rows = ws.get_all_values()
+    for i, row in enumerate(all_rows[1:], start=2):
+        if row and row[0].strip().lower() == nombre.strip().lower():
+            ws.update_cell(i, 5, capitulo)
+            if capitulo_revisado:
+                ws.update_cell(i, 6, capitulo_revisado)
+            return
+    ws.append_row([nombre, "", "", "", capitulo, capitulo_revisado])
+
+
+def get_profile(nombre: str) -> dict | None:
+    ws = perfiles_sheet()
+    all_rows = ws.get_all_values()
+    for row in all_rows[1:]:
+        if row and row[0].strip().lower() == nombre.strip().lower():
+            perfil_str = row[2] if len(row) > 2 else ""
+            try:
+                perfil_voz = json.loads(perfil_str) if perfil_str else {}
+            except json.JSONDecodeError:
+                perfil_voz = {}
+            return {
+                "nombre": row[0] if len(row) > 0 else "",
+                "fecha_process": row[1] if len(row) > 1 else "",
+                "perfil_voz": perfil_voz,
+                "transcripcion": row[3] if len(row) > 3 else "",
+                "capitulo": row[4] if len(row) > 4 else "",
+                "capitulo_revisado": row[5] if len(row) > 5 else "",
+            }
+    return None
+
+
+# ─── Familia: Integrantes + Relaciones ───────────────────────────────────────
+
+def get_familia_integrantes() -> list[dict]:
+    """
+    Returns list of integrante dicts:
+      nombre, fecha_nac, fecha_fallec, rol, es_menor, vive
+    """
+    ws = integrantes_sheet()
+    rows = ws.get_all_values()
+    if len(rows) < 2:
+        return []
+    result = []
+    for row in rows[1:]:
+        if not any(cell.strip() for cell in row):
+            continue
+        nombre = row[0].strip() if len(row) > 0 else ""
+        if not nombre:
+            continue
+        fecha_fallec = row[2].strip() if len(row) > 2 else ""
+        result.append({
+            "nombre": nombre,
+            "fecha_nac": row[1].strip() if len(row) > 1 else "",
+            "fecha_fallec": fecha_fallec,
+            "rol": row[3].strip().lower() if len(row) > 3 else "",
+            "es_menor": (row[4].strip().lower() in ("sí", "si", "s", "yes")) if len(row) > 4 else False,
+            "vive": not bool(fecha_fallec),
+        })
+    return result
+
+
+def get_familia_relaciones() -> list[dict]:
+    """
+    Returns list of relation dicts: {persona_a, relacion, persona_b}
+    relacion is one of: padre, madre, cónyuge
+    """
+    ws = relaciones_sheet()
+    rows = ws.get_all_values()
+    if len(rows) < 2:
+        return []
+    result = []
+    for row in rows[1:]:
+        if not any(cell.strip() for cell in row):
+            continue
+        persona_a = row[0].strip() if len(row) > 0 else ""
+        relacion = row[1].strip().lower() if len(row) > 1 else ""
+        persona_b = row[2].strip() if len(row) > 2 else ""
+        if persona_a and relacion and persona_b:
+            result.append({"persona_a": persona_a, "relacion": relacion, "persona_b": persona_b})
+    return result
+
+
+def get_integrante(nombre: str) -> dict | None:
+    integrantes = get_familia_integrantes()
+    nombre_lower = nombre.strip().lower()
+    for p in integrantes:
+        if p["nombre"].lower() == nombre_lower:
+            return p
+    return None
+
+
+def build_family_context(nombre: str, integrantes: list[dict], relaciones: list[dict]) -> dict:
+    """
+    Returns a context dict for one person:
+      rol, vive, fecha_fallec, conyuges, hijos, padres, hermanos (inferred)
+    """
+    nombre_lower = nombre.strip().lower()
+
+    # Direct relations where this person appears
+    conyuges, padres_de, hijos_de = [], [], []
+    for r in relaciones:
+        a, rel, b = r["persona_a"].lower(), r["relacion"], r["persona_b"].lower()
+        if rel == "cónyuge" or rel == "conyuge":
+            if a == nombre_lower:
+                conyuges.append(r["persona_b"])
+            elif b == nombre_lower:
+                conyuges.append(r["persona_a"])
+        elif rel in ("padre", "madre"):
+            if a == nombre_lower:
+                # nombre es padre/madre de persona_b
+                hijos_de.append(r["persona_b"])
+            elif b == nombre_lower:
+                # nombre es hijo de persona_a
+                padres_de.append(r["persona_a"])
+
+    # Infer siblings: share at least one parent
+    siblings = set()
+    mis_padres = {r["persona_a"].lower() for r in relaciones
+                  if r["persona_b"].lower() == nombre_lower and r["relacion"] in ("padre", "madre")}
+    for r in relaciones:
+        if r["relacion"] in ("padre", "madre") and r["persona_a"].lower() in mis_padres:
+            if r["persona_b"].lower() != nombre_lower:
+                siblings.add(r["persona_b"])
+
+    integrante = get_integrante(nombre) or {}
+    return {
+        "rol": integrante.get("rol", ""),
+        "vive": integrante.get("vive", True),
+        "fecha_fallec": integrante.get("fecha_fallec", ""),
+        "es_menor": integrante.get("es_menor", False),
+        "conyuges": conyuges,
+        "hijos": hijos_de,
+        "padres": padres_de,
+        "hermanos": sorted(siblings),
+    }
+
+
+def get_fallecidos(integrantes: list[dict]) -> list[dict]:
+    return [p for p in integrantes if not p["vive"]]
+
+
+# ─── Drive ────────────────────────────────────────────────────────────────────
+
+def _extract_file_id(url: str) -> str:
+    for pattern in [r"/d/([a-zA-Z0-9_-]+)", r"id=([a-zA-Z0-9_-]+)"]:
+        m = re.search(pattern, url)
+        if m:
+            return m.group(1)
+    raise ValueError(f"Cannot extract Drive file ID from: {url}")
+
+
+def download_drive_file(url: str, dest_path: str):
+    file_id = _extract_file_id(url)
+    creds = _get_creds()
+    service = build("drive", "v3", credentials=creds)
+    request = service.files().get_media(fileId=file_id)
+    with open(dest_path, "wb") as fh:
+        dl = MediaIoBaseDownload(fh, request)
+        done = False
+        while not done:
+            _, done = dl.next_chunk()
+
+
+def upload_to_drive(local_path: str, filename: str, mime_type: str = "application/pdf") -> str:
+    """Upload a file to the Drive folder and return its shareable URL."""
+    from googleapiclient.http import MediaFileUpload
+
+    creds = _get_creds()
+    service = build("drive", "v3", credentials=creds)
+    meta = {"name": filename, "parents": [FOLDER_ID]}
+    media = MediaFileUpload(local_path, mimetype=mime_type)
+    f = service.files().create(body=meta, media_body=media, fields="id,webViewLink").execute()
+    service.permissions().create(
+        fileId=f["id"],
+        body={"type": "anyone", "role": "reader"},
+    ).execute()
+    return f.get("webViewLink", "")

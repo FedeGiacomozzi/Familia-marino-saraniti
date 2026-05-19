@@ -1,504 +1,356 @@
 """
-layout_agent.py — Convierte BookManuscript a PDF A5.
-
-Recibe el BookManuscript del editor_agent y produce:
-  1. HTML con estructura de libro biográfico
-  2. PDF A5 (148mm × 210mm) vía WeasyPrint
-
-Tipografía : Lora (cuerpo) + Montserrat (títulos) vía Google Fonts
-Paleta     : crema cálido (#FAF8F5), texto oscuro (#2C2C2C), acento tierra (#8B6F5E)
-
-Árbol genealógico v1: línea de tiempo por fecha de nacimiento.
-Relaciones familiares completas → v2 (requiere datos adicionales en el pipeline).
+Layout agent: genera el PDF del libro en formato A5 usando WeasyPrint.
+Estructura: Tapa → Blanco → Prólogo → [Capítulo + Transición] × N → Epílogo → Timeline
 """
 
-import logging
 import os
 import re
-import textwrap
+import tempfile
+from datetime import datetime
 from pathlib import Path
 
-logger = logging.getLogger(__name__)
+from weasyprint import HTML, CSS
 
-A5_WIDTH_MM  = 148
-A5_HEIGHT_MM = 210
+from pipeline.agents.editor_agent import BookManuscript
+from pipeline.utils import sheets
 
+# ─── Paleta y tipografía ──────────────────────────────────────────────────────
+COLOR_FONDO = "#FAF8F5"
+COLOR_TEXTO = "#2C2C2C"
+COLOR_ACENTO = "#8B6F5E"
 
-# ── CSS del libro ──────────────────────────────────────────────────────────────
+CSS_BASE = f"""
+@import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=Montserrat:wght@300;400;600&display=swap');
 
-BOOK_CSS = textwrap.dedent("""\
-    @import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=Montserrat:wght@300;600&display=swap');
+@page {{
+  size: A5;
+  margin: 22mm 18mm 24mm 22mm;
+  @bottom-center {{
+    content: counter(page);
+    font-family: 'Montserrat', sans-serif;
+    font-size: 9pt;
+    color: {COLOR_ACENTO};
+  }}
+}}
 
-    @page {
-        size: 148mm 210mm;
-        margin: 22mm 18mm 28mm 22mm;
+@page :first {{ @bottom-center {{ content: none; }} }}
 
-        @bottom-center {
-            content: counter(page);
-            font-family: 'Montserrat', sans-serif;
-            font-size: 8pt;
-            color: #999;
-        }
-    }
+* {{ margin: 0; padding: 0; box-sizing: border-box; }}
 
-    @page cover    { margin: 0; @bottom-center { content: none; } }
-    @page no-num   { @bottom-center { content: none; } }
-    @page chapter-start { margin-top: 35mm; }
+body {{
+  font-family: 'Lora', serif;
+  font-size: 10.5pt;
+  line-height: 1.7;
+  color: {COLOR_TEXTO};
+  background: {COLOR_FONDO};
+}}
 
-    * {
-        box-sizing: border-box;
-        margin: 0;
-        padding: 0;
-    }
+h1 {{
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 300;
+  font-size: 28pt;
+  letter-spacing: 0.05em;
+  color: {COLOR_TEXTO};
+  margin-bottom: 0.3em;
+}}
 
-    body {
-        font-family: 'Lora', Georgia, serif;
-        font-size: 10.5pt;
-        line-height: 1.75;
-        color: #2C2C2C;
-        background: #FAF8F5;
-        text-align: justify;
-        hyphens: auto;
-    }
+h2 {{
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 600;
+  font-size: 11pt;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: {COLOR_ACENTO};
+  margin-bottom: 1.5em;
+}}
 
-    /* ── Portada ── */
-    .cover {
-        page: cover;
-        width: 148mm;
-        height: 210mm;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        background: #2C2C2C;
-        color: #FAF8F5;
-        text-align: center;
-        padding: 20mm;
-        page-break-after: always;
-    }
+h3 {{
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 300;
+  font-size: 18pt;
+  color: {COLOR_TEXTO};
+  margin-bottom: 0.5em;
+}}
 
-    .cover-eyebrow {
-        font-family: 'Montserrat', sans-serif;
-        font-weight: 300;
-        font-size: 8pt;
-        letter-spacing: 3px;
-        text-transform: uppercase;
-        color: #8B6F5E;
-        margin-bottom: 12mm;
-    }
+p {{
+  margin-bottom: 0.9em;
+  text-align: justify;
+  hyphens: auto;
+}}
 
-    .cover-title {
-        font-family: 'Lora', Georgia, serif;
-        font-size: 26pt;
-        font-weight: 600;
-        line-height: 1.2;
-        margin-bottom: 8mm;
-    }
+em {{ font-style: italic; }}
 
-    .cover-subtitle {
-        font-family: 'Montserrat', sans-serif;
-        font-weight: 300;
-        font-size: 9pt;
-        letter-spacing: 1px;
-        color: #aaa;
-    }
+.page-break {{ page-break-after: always; }}
+.page-break-before {{ page-break-before: always; }}
 
-    .cover-year {
-        position: absolute;
-        bottom: 14mm;
-        font-family: 'Montserrat', sans-serif;
-        font-size: 8pt;
-        color: #666;
-    }
+/* Tapa */
+.cover {{
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  height: 100%;
+  min-height: 180mm;
+  padding-bottom: 20mm;
+}}
 
-    /* ── Página de cortesía ── */
-    .blank-page {
-        page: no-num;
-        height: 210mm;
-        page-break-after: always;
-    }
+.cover-linea {{
+  width: 40mm;
+  height: 1px;
+  background: {COLOR_ACENTO};
+  margin-bottom: 8mm;
+}}
 
-    /* ── Prólogo y epílogo ── */
-    .section {
-        page: no-num;
-        page-break-before: always;
-        page-break-after: always;
-    }
+.cover-titulo {{
+  font-family: 'Lora', serif;
+  font-size: 26pt;
+  font-weight: 400;
+  line-height: 1.2;
+  color: {COLOR_TEXTO};
+  margin-bottom: 4mm;
+}}
 
-    .section-title {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 8pt;
-        font-weight: 600;
-        letter-spacing: 3px;
-        text-transform: uppercase;
-        color: #8B6F5E;
-        margin-bottom: 10mm;
-        text-align: center;
-    }
+.cover-subtitulo {{
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 300;
+  font-size: 9pt;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: {COLOR_ACENTO};
+}}
 
-    /* ── Capítulo ── */
-    .chapter {
-        page: chapter-start;
-        page-break-before: always;
-        page-break-after: always;
-    }
+/* Foto en capítulo */
+.foto-capitulo {{
+  width: 100%;
+  max-height: 60mm;
+  object-fit: cover;
+  margin-bottom: 6mm;
+  display: block;
+}}
 
-    .chapter-number {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 7pt;
-        font-weight: 300;
-        letter-spacing: 3px;
-        text-transform: uppercase;
-        color: #8B6F5E;
-        text-align: center;
-        margin-bottom: 4mm;
-    }
+/* Transición */
+.transicion {{
+  margin: 6mm 0;
+  padding: 4mm 6mm;
+  border-left: 2px solid {COLOR_ACENTO};
+  font-style: italic;
+  color: {COLOR_ACENTO};
+  font-size: 9.5pt;
+}}
 
-    .chapter-name {
-        font-family: 'Lora', Georgia, serif;
-        font-size: 18pt;
-        font-weight: 600;
-        text-align: center;
-        margin-bottom: 2mm;
-        color: #2C2C2C;
-    }
+/* Prólogo / Epílogo */
+.seccion-header {{
+  margin-bottom: 8mm;
+}}
 
-    .chapter-date {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 7.5pt;
-        font-weight: 300;
-        color: #999;
-        text-align: center;
-        margin-bottom: 12mm;
-    }
+/* Timeline */
+.timeline-item {{
+  display: flex;
+  gap: 6mm;
+  margin-bottom: 5mm;
+  font-size: 9pt;
+}}
 
-    .chapter-rule {
-        width: 20mm;
-        height: 1px;
-        background: #8B6F5E;
-        margin: 0 auto 12mm auto;
-    }
+.timeline-fecha {{
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 600;
+  color: {COLOR_ACENTO};
+  min-width: 20mm;
+  font-size: 8.5pt;
+}}
 
-    /* ── Transición ── */
-    .transition {
-        font-style: italic;
-        color: #666;
-        text-align: center;
-        margin: 10mm 8mm;
-        line-height: 1.9;
-        font-size: 9.5pt;
-        page-break-inside: avoid;
-    }
-
-    /* ── Cuerpo de texto ── */
-    p {
-        margin-bottom: 0;
-        text-indent: 5mm;
-    }
-
-    p:first-of-type {
-        text-indent: 0;
-    }
-
-    p + p {
-        margin-top: 0;
-    }
-
-    /* ── Línea de tiempo ── */
-    .timeline {
-        page: no-num;
-        page-break-before: always;
-    }
-
-    .timeline-title {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 8pt;
-        font-weight: 600;
-        letter-spacing: 3px;
-        text-transform: uppercase;
-        color: #8B6F5E;
-        text-align: center;
-        margin-bottom: 12mm;
-    }
-
-    .timeline-item {
-        display: flex;
-        gap: 6mm;
-        margin-bottom: 6mm;
-        align-items: baseline;
-    }
-
-    .timeline-year {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 8pt;
-        font-weight: 600;
-        color: #8B6F5E;
-        min-width: 18mm;
-        flex-shrink: 0;
-    }
-
-    .timeline-name {
-        font-family: 'Lora', Georgia, serif;
-        font-size: 10pt;
-    }
-
-    .timeline-dot {
-        width: 2mm;
-        height: 2mm;
-        border-radius: 50%;
-        background: #8B6F5E;
-        flex-shrink: 0;
-        margin-top: 2mm;
-    }
-""")
+.timeline-nombre {{
+  color: {COLOR_TEXTO};
+}}
+"""
 
 
-# ── Generación de HTML ─────────────────────────────────────────────────────────
+def _texto_a_html(texto: str) -> str:
+    """Convert plain text to HTML paragraphs, preserving italics markers."""
+    paragraphs = [p.strip() for p in texto.split("\n\n") if p.strip()]
+    html_parts = []
+    for p in paragraphs:
+        # Wrap lone lines that start with — as block quotes
+        if p.startswith("—"):
+            html_parts.append(f'<p class="cita">{p}</p>')
+        else:
+            html_parts.append(f"<p>{p}</p>")
+    return "\n".join(html_parts)
 
-def _build_html(manuscript, familia: str, anio: str) -> str:
-    """Construye el HTML completo del libro a partir del BookManuscript."""
 
+def _foto_tag(foto_path: str | None) -> str:
+    if foto_path and os.path.exists(foto_path):
+        return f'<img class="foto-capitulo" src="file://{foto_path}" alt="foto"/>'
+    return ""
+
+
+def _build_html(
+    manuscript: BookManuscript,
+    nombre_familia: str,
+    fotos: dict[str, str],
+    personas_meta: list[dict],
+) -> str:
     partes = []
 
-    # Portada
-    partes.append(_render_cover(familia, anio))
+    # ── Tapa ──
+    partes.append(f"""
+<div class="cover page-break">
+  <div class="cover-linea"></div>
+  <div class="cover-titulo">{nombre_familia}</div>
+  <div class="cover-subtitulo">Memorias · {datetime.now().year}</div>
+</div>
+""")
 
-    # Página de cortesía
-    partes.append('<div class="blank-page"></div>')
+    # ── Página blanca ──
+    partes.append('<div class="page-break"></div>')
 
-    # Prólogo
-    partes.append(_render_section("Prólogo", manuscript.prologo))
+    # ── Prólogo ──
+    partes.append(f"""
+<div class="page-break-before">
+  <div class="seccion-header">
+    <h2>Prólogo</h2>
+  </div>
+  {_texto_a_html(manuscript.prologo)}
+</div>
+""")
 
-    # Capítulos + transiciones
+    # ── Capítulos + Transiciones ──
     for i, nombre in enumerate(manuscript.orden):
         capitulo = manuscript.capitulos.get(nombre, "")
         if not capitulo:
             continue
 
-        # Fecha de nacimiento para el subtítulo
-        fecha = ""
-        # Buscar en vp_map si está disponible — si no, vacío
-        for vp in getattr(manuscript, "_voice_profiles", []):
-            if vp.nombre == nombre:
-                fecha = vp.fecha_nac
-                break
+        foto_tag = _foto_tag(fotos.get(nombre))
 
-        partes.append(_render_chapter(i + 1, nombre, fecha, capitulo))
+        partes.append(f"""
+<div class="page-break-before">
+  {foto_tag}
+  <div class="seccion-header">
+    <h3>{nombre}</h3>
+  </div>
+  {_texto_a_html(capitulo)}
+</div>
+""")
 
-        # Transición al siguiente (si existe)
+        # Transición hacia el siguiente
         if i < len(manuscript.orden) - 1:
-            nombre_siguiente = manuscript.orden[i + 1]
-            clave = f"{nombre}->{nombre_siguiente}"
-            transicion = manuscript.transiciones.get(clave, "")
-            if transicion:
-                partes.append(f'<div class="transition">{_nl2p(transicion)}</div>')
+            siguiente = manuscript.orden[i + 1]
+            key = f"{nombre}→{siguiente}"
+            trans = manuscript.transiciones.get(key, "")
+            if trans:
+                partes.append(f'<div class="transicion">{_texto_a_html(trans)}</div>')
 
-    # Epílogo
-    partes.append(_render_section("Epílogo", manuscript.epilogo))
+    # ── Epílogo ──
+    partes.append(f"""
+<div class="page-break-before">
+  <div class="seccion-header">
+    <h2>Epílogo</h2>
+  </div>
+  {_texto_a_html(manuscript.epilogo)}
+</div>
+""")
 
-    # Línea de tiempo
-    partes.append(_render_timeline(manuscript))
+    # ── Timeline / árbol ──
+    integrantes = personas_meta  # may include rol, fecha_fallec from familia sheet
+    personas_con_fecha = sorted(
+        [p for p in integrantes if p.get("fecha_nac")],
+        key=lambda p: _sort_fecha(p.get("fecha_nac", "")),
+    )
 
-    html = f"""<!DOCTYPE html>
+    if personas_con_fecha:
+        timeline_items = []
+        for p in personas_con_fecha:
+            nombre_p = p["nombre"]
+            fecha_nac = p.get("fecha_nac", "")
+            fecha_fallec = p.get("fecha_fallec", "")
+            rol = p.get("rol", "")
+            vive = p.get("vive", True)
+
+            fechas = fecha_nac
+            if fecha_fallec:
+                fechas += f" – {fecha_fallec}"
+            elif not vive:
+                fechas += " – †"
+
+            rol_tag = f'<span style="color:{COLOR_ACENTO};font-size:8pt;margin-left:4mm">{rol}</span>' if rol else ""
+            en_libro = "●" if nombre_p in manuscript.orden else "○"
+
+            timeline_items.append(f"""<div class="timeline-item">
+  <div class="timeline-fecha">{fechas}</div>
+  <div class="timeline-nombre">{en_libro} {nombre_p} {rol_tag}</div>
+</div>""")
+
+        partes.append(f"""
+<div class="page-break-before">
+  <div class="seccion-header">
+    <h2>Cronología</h2>
+  </div>
+  <p style="font-size:8.5pt;color:{COLOR_ACENTO};margin-bottom:5mm">
+    ● incluido en el libro &nbsp;&nbsp; ○ integrante de la familia
+  </p>
+  {"".join(timeline_items)}
+</div>
+""")
+
+    body = "\n".join(partes)
+    return f"""<!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
+<meta charset="UTF-8"/>
 <style>
-{BOOK_CSS}
+{CSS_BASE}
 </style>
 </head>
 <body>
-{"".join(partes)}
+{body}
 </body>
 </html>"""
 
-    return html
 
+def _sort_fecha(fecha: str) -> str:
+    """Convert dd-mm-aaaa or dd/mm/aaaa to aaaa-mm-dd for sorting."""
+    m = re.match(r"(\d{1,2})[-/](\d{1,2})[-/](\d{4})", fecha)
+    if m:
+        return f"{m.group(3)}-{m.group(2).zfill(2)}-{m.group(1).zfill(2)}"
+    return fecha
 
-def _render_cover(familia: str, anio: str) -> str:
-    return f"""
-<div class="cover">
-    <div class="cover-eyebrow">Libro Familiar</div>
-    <div class="cover-title">{familia}</div>
-    <div class="cover-subtitle">Historia en voces propias</div>
-    <div class="cover-year">{anio}</div>
-</div>"""
-
-
-def _render_section(titulo: str, texto: str) -> str:
-    return f"""
-<div class="section">
-    <div class="section-title">{titulo}</div>
-    {_text_to_paragraphs(texto)}
-</div>"""
-
-
-def _render_chapter(numero: int, nombre: str, fecha: str, texto: str) -> str:
-    fecha_html = f'<div class="chapter-date">{fecha}</div>' if fecha else ""
-    return f"""
-<div class="chapter">
-    <div class="chapter-number">Capítulo {_roman(numero)}</div>
-    <div class="chapter-name">{nombre}</div>
-    {fecha_html}
-    <div class="chapter-rule"></div>
-    {_text_to_paragraphs(texto)}
-</div>"""
-
-
-def _render_timeline(manuscript) -> str:
-    """Línea de tiempo simple por fecha de nacimiento."""
-    personas = []
-    for nombre in manuscript.orden:
-        fecha = ""
-        for vp in getattr(manuscript, "_voice_profiles", []):
-            if vp.nombre == nombre:
-                fecha = vp.fecha_nac
-                break
-        personas.append((nombre, fecha))
-
-    # Ordenar por fecha (ya deberían estar ordenadas, pero por las dudas)
-    personas.sort(key=lambda x: x[1] or "9999")
-
-    items = ""
-    for nombre, fecha in personas:
-        anio = fecha[:4] if fecha and len(fecha) >= 4 else "—"
-        items += f"""
-        <div class="timeline-item">
-            <div class="timeline-year">{anio}</div>
-            <div class="timeline-dot"></div>
-            <div class="timeline-name">{nombre}</div>
-        </div>"""
-
-    return f"""
-<div class="timeline">
-    <div class="timeline-title">Las personas de este libro</div>
-    {items}
-</div>"""
-
-
-def _text_to_paragraphs(texto: str) -> str:
-    """Convierte texto plano con saltos de línea en párrafos HTML."""
-    parrafos = [p.strip() for p in texto.split("\n\n") if p.strip()]
-    return "\n".join(f"<p>{_escape(p)}</p>" for p in parrafos)
-
-
-def _nl2p(texto: str) -> str:
-    """Convierte saltos simples en <br> para transiciones cortas."""
-    return _escape(texto).replace("\n", "<br>")
-
-
-def _escape(texto: str) -> str:
-    return texto.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-
-
-def _roman(n: int) -> str:
-    vals = [(10,"X"),(9,"IX"),(5,"V"),(4,"IV"),(1,"I")]
-    result = ""
-    for v, s in vals:
-        while n >= v:
-            result += s
-            n -= v
-    return result
-
-
-# ── PDF via WeasyPrint ─────────────────────────────────────────────────────────
-
-def _html_to_pdf(html: str, output_path: str) -> None:
-    try:
-        from weasyprint import HTML, CSS
-        HTML(string=html).write_pdf(output_path)
-        logger.info("PDF generado: %s", output_path)
-    except ImportError:
-        raise RuntimeError(
-            "WeasyPrint no está instalado. "
-            "Agregalo a requirements.txt: weasyprint>=61.0"
-        )
-
-
-# ── Función principal ──────────────────────────────────────────────────────────
 
 def run(
-    manuscript,
-    familia: str,
+    manuscript: BookManuscript,
+    personas_meta: list[dict],
+    nombre_familia: str = "Familia Mariño · Saraniti",
     output_path: str | None = None,
-    upload_to_drive: bool = False,
+    todos_integrantes: list[dict] | None = None,
 ) -> str:
     """
-    Genera el PDF A5 del libro.
-
-    manuscript:     BookManuscript del editor_agent
-    familia:        nombre de la familia para la portada (ej: "Mariño-Saraniti")
-    output_path:    ruta de salida. Default: /tmp/libro_{familia}.pdf
-    upload_to_drive: si True, sube el PDF a Google Drive y devuelve el link
-
-    Devuelve la ruta local del PDF generado.
+    Genera el PDF y devuelve su path.
+    personas_meta: list of {nombre, fecha_nac, rol, fecha_fallec, vive} — los que tienen capítulo
+    todos_integrantes: full familia list for the timeline (includes people without chapters)
     """
-    import re
-    from datetime import datetime
+    # Descargar fotos a /tmp/
+    fotos: dict[str, str] = {}
+    for p in personas_meta:
+        nombre = p["nombre"]
+        try:
+            foto_url = sheets.get_foto_url(nombre)
+            if foto_url:
+                ext = ".jpg"
+                dest = f"/tmp/foto_{re.sub(r'[^a-zA-Z0-9]', '_', nombre)}{ext}"
+                sheets.download_drive_file(foto_url, dest)
+                fotos[nombre] = dest
+        except Exception as e:
+            print(f"[layout] No se pudo descargar foto de {nombre}: {e}")
 
-    if not output_path:
-        slug = re.sub(r"[^a-zA-Z0-9_-]", "_", familia)
-        output_path = f"/tmp/libro_{slug}.pdf"
+    # Use full integrantes list for timeline if available, else fall back to personas_meta
+    timeline_personas = todos_integrantes if todos_integrantes else personas_meta
+    html_content = _build_html(manuscript, nombre_familia, fotos, timeline_personas)
 
-    anio = datetime.now().strftime("%Y")
+    if output_path is None:
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_path = f"/tmp/libro_{ts}.pdf"
 
-    logger.info("Generando HTML del libro '%s'...", familia)
-    html = _build_html(manuscript, familia, anio)
-
-    # Guardar HTML para debug si se pide
-    html_path = output_path.replace(".pdf", ".html")
-    Path(html_path).write_text(html, encoding="utf-8")
-    logger.info("HTML guardado en: %s", html_path)
-
-    logger.info("Convirtiendo a PDF A5...")
-    _html_to_pdf(html, output_path)
-
-    size_kb = Path(output_path).stat().st_size // 1024
-    logger.info("PDF listo: %s (%d KB)", output_path, size_kb)
-
-    if upload_to_drive:
-        drive_url = _upload_to_drive(output_path, familia)
-        logger.info("PDF subido a Drive: %s", drive_url)
-        return drive_url
+    HTML(string=html_content).write_pdf(
+        output_path,
+        stylesheets=[CSS(string=CSS_BASE)],
+    )
 
     return output_path
-
-
-def _upload_to_drive(pdf_path: str, familia: str) -> str:
-    """Sube el PDF a la carpeta de Drive del proyecto."""
-    from googleapiclient.discovery import build
-    from googleapiclient.http import MediaFileUpload
-
-    from utils.secrets import get_google_credentials
-
-    FOLDER_ID = "1rZmvh5WC9KEPSQ99AtC3ZvJkJRKJp6L3"
-
-    creds = get_google_credentials()
-    service = build("drive", "v3", credentials=creds)
-
-    nombre_archivo = f"Libro_{familia.replace(' ', '_')}.pdf"
-    metadata = {"name": nombre_archivo, "parents": [FOLDER_ID]}
-    media = MediaFileUpload(pdf_path, mimetype="application/pdf")
-
-    file = service.files().create(
-        body=metadata,
-        media_body=media,
-        fields="id, webViewLink",
-    ).execute()
-
-    try:
-        service.permissions().create(
-            fileId=file["id"],
-            body={"role": "reader", "type": "anyone"},
-        ).execute()
-    except Exception:
-        pass
-
-    return file.get("webViewLink", f"https://drive.google.com/file/d/{file['id']}/view")
-
-
-if __name__ == "__main__":
-    import sys
-    logging.basicConfig(level=logging.INFO)
-    print("layout_agent requiere un BookManuscript del editor_agent.")
-    print("Uso desde pipeline: POST /run/pipeline o /run/layout")

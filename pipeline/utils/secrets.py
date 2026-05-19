@@ -9,7 +9,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-_PROJECT_ID = os.environ.get("GCP_PROJECT_ID", "familia-libro")
+_PROJECT_ID = os.environ.get("GCP_PROJECT_ID", "familia-marino")
 
 
 def _gcp_available() -> bool:
@@ -50,7 +50,7 @@ def get_google_credentials():
     """
     from google.oauth2 import service_account
 
-    cred_raw = get_secret("GOOGLE_CREDENTIALS")
+    cred_raw = get_secret("GOOGLE_CREDENTIALS_JSON")
 
     # Puede ser JSON string o path a archivo
     try:
@@ -61,6 +61,6 @@ def get_google_credentials():
 
     scopes = [
         "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive.readonly",
+        "https://www.googleapis.com/auth/drive",
     ]
     return service_account.Credentials.from_service_account_info(info, scopes=scopes)

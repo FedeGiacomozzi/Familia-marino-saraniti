@@ -1,188 +1,139 @@
 """
-chapter_agent.py — Genera el capítulo biográfico de un protagonista.
-
-Recibe un PersonData ya armado por orchestrator.py (no lee Sheet directamente).
-La función pública es generar_capitulo(client, persona) → str.
-
-La voz del protagonista aparece en cursiva, integrada en la narrativa.
-Nunca entre comillas, nunca en primera persona directa.
+Genera un capítulo narrativo de 3200–3800 palabras por persona.
 """
-
-import json
-import logging
-import textwrap
 
 import anthropic
 
-from utils.secrets import get_google_credentials, get_secret
-from utils.sheets import SheetsClient
-
-logger = logging.getLogger(__name__)
+from pipeline.utils import sheets
 
 MODEL = "claude-opus-4-7"
-MAX_TOKENS = 6000
 
-SYSTEM_PROMPT = textwrap.dedent("""\
-    Sos un escritor y editor literario especializado en libros biográficos familiares
-    en español latinoamericano.
-    Tu única tarea en este mensaje es escribir un capítulo narrativo sobre el protagonista
-    usando los datos provistos.
-""")
+_SYSTEM = """\
+Sos un escritor literario especializado en memorias familiares y narrativa oral latinoamericana.
+Tu trabajo es transformar transcripciones y perfiles de voz en capítulos de libro con prosa literaria,
+manteniendo la autenticidad de cada persona.
+"""
 
-USER_PROMPT_TEMPLATE = textwrap.dedent("""\
-    <nombre>
-    {nombre}
-    </nombre>
+_PROMPT_TEMPLATE = """\
+Escribí un capítulo narrativo de entre 3200 y 3800 palabras sobre {nombre}.
 
-    <fecha_nacimiento>
-    {fecha_nacimiento}
-    </fecha_nacimiento>
+CONTEXTO FAMILIAR:
+- Rol en la familia: {rol}
+- Estado: {estado}
+- Cónyuge/s: {conyuges}
+- Hijos: {hijos}
+- Padres: {padres}
+- Hermanos (inferidos): {hermanos}
 
-    <perfil_voz>
-    {perfil_voz_json}
-    </perfil_voz>
+PERFIL DE VOZ:
+- Muletillas: {muletillas}
+- Frases propias: {frases_propias}
+- Registro: {registro}
+- Detalles sensoriales: {detalles_sensoriales}
+- Tono: {tono}
 
-    <transcripcion>
-    {transcripcion}
-    </transcripcion>
+TRANSCRIPCIÓN COMPLETA:
+{transcripcion}
 
-    ---
+ARCO NARRATIVO SUGERIDO (no obligatorio, podés adaptarlo):
+1. Apertura con imagen sensorial del lugar de origen
+2. La infancia y quiénes lo/la formaron
+3. Las elecciones que marcaron el camino
+4. La vida que construyó — trabajo, familia, vínculos
+5. Lo que sabe ahora que no sabía antes
 
-    CÓMO USAR CADA INPUT
+REGLAS DE ESCRITURA:
+- La voz del protagonista va en cursiva cuando aparece directamente, NUNCA entre comillas
+- Integrá 2 o 3 de sus frases propias de forma orgánica, no forzada: {frases_propias_lista}
+- No uses estas palabras: memorable, invaluable, legado, tesoro, entrañable, inmortal, huella
+- Prosa fluida, párrafos de longitud variada
+- Podés abrir con una cita directa o una imagen antes del nombre del protagonista
+- El capítulo debe poder leerse solo, sin conocer a la persona previamente
+- Usá el rol familiar ({rol}) como lente narrativo: cómo lo/la ven los demás, qué lugar ocupa en la trama familiar
 
-    La <transcripcion> es tu materia prima. Todo lo que escribís debe poder rastrearse
-    a algo que la persona dijo o describió. No añadís hechos, emociones ni contextos
-    que no estén ahí.
+Devolvé SOLO el texto del capítulo. Sin título. Sin notas. Sin explicaciones.
+"""
 
-    El <perfil_voz> es tu brújula tonal. Usalo así:
-    - formalidad → ajustá el nivel de lengua del narrador
-    - humor → si es frecuente, dejá que el capítulo respire;
-      si es ausente, mantené el tono sin forzar ligereza
-    - longitud_oraciones → usá ese ritmo como referencia
-      para construir párrafos que suenen a esa persona
-    - frases_propias → incorporalas en cursiva, sin comillas,
-      integradas naturalmente en la narrativa — máximo 2 o 3
-    - muletillas → ignoralas completamente; son del oral,
-      no del texto escrito
-
-    ---
-
-    PRINCIPIOS DE ESCRITURA
-
-    - Narrador en tercera persona literaria: escribís sobre
-      {nombre}, no como {nombre}
-    - El protagonista nunca habla en primera persona ni entre
-      comillas — su voz aparece solo a través de las cursivas
-    - Tono cálido, íntimo y respetuoso — sin solemnidad excesiva
-    - El detalle concreto vale más que la generalización
-    - Tiempo verbal base: pasado narrativo, excepto para
-      estados presentes o reflexiones actuales del protagonista
-    - Párrafos de longitud variada para crear ritmo
-    - Sin listas, sin subtítulos, sin secciones numeradas
-    - Extensión: entre 3200 y 3800 palabras
-
-    ARCO NARRATIVO SUGERIDO
-    No es obligatorio, pero orientá el capítulo así:
-    1. Apertura con una imagen o momento específico que
-       ancle al lector en la vida de {nombre}
-    2. Desarrollo cronológico o temático según lo que
-       la transcripción permita
-    3. Cierre que no resuma sino que deje una imagen,
-       frase o sensación final
-
-    ---
-
-    IMPORTANTE: No inventés lo que la transcripción no dice.
-    Si falta información para completar una sección,
-    desarrollá más en profundidad lo que sí está.
-    Las muletillas del habla oral no aparecen nunca en el texto escrito.
-    El protagonista no habla nunca entre comillas.
-    Su voz solo aparece integrada en cursiva.
-""")
+_SKIP_MENOR = """\
+Este capítulo pertenece a {nombre}, que es menor de edad.
+El capítulo debe ser escrito en tercera persona por sus padres/tutores,
+no generado automáticamente desde transcripciones propias.
+"""
 
 
-def generar_capitulo(client: anthropic.Anthropic, persona) -> str:
+def generar_capitulo(client: anthropic.Anthropic, persona: dict) -> str:
     """
-    Genera el capítulo para un PersonData. Función pública llamada por orchestrator.
-    Reintenta una vez si el resultado es muy corto.
+    persona dict esperado:
+      nombre, perfil_voz (dict con los 7 campos), transcripcion,
+      familia_ctx (optional dict from sheets.build_family_context)
+    Returns empty string (with marker) if es_menor=True.
     """
-    perfil_voz_json = json.dumps(
-        {
-            "muletillas":           persona.muletillas,
-            "frases_propias":       persona.frases_propias,
-            "registro":             persona.registro,
-            "detalles_sensoriales": persona.detalles_sensoriales,
-            "tono":                 persona.tono,
-            "citas_directas":       persona.citas_directas,
-        },
-        ensure_ascii=False,
-        indent=2,
+    nombre = persona["nombre"]
+    perfil = persona.get("perfil_voz", {})
+    transcripcion = persona.get("transcripcion", "")
+    fctx = persona.get("familia_ctx", {})
+
+    # Skip chapter generation for minors
+    if fctx.get("es_menor"):
+        return f"[MENOR: {nombre} — capítulo a escribir por padres/tutores]"
+
+    frases_propias = perfil.get("frases_propias", [])
+    frases_propias_lista = ", ".join(f'"{f}"' for f in frases_propias[:5]) if frases_propias else "ninguna registrada"
+
+    def _lista(items): return ", ".join(items) if items else "—"
+
+    estado = "vive" if fctx.get("vive", True) else f"falleció el {fctx.get('fecha_fallec', 'fecha desconocida')}"
+
+    prompt = _PROMPT_TEMPLATE.format(
+        nombre=nombre,
+        rol=fctx.get("rol", "no especificado"),
+        estado=estado,
+        conyuges=_lista(fctx.get("conyuges", [])),
+        hijos=_lista(fctx.get("hijos", [])),
+        padres=_lista(fctx.get("padres", [])),
+        hermanos=_lista(fctx.get("hermanos", [])),
+        muletillas=", ".join(perfil.get("muletillas", [])) or "no registradas",
+        frases_propias=frases_propias_lista,
+        registro=perfil.get("registro", "no registrado"),
+        detalles_sensoriales=", ".join(perfil.get("detalles_sensoriales", [])) or "no registrados",
+        tono=perfil.get("tono", "no registrado"),
+        transcripcion=transcripcion[:12000],
+        frases_propias_lista=frases_propias_lista,
     )
 
-    user_prompt = USER_PROMPT_TEMPLATE.format(
-        nombre=persona.nombre,
-        fecha_nacimiento=persona.fecha_nac or "no especificada",
-        perfil_voz_json=perfil_voz_json,
-        transcripcion=persona.texto_limpio or persona.transcripcion_raw,
+    message = client.messages.create(
+        model=MODEL,
+        max_tokens=5000,
+        system=_SYSTEM,
+        messages=[{"role": "user", "content": prompt}],
     )
 
-    for intento in range(2):
-        message = client.messages.create(
-            model=MODEL,
-            max_tokens=MAX_TOKENS,
-            system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": user_prompt}],
-        )
-        capitulo = message.content[0].text.strip()
-        palabras = len(capitulo.split())
-
-        if palabras >= 2000:
-            return capitulo
-
-        logger.warning(
-            "Capítulo corto para %s: %d palabras (intento %d).",
-            persona.nombre, palabras, intento + 1,
-        )
-        if intento == 0:
-            user_prompt += (
-                f"\n\nIMPORTANTE: el capítulo debe tener entre 3200 y 3800 palabras. "
-                f"El anterior tuvo solo {palabras}. "
-                f"Desarrollá más en profundidad lo que la transcripción permite."
-            )
-
+    capitulo = message.content[0].text.strip()
+    sheets.save_chapter(nombre, capitulo)
     return capitulo
 
 
-# ── Modo standalone (sin orchestrator) ────────────────────────────────────────
+def run(nombres: list[str]) -> dict[str, str]:
+    """Standalone: generate chapters for each nombre. Returns {nombre: capitulo_str}."""
+    client = anthropic.Anthropic()
+    results = {}
 
-def run(nombres: list[str] | None = None) -> dict[str, str]:
-    """Wrapper standalone: lee Sheet y genera capítulos sin orchestrator."""
-    from agents.orchestrator import _cargar_personas
+    for nombre in nombres:
+        try:
+            profile = sheets.get_profile(nombre)
+            if not profile:
+                raise ValueError(f"No hay perfil guardado para {nombre}")
 
-    creds = get_google_credentials()
-    sheets = SheetsClient(creds)
-    client = anthropic.Anthropic(api_key=get_secret("ANTHROPIC_API_KEY"))
+            persona = {
+                "nombre": nombre,
+                "perfil_voz": profile.get("perfil_voz", {}),
+                "transcripcion": profile.get("transcripcion", ""),
+            }
 
-    personas = _cargar_personas(sheets, nombres)
-    if not personas:
-        logger.warning("No hay perfiles completos.")
-        return {}
+            results[nombre] = generar_capitulo(client, persona)
 
-    resultados = {}
-    for persona in personas:
-        capitulo = generar_capitulo(client, persona)
-        resultados[persona.nombre] = capitulo
-        sheets.upsert_perfil(nombre=persona.nombre, capitulo=capitulo)
-        logger.info("Capítulo guardado: %s — %d palabras", persona.nombre, len(capitulo.split()))
+        except Exception as e:
+            print(f"[chapter_agent] Error con {nombre}: {e}")
+            results[nombre] = f"ERROR: {e}"
 
-    return resultados
-
-
-if __name__ == "__main__":
-    import sys
-    logging.basicConfig(level=logging.INFO)
-    nombres_arg = sys.argv[1:] if len(sys.argv) > 1 else None
-    resultado = run(nombres=nombres_arg)
-    for nombre, cap in resultado.items():
-        print(f"\n{'='*60}\n  {nombre} — {len(cap.split())} palabras\n{'='*60}")
-        print(cap[:500] + "...")
+    return results
