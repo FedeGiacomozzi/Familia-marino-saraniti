@@ -24,13 +24,7 @@ gcloud builds submit \
 # SHEET_ID (Respuestas + Perfiles): 1A1M79ITLeRVWkwct7pqjUTmLu9NWXn9uDLpKWMMomgM
 # FAMILIA_SHEET_ID (Integrantes + Relaciones): 1iEpnly_f3OQL6nLH41XU76zg1iM2vHZQyQdF0RLVQFE
 
-# Clear any plain env vars that conflict with secret bindings (one-time fix)
-gcloud run services update "${SERVICE}" \
-  --project="${PROJECT}" \
-  --region="${REGION}" \
-  --remove-env-vars="ANTHROPIC_API_KEY,OPENAI_API_KEY,GOOGLE_CREDENTIALS_JSON" 2>/dev/null || true
-
-# Deploy to Cloud Run
+# Deploy to Cloud Run (--clear-env-vars evicts any plain env vars before setting secrets)
 gcloud run deploy "${SERVICE}" \
   --project="${PROJECT}" \
   --image="${IMAGE}" \
@@ -41,6 +35,7 @@ gcloud run deploy "${SERVICE}" \
   --cpu=2 \
   --timeout=900 \
   --service-account="familia-pipeline@familia-marino.iam.gserviceaccount.com" \
+  --clear-env-vars \
   --set-secrets="ANTHROPIC_API_KEY=ANTHROPIC_API_KEY:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,GOOGLE_CREDENTIALS_JSON=GOOGLE_CREDENTIALS:latest"
 
 echo ""
