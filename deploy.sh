@@ -18,7 +18,6 @@ echo ""
 gcloud builds submit \
   --project="${PROJECT}" \
   --tag="${IMAGE}" \
-  --file=pipeline/Dockerfile \
   .
 
 # Sheet IDs (hardcoded in sheets.py, listed here for reference)
