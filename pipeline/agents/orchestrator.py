@@ -246,6 +246,7 @@ def run(
                 personas_meta=capitulo_personas,
                 nombre_familia=familia,
                 todos_integrantes=todos_integrantes,
+                relaciones=relaciones,
             )
             result.layout = pdf_path
             _emit(f"  → PDF generado: {pdf_path}")
