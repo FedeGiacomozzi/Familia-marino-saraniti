@@ -97,13 +97,13 @@ def generar_capitulo(client: anthropic.Anthropic, persona: dict) -> str:
         registro=perfil.get("registro", "no registrado"),
         detalles_sensoriales=", ".join(perfil.get("detalles_sensoriales", [])) or "no registrados",
         tono=perfil.get("tono", "no registrado"),
-        transcripcion=transcripcion[:12000],
+        transcripcion=transcripcion[:80000],
         frases_propias_lista=frases_propias_lista,
     )
 
     message = client.messages.create(
         model=MODEL,
-        max_tokens=5000,
+        max_tokens=8192,
         system=_SYSTEM,
         messages=[{"role": "user", "content": prompt}],
     )
