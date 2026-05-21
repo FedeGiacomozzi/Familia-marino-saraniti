@@ -360,5 +360,4 @@ def upload_to_drive(local_path: str, filename: str, mime_type: str = "applicatio
 
     blob = client.bucket(bucket_name).blob(filename)
     blob.upload_from_filename(local_path, content_type=mime_type)
-    blob.make_public()
-    return blob.public_url
+    return f"https://storage.googleapis.com/{bucket_name}/{filename}"
