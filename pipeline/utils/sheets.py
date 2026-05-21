@@ -357,12 +357,7 @@ def upload_to_drive(local_path: str, filename: str, mime_type: str = "applicatio
     creds = _get_creds()
     client = gcs.Client(credentials=creds, project=project)
 
-    bucket = client.bucket(bucket_name)
-    if not bucket.exists():
-        bucket = client.create_bucket(bucket_name, location="US")
-        bucket.make_public()
-
-    blob = bucket.blob(filename)
+    blob = client.bucket(bucket_name).blob(filename)
     blob.upload_from_filename(local_path, content_type=mime_type)
     blob.make_public()
     return blob.public_url
