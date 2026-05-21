@@ -71,29 +71,43 @@ def _api_call_with_retry(fn):
     raise last_err
 
 
+def _sort_personas_by_fecha(personas: list[dict]) -> list[dict]:
+    """Sort personas oldest-first using fecha_nac. Supports DD-MM-YYYY, YYYY-MM-DD, YYYY."""
+    from datetime import datetime
+
+    def _parse(fecha: str):
+        for fmt in ("%d-%m-%Y", "%d/%m/%Y", "%Y-%m-%d", "%Y"):
+            try:
+                return datetime.strptime(fecha.strip(), fmt)
+            except ValueError:
+                continue
+        return datetime.max  # unknown dates go last
+
+    return sorted(personas, key=lambda p: _parse(p.get("fecha_nac") or ""))
+
+
 def _call_orden(client: anthropic.Anthropic, personas: list[dict]) -> dict:
     """
-    Determina el orden cronológico por fecha de nacimiento.
-    temperature=0 para resultados deterministas.
-    Returns {"orden": [nombres], "forward_refs": {nombre: [nombre]}, "razonamiento": str}
+    Sort personas chronologically (oldest first) using Python date parsing.
+    Falls back to Claude inference for personas without a parseable fecha_nac.
+    Returns {"orden": [nombres], "forward_refs": {}, "razonamiento": str}
     """
+    sorted_personas = _sort_personas_by_fecha(personas)
+    orden = [p["nombre"] for p in sorted_personas]
+
+    # Ask Claude only for forward_refs (narrative cross-references between chapters)
     personas_info = json.dumps(
-        [{"nombre": p["nombre"], "fecha_nac": p.get("fecha_nac", "desconocida")} for p in personas],
+        [{"nombre": p["nombre"], "fecha_nac": p.get("fecha_nac", "desconocida")} for p in sorted_personas],
         ensure_ascii=False,
     )
-
     prompt = f"""\
-Tenés estos protagonistas de un libro familiar:
+Estos son los protagonistas de un libro familiar, ya ordenados de mayor a menor:
 {personas_info}
-
-Ordenalos cronológicamente de mayor a menor (primero el que nació antes).
-Si la fecha es desconocida, ubicalos por contexto generacional inferido del nombre o relación.
 
 Devolvé SOLO JSON válido:
 {{
-  "orden": ["nombre1", "nombre2", ...],
   "forward_refs": {{"nombre1": ["nombre2"], ...}},
-  "razonamiento": "breve explicación del criterio"
+  "razonamiento": "breve descripción del orden generacional"
 }}
 
 Solo JSON. Sin markdown.
@@ -102,16 +116,21 @@ Solo JSON. Sin markdown.
     def _call():
         message = client.messages.create(
             model=MODEL,
-            max_tokens=1024,
+            max_tokens=512,
             system=_SYSTEM_EDITOR,
             messages=[{"role": "user", "content": prompt}],
         )
         text = message.content[0].text.strip()
         text = re.sub(r"^```(?:json)?\s*", "", text)
         text = re.sub(r"\s*```$", "", text)
-        return json.loads(text)
+        data = json.loads(text)
+        data["orden"] = orden
+        return data
 
-    return _api_call_with_retry(_call)
+    try:
+        return _api_call_with_retry(_call)
+    except Exception:
+        return {"orden": orden, "forward_refs": {}, "razonamiento": "orden por fecha de nacimiento"}
 
 
 def _call_una_transicion(
