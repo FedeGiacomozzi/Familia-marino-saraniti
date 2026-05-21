@@ -251,13 +251,13 @@ def run(
             result.layout = pdf_path
             _emit(f"  → PDF generado: {pdf_path}")
 
-            if upload_to_drive and pdf_path:
+            if pdf_path:
                 import os
-                _emit(f"  → Subiendo a Drive...")
+                _emit(f"  → Subiendo a GCS...")
                 filename = os.path.basename(pdf_path)
-                drive_url = sheets.upload_to_drive(pdf_path, filename, "application/pdf")
-                _emit(f"  → Drive: {drive_url}")
-                result.layout = drive_url
+                gcs_url = sheets.upload_to_drive(pdf_path, filename, "application/pdf")
+                _emit(f"  → GCS: {gcs_url}")
+                result.layout = gcs_url
 
         except Exception as e:
             result.errores.append(f"layout_agent: {e}")
