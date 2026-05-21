@@ -28,6 +28,7 @@ class PipelineRequest(BaseModel):
     solo_desde: str | None = None
     familia: str = "Familia Mariño · Saraniti"
     upload_to_drive: bool = False
+    solo_nuevas: bool = False
 
 
 @app.post("/run/pipeline")
@@ -38,6 +39,7 @@ def run_pipeline(req: PipelineRequest):
         solo_desde=req.solo_desde,
         familia=req.familia,
         upload_to_drive=req.upload_to_drive,
+        solo_nuevas=req.solo_nuevas,
     )
     return {
         "ok": result.ok,
@@ -56,11 +58,12 @@ def run_pipeline(req: PipelineRequest):
 class TranscriberRequest(BaseModel):
     row_indices: list[int]
     pais: str = "argentina"
+    solo_nuevas: bool = False
 
 
 @app.post("/run/transcriber")
 def run_transcriber(req: TranscriberRequest):
-    result = transcriber.run(req.row_indices, req.pais)
+    result = transcriber.run(req.row_indices, req.pais, solo_nuevas=req.solo_nuevas)
     return result
 
 

@@ -68,26 +68,43 @@ def _get_prompt(pais: str) -> str:
     )
 
 
-def run(row_indices: list[int], pais: str = "argentina") -> dict:
+def run(row_indices: list[int], pais: str = "argentina", solo_nuevas: bool = False) -> dict:
     """
     Transcribe audio for the given sheet row indices (1-based, skipping header).
     Updates col F (Transcripción) in the Sheet for each row.
-    Returns {"procesadas": N, "errores": M}.
+    solo_nuevas=True skips rows that already have a transcription.
+    Returns {"procesadas": N, "omitidas": K, "errores": M, "detalle_errores": [...]}.
     """
     client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
     prompt = _get_prompt(pais)
 
     all_rows = sheets.get_all_rows()
     procesadas = 0
+    omitidas = 0
     errores = 0
+    detalle_errores = []
 
     for row_idx in row_indices:
         try:
             # row_idx is 1-based; all_rows is 0-based
             row = all_rows[row_idx - 1]
+            pregunta = row[sheets.COL_PREGUNTA - 1] if len(row) >= sheets.COL_PREGUNTA else f"fila {row_idx}"
+            nombre = row[sheets.COL_NOMBRE - 1] if len(row) >= sheets.COL_NOMBRE else "?"
+
+            # Skip if already transcribed and solo_nuevas is set
+            if solo_nuevas:
+                existing = row[sheets.COL_TRANSCRIPCION - 1].strip() if len(row) >= sheets.COL_TRANSCRIPCION else ""
+                if existing:
+                    omitidas += 1
+                    print(f"[transcriber] Omitiendo fila {row_idx} ({nombre} / pregunta {pregunta}): ya tiene transcripción")
+                    continue
+
             audio_url = row[sheets.COL_LINK_AUDIO - 1].strip() if len(row) >= sheets.COL_LINK_AUDIO else ""
 
             if not audio_url:
+                msg = f"fila {row_idx} ({nombre} / pregunta {pregunta}): sin link de audio en columna E"
+                print(f"[transcriber] Saltando {msg}")
+                detalle_errores.append(msg)
                 errores += 1
                 continue
 
@@ -95,6 +112,7 @@ def run(row_indices: list[int], pais: str = "argentina") -> dict:
                 tmp_path = tmp.name
 
             try:
+                print(f"[transcriber] Descargando fila {row_idx} ({nombre} / pregunta {pregunta})...")
                 sheets.download_drive_file(audio_url, tmp_path)
 
                 with open(tmp_path, "rb") as audio_file:
@@ -108,13 +126,16 @@ def run(row_indices: list[int], pais: str = "argentina") -> dict:
                 transcripcion = result.text.strip()
                 sheets.save_transcription(row_idx, transcripcion)
                 procesadas += 1
+                print(f"[transcriber] OK fila {row_idx} ({nombre} / pregunta {pregunta}): {len(transcripcion)} chars")
 
             finally:
                 if os.path.exists(tmp_path):
                     os.unlink(tmp_path)
 
         except Exception as e:
-            print(f"[transcriber] Error en fila {row_idx}: {e}")
+            msg = f"fila {row_idx}: {e}"
+            print(f"[transcriber] Error en {msg}")
+            detalle_errores.append(msg)
             errores += 1
 
-    return {"procesadas": procesadas, "errores": errores}
+    return {"procesadas": procesadas, "omitidas": omitidas, "errores": errores, "detalle_errores": detalle_errores}

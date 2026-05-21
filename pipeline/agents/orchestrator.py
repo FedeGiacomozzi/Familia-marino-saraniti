@@ -84,6 +84,7 @@ def run(
     solo_desde: str | None = None,
     familia: str = "Familia Mariño · Saraniti",
     upload_to_drive: bool = False,
+    solo_nuevas: bool = False,
 ) -> PipelineResult:
     """
     Corre el pipeline completo (o desde un paso específico).
@@ -121,7 +122,7 @@ def run(
             if not row_indices:
                 result.errores.append("No se encontraron filas en el Sheet para los nombres dados")
                 return result
-            result.transcriber = transcriber.run(row_indices, pais)
+            result.transcriber = transcriber.run(row_indices, pais, solo_nuevas=solo_nuevas)
             print(f"  → {result.transcriber}")
         except Exception as e:
             result.errores.append(f"transcriber: {e}")
