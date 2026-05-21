@@ -344,23 +344,21 @@ def download_drive_file(url: str, dest_path: str):
             _, done = dl.next_chunk()
 
 
+GCS_BUCKET = "familia-marino-pdfs"
+
+
 def upload_to_drive(local_path: str, filename: str, mime_type: str = "application/pdf") -> str:
-    """Upload a file to the Drive folder and return its shareable URL."""
-    from googleapiclient.http import MediaFileUpload
+    """Upload a file to GCS and return its public URL."""
+    from google.cloud import storage as gcs
 
     creds = _get_creds()
-    service = build("drive", "v3", credentials=creds)
-    meta = {"name": filename, "parents": [FOLDER_ID]}
-    media = MediaFileUpload(local_path, mimetype=mime_type)
-    f = service.files().create(
-        body=meta,
-        media_body=media,
-        fields="id,webViewLink",
-        supportsAllDrives=True,
-    ).execute()
-    service.permissions().create(
-        fileId=f["id"],
-        body={"type": "anyone", "role": "reader"},
-        supportsAllDrives=True,
-    ).execute()
-    return f.get("webViewLink", "")
+    client = gcs.Client(credentials=creds, project="familia-marino")
+
+    bucket = client.bucket(GCS_BUCKET)
+    if not bucket.exists():
+        bucket = client.create_bucket(GCS_BUCKET, location="US")
+
+    blob = bucket.blob(filename)
+    blob.upload_from_filename(local_path, content_type=mime_type)
+    blob.make_public()
+    return blob.public_url
