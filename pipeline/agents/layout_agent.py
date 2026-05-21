@@ -244,17 +244,30 @@ def _inicial(nombre: str) -> str:
 # ─── SVG del árbol creciente ─────────────────────────────────────────────────
 
 def _build_family_graph(personas: list[str], relaciones: list[dict]):
-    """Returns couples list and parents_of dict from relaciones, filtered to personas in book."""
+    """Returns couples list and parents_of dict from relaciones, filtered to personas in book.
+    Uses first-name fallback so short names in the sheet match full names in the book."""
     norm_map = {_norm(p): p for p in personas}
+    first_name_map: dict[str, str] = {}
+    for norm_name, canonical in norm_map.items():
+        first = norm_name.split()[0]
+        if first not in first_name_map:
+            first_name_map[first] = canonical
+
+    def _resolve(name: str) -> str | None:
+        n = _norm(name)
+        if n in norm_map:
+            return norm_map[n]
+        first = n.split()[0] if n else ""
+        return first_name_map.get(first)
+
     couples = []
     parents_of = {p: [] for p in personas}
 
     for r in relaciones:
-        a_norm = _norm(r["persona_a"])
-        b_norm = _norm(r["persona_b"])
-        if a_norm not in norm_map or b_norm not in norm_map:
+        a = _resolve(r["persona_a"])
+        b = _resolve(r["persona_b"])
+        if a is None or b is None:
             continue
-        a, b = norm_map[a_norm], norm_map[b_norm]
         rel = r["relacion"]
         if rel in ("cónyuge", "conyuge"):
             if (a, b) not in couples and (b, a) not in couples:
@@ -305,37 +318,53 @@ def _build_tree_svg(
     for g in gen_groups:
         gen_groups[g].sort(key=lambda p: all_personas.index(p) if p in all_personas else 0)
 
-    # Layout: y per generation, x spread evenly
-    pad_x, pad_y = 30, 40
-    usable_w = width - 2 * pad_x
-    usable_h = height - 2 * pad_y
+    # Layout: gen 0 (oldest) near bottom, gen max (youngest) near top — árbol crece hacia arriba
+    pad_x = 28
+    node_bottom = int(height * 0.62)   # gen 0 y position
+    node_top = int(height * 0.22)       # gen max y position
+    usable_h = node_bottom - node_top
+
     gen_y = {}
     for g in range(max_gen + 1):
-        gen_y[g] = pad_y + (g / max(max_gen, 1)) * usable_h if max_gen > 0 else height // 2
+        ratio = g / max(max_gen, 1) if max_gen > 0 else 0
+        gen_y[g] = node_bottom - int(ratio * usable_h)
 
     node_pos: dict[str, tuple[float, float]] = {}
     for g, members in gen_groups.items():
         n = len(members)
         for i, p in enumerate(members):
-            x = pad_x + (i + 0.5) * usable_w / n
+            x = pad_x + (i + 0.5) * (width - 2 * pad_x) / n
             node_pos[p] = (x, gen_y[g])
 
     elements = []
 
-    # Trunk
-    trunk_y_top = min(gen_y[g] for g in gen_y) + 20
-    trunk_y_bot = height + 10
+    # Trunk: desde abajo hasta justo debajo de la generación más vieja
+    trunk_x = width // 2
+    oldest_y = max(y for _, y in node_pos.values()) if node_pos else node_bottom
+    trunk_top = oldest_y + 36
+    trunk_bot = height + 10
     elements.append(
-        f'<path d="M{width//2} {trunk_y_bot} Q{width//2} {trunk_y_bot - 30} {width//2} {trunk_y_top + 60}" '
+        f'<path d="M{trunk_x} {trunk_bot} Q{trunk_x} {trunk_top + 20} {trunk_x} {trunk_top}" '
         f'stroke="{COLOR_RAMA}" stroke-width="3" fill="none" stroke-linecap="round"/>'
     )
 
-    # Branches to each person
+    # Ramas: desde el tronco hacia cada nodo de gen 0, y desde midpoint de padres hacia hijos
     for p, (x, y) in node_pos.items():
-        mid_x = width // 2
         opacity = "1" if p == current_nombre else "0.55"
+        pars = parents_of.get(p, [])
+        par_positions = [node_pos[par] for par in pars if par in node_pos]
+        if par_positions:
+            # Nace del punto medio entre los padres
+            origin_x = sum(pos[0] for pos in par_positions) / len(par_positions)
+            origin_y = sum(pos[1] for pos in par_positions) / len(par_positions)
+        else:
+            # Nace del tronco
+            origin_x = trunk_x
+            origin_y = trunk_top
+        ctrl_x = (origin_x + x) / 2
+        ctrl_y = (origin_y + y) / 2
         elements.append(
-            f'<path d="M{mid_x} {trunk_y_top + 60} Q{(mid_x+x)//2} {y + 20} {x} {y + 32}" '
+            f'<path d="M{origin_x:.1f} {origin_y:.1f} Q{ctrl_x:.1f} {ctrl_y:.1f} {x:.1f} {y + 32:.1f}" '
             f'stroke="{COLOR_RAMA}" stroke-width="2" fill="none" stroke-linecap="round" opacity="{opacity}"/>'
         )
 
