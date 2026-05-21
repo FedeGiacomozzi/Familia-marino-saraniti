@@ -165,11 +165,13 @@ em {{ font-style: italic; }}
 
 
 def _texto_a_html(texto: str) -> str:
-    """Convert plain text to HTML paragraphs, preserving italics markers."""
+    """Convert plain text to HTML paragraphs, rendering *italic* and **bold** markers."""
     paragraphs = [p.strip() for p in texto.split("\n\n") if p.strip()]
     html_parts = []
     for p in paragraphs:
-        # Wrap lone lines that start with — as block quotes
+        # Convert markdown bold/italic to HTML (order matters: ** before *)
+        p = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', p)
+        p = re.sub(r'\*(.+?)\*', r'<em>\1</em>', p)
         if p.startswith("—"):
             html_parts.append(f'<p class="cita">{p}</p>')
         else:
