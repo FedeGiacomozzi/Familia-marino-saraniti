@@ -344,19 +344,23 @@ def download_drive_file(url: str, dest_path: str):
             _, done = dl.next_chunk()
 
 
-GCS_BUCKET = "familia-marino-libros-output"
+def _gcs_bucket_name() -> str:
+    return os.environ.get("GCS_BUCKET", "pipeline-libros-output")
 
 
 def upload_to_drive(local_path: str, filename: str, mime_type: str = "application/pdf") -> str:
     """Upload a file to GCS and return its public URL."""
     from google.cloud import storage as gcs
 
+    bucket_name = _gcs_bucket_name()
+    project = os.environ.get("GOOGLE_CLOUD_PROJECT", "familia-marino")
     creds = _get_creds()
-    client = gcs.Client(credentials=creds, project="familia-marino")
+    client = gcs.Client(credentials=creds, project=project)
 
-    bucket = client.bucket(GCS_BUCKET)
+    bucket = client.bucket(bucket_name)
     if not bucket.exists():
-        bucket = client.create_bucket(GCS_BUCKET, location="US")
+        bucket = client.create_bucket(bucket_name, location="US")
+        bucket.make_public()
 
     blob = bucket.blob(filename)
     blob.upload_from_filename(local_path, content_type=mime_type)

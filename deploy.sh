@@ -6,12 +6,15 @@ set -euo pipefail
 
 PROJECT="${1:-$(gcloud config get-value project)}"
 REGION="${2:-us-central1}"
-SERVICE="familia-pipeline"
+SERVICE="${3:-familia-pipeline}"
+GCS_BUCKET="${4:-${PROJECT}-libros-output}"
 IMAGE="gcr.io/${PROJECT}/${SERVICE}"
 
-echo "Project : ${PROJECT}"
-echo "Region  : ${REGION}"
-echo "Image   : ${IMAGE}"
+echo "Project    : ${PROJECT}"
+echo "Region     : ${REGION}"
+echo "Service    : ${SERVICE}"
+echo "GCS Bucket : ${GCS_BUCKET}"
+echo "Image      : ${IMAGE}"
 echo ""
 
 # Build and push via Cloud Build
@@ -35,7 +38,8 @@ gcloud run deploy "${SERVICE}" \
   --cpu=2 \
   --timeout=900 \
   --service-account="familia-pipeline@familia-marino.iam.gserviceaccount.com" \
-  --clear-env-vars \
+  --set-env-vars="GOOGLE_CLOUD_PROJECT=${PROJECT},GCS_BUCKET=${GCS_BUCKET}" \
+  --clear-secrets \
   --set-secrets="ANTHROPIC_API_KEY=ANTHROPIC_API_KEY:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,GOOGLE_CREDENTIALS_JSON=GOOGLE_CREDENTIALS:latest"
 
 echo ""
