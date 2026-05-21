@@ -344,7 +344,7 @@ def download_drive_file(url: str, dest_path: str):
             _, done = dl.next_chunk()
 
 
-GCS_BUCKET = "familia-marino-pdfs"
+GCS_BUCKET = "familia-marino-libros-output"
 
 
 def upload_to_drive(local_path: str, filename: str, mime_type: str = "application/pdf") -> str:
