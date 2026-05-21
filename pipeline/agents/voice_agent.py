@@ -26,7 +26,7 @@ Analizá las siguientes transcripciones orales de {nombre}.
 {bloques}
 </transcripciones>
 
-Devolvé EXCLUSIVAMENTE un JSON válido con estos 7 campos:
+Devolvé EXCLUSIVAMENTE un JSON válido con estos 6 campos:
 
 {{
   "muletillas": ["lista de muletillas y palabras de relleno que usa habitualmente"],
@@ -34,8 +34,7 @@ Devolvé EXCLUSIVAMENTE un JSON válido con estos 7 campos:
   "registro": "descripción del registro lingüístico: formal/informal/coloquial/técnico/mixto, con ejemplos",
   "detalles_sensoriales": ["imágenes, metáforas, referencias concretas al cuerpo, al espacio, a los sentidos"],
   "tono": "descripción del tono emocional predominante y sus variaciones",
-  "citas_directas": ["5 a 8 fragmentos literales especialmente expresivos o reveladores, mínimo 20 palabras cada uno"],
-  "texto_limpio": "toda la transcripción unificada, sin indicadores de pregunta, como un monólogo continuo"
+  "citas_directas": ["5 a 8 fragmentos literales especialmente expresivos o reveladores, mínimo 20 palabras cada uno"]
 }}
 
 Solo JSON. Sin explicaciones. Sin markdown.
@@ -62,7 +61,7 @@ def _analyze_persona(client: anthropic.Anthropic, nombre: str) -> dict:
 
     message = client.messages.create(
         model=MODEL,
-        max_tokens=4096,
+        max_tokens=2048,
         system=_SYSTEM,
         messages=[
             {
@@ -74,6 +73,7 @@ def _analyze_persona(client: anthropic.Anthropic, nombre: str) -> dict:
 
     perfil = _parse_json_response(message.content[0].text)
 
+    # Build texto_limpio from transcriptions directly (avoids truncating the JSON response)
     transcripcion_completa = "\n\n".join(t["transcripcion"] for t in transcripciones)
     fecha_process = datetime.now().strftime("%d/%m/%Y %H:%M")
     sheets.save_profile(nombre, fecha_process, json.dumps(perfil, ensure_ascii=False), transcripcion_completa)
