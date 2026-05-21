@@ -2,6 +2,7 @@
 Orchestrator: coordina los 5 agentes del pipeline de extremo a extremo.
 """
 
+import unicodedata
 from dataclasses import dataclass, field
 
 from pipeline.agents import (
@@ -33,12 +34,16 @@ class PipelineResult:
         return len(self.errores) == 0
 
 
+def _norm(s: str) -> str:
+    return unicodedata.normalize("NFC", s).strip().lower()
+
+
 def _get_row_indices(nombres: list[str]) -> list[int]:
     all_rows = sheets.get_all_rows()
     indices = []
-    nombres_lower = {n.lower() for n in nombres}
+    nombres_norm = {_norm(n) for n in nombres}
     for i, row in enumerate(all_rows[1:], start=2):
-        if len(row) >= 2 and row[1].strip().lower() in nombres_lower:
+        if len(row) >= 2 and _norm(row[1]) in nombres_norm:
             indices.append(i)
     return indices
 
@@ -55,7 +60,7 @@ def _build_personas_meta(
     meta = []
     for nombre in nombres:
         integrante = next(
-            (p for p in integrantes if p["nombre"].lower() == nombre.lower()), {}
+            (p for p in integrantes if _norm(p["nombre"]) == _norm(nombre)), {}
         )
         fecha_nac = integrante.get("fecha_nac") or sheets.get_fecha_nac(nombre)
         ctx = sheets.build_family_context(nombre, integrantes, relaciones)

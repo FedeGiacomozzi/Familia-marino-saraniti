@@ -2,6 +2,7 @@ import os
 import json
 import re
 import tempfile
+import unicodedata
 
 import gspread
 from google.oauth2 import service_account
@@ -16,6 +17,11 @@ SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive",
 ]
+
+def _norm(s: str) -> str:
+    """Normalize unicode (NFC) and lowercase for consistent name matching."""
+    return unicodedata.normalize("NFC", s).strip().lower()
+
 
 # Column indices (1-based for gspread)
 COL_FECHA = 1
@@ -107,7 +113,7 @@ def get_rows_for_name(nombre: str) -> list[tuple[int, list[str]]]:
     all_rows = get_all_rows()
     result = []
     for i, row in enumerate(all_rows[1:], start=2):
-        if len(row) >= 2 and row[1].strip().lower() == nombre.strip().lower():
+        if len(row) >= 2 and _norm(row[1]) == _norm(nombre):
             result.append((i, row))
     return result
 
@@ -122,7 +128,7 @@ def get_foto_url(nombre: str) -> str | None:
     for row in all_rows[1:]:
         if (
             len(row) >= COL_FOTO
-            and row[COL_NOMBRE - 1].strip().lower() == nombre.strip().lower()
+            and _norm(row[COL_NOMBRE - 1]) == _norm(nombre)
             and row[COL_FOTO - 1].strip()
         ):
             return row[COL_FOTO - 1].strip()
@@ -167,7 +173,7 @@ def save_profile(nombre: str, fecha_process: str, perfil_json: str, transcripcio
     ws = perfiles_sheet()
     all_rows = ws.get_all_values()
     for i, row in enumerate(all_rows[1:], start=2):
-        if row and row[0].strip().lower() == nombre.strip().lower():
+        if row and _norm(row[0]) == _norm(nombre):
             ws.update(f"A{i}:D{i}", [[nombre, fecha_process, perfil_json, transcripcion_completa]])
             return
     ws.append_row([nombre, fecha_process, perfil_json, transcripcion_completa, "", ""])
@@ -177,7 +183,7 @@ def save_chapter(nombre: str, capitulo: str, capitulo_revisado: str = ""):
     ws = perfiles_sheet()
     all_rows = ws.get_all_values()
     for i, row in enumerate(all_rows[1:], start=2):
-        if row and row[0].strip().lower() == nombre.strip().lower():
+        if row and _norm(row[0]) == _norm(nombre):
             ws.update_cell(i, 5, capitulo)
             if capitulo_revisado:
                 ws.update_cell(i, 6, capitulo_revisado)
@@ -189,7 +195,7 @@ def get_profile(nombre: str) -> dict | None:
     ws = perfiles_sheet()
     all_rows = ws.get_all_values()
     for row in all_rows[1:]:
-        if row and row[0].strip().lower() == nombre.strip().lower():
+        if row and _norm(row[0]) == _norm(nombre):
             perfil_str = row[2] if len(row) > 2 else ""
             try:
                 perfil_voz = json.loads(perfil_str) if perfil_str else {}
@@ -259,9 +265,9 @@ def get_familia_relaciones() -> list[dict]:
 
 def get_integrante(nombre: str) -> dict | None:
     integrantes = get_familia_integrantes()
-    nombre_lower = nombre.strip().lower()
+    nombre_norm = _norm(nombre)
     for p in integrantes:
-        if p["nombre"].lower() == nombre_lower:
+        if _norm(p["nombre"]) == nombre_norm:
             return p
     return None
 
