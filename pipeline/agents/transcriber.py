@@ -5,6 +5,7 @@ Reads audio links from the Sheet, transcribes each one, writes back to col F.
 
 import os
 import tempfile
+import time
 
 from openai import OpenAI
 
@@ -68,6 +69,33 @@ def _get_prompt(pais: str) -> str:
     )
 
 
+_MAX_INTENTOS = 3
+_RETRY_DELAYS = [5, 15, 30]  # segundos entre intentos
+
+
+def _transcribir_con_retry(client: OpenAI, tmp_path: str, prompt: str, row_idx: int, nombre: str, pregunta: str) -> str:
+    last_err = None
+    for intento in range(1, _MAX_INTENTOS + 1):
+        try:
+            with open(tmp_path, "rb") as audio_file:
+                result = client.audio.transcriptions.create(
+                    model="whisper-1",
+                    file=audio_file,
+                    language="es",
+                    prompt=prompt,
+                )
+            return result.text.strip()
+        except Exception as e:
+            last_err = e
+            if intento < _MAX_INTENTOS:
+                delay = _RETRY_DELAYS[intento - 1]
+                print(f"[transcriber] Intento {intento}/{_MAX_INTENTOS} falló para fila {row_idx} ({nombre} / pregunta {pregunta}): {e}. Reintentando en {delay}s...")
+                time.sleep(delay)
+            else:
+                print(f"[transcriber] Todos los intentos fallaron para fila {row_idx} ({nombre} / pregunta {pregunta}): {e}")
+    raise last_err
+
+
 def run(row_indices: list[int], pais: str = "argentina", solo_nuevas: bool = False) -> dict:
     """
     Transcribe audio for the given sheet row indices (1-based, skipping header).
@@ -115,15 +143,7 @@ def run(row_indices: list[int], pais: str = "argentina", solo_nuevas: bool = Fal
                 print(f"[transcriber] Descargando fila {row_idx} ({nombre} / pregunta {pregunta})...")
                 sheets.download_drive_file(audio_url, tmp_path)
 
-                with open(tmp_path, "rb") as audio_file:
-                    result = client.audio.transcriptions.create(
-                        model="whisper-1",
-                        file=audio_file,
-                        language="es",
-                        prompt=prompt,
-                    )
-
-                transcripcion = result.text.strip()
+                transcripcion = _transcribir_con_retry(client, tmp_path, prompt, row_idx, nombre, pregunta)
                 sheets.save_transcription(row_idx, transcripcion)
                 procesadas += 1
                 print(f"[transcriber] OK fila {row_idx} ({nombre} / pregunta {pregunta}): {len(transcripcion)} chars")
@@ -133,7 +153,7 @@ def run(row_indices: list[int], pais: str = "argentina", solo_nuevas: bool = Fal
                     os.unlink(tmp_path)
 
         except Exception as e:
-            msg = f"fila {row_idx}: {e}"
+            msg = f"fila {row_idx} ({nombre} / pregunta {pregunta}): {e}"
             print(f"[transcriber] Error en {msg}")
             detalle_errores.append(msg)
             errores += 1
