@@ -243,22 +243,41 @@ def _inicial(nombre: str) -> str:
 
 # ─── SVG del árbol creciente ─────────────────────────────────────────────────
 
+def _norm_bare(s: str) -> str:
+    """Like _norm but also strips diacritics for flexible name matching."""
+    nfkd = unicodedata.normalize("NFKD", unicodedata.normalize("NFC", s))
+    return "".join(c for c in nfkd if not unicodedata.combining(c)).strip().lower()
+
+
 def _build_family_graph(personas: list[str], relaciones: list[dict]):
     """Returns couples list and parents_of dict from relaciones, filtered to personas in book.
-    Uses first-name fallback so short names in the sheet match full names in the book."""
+    Uses multiple fallbacks so names with/without accents and short names all resolve."""
     norm_map = {_norm(p): p for p in personas}
-    first_name_map: dict[str, str] = {}
-    for norm_name, canonical in norm_map.items():
-        first = norm_name.split()[0]
-        if first not in first_name_map:
-            first_name_map[first] = canonical
+    bare_map = {_norm_bare(p): p for p in personas}
+
+    # First-name maps (with and without accents)
+    first_norm_map: dict[str, str] = {}
+    first_bare_map: dict[str, str] = {}
+    for p in personas:
+        fn = _norm(p).split()[0]
+        if fn not in first_norm_map:
+            first_norm_map[fn] = p
+        fb = _norm_bare(p).split()[0]
+        if fb not in first_bare_map:
+            first_bare_map[fb] = p
 
     def _resolve(name: str) -> str | None:
         n = _norm(name)
         if n in norm_map:
             return norm_map[n]
-        first = n.split()[0] if n else ""
-        return first_name_map.get(first)
+        b = _norm_bare(name)
+        if b in bare_map:
+            return bare_map[b]
+        fn = n.split()[0] if n else ""
+        if fn in first_norm_map:
+            return first_norm_map[fn]
+        fb = b.split()[0] if b else ""
+        return first_bare_map.get(fb)
 
     couples = []
     parents_of = {p: [] for p in personas}

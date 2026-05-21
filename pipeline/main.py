@@ -25,6 +25,14 @@ def health():
     return {"status": "ok"}
 
 
+@app.get("/debug/familia")
+def debug_familia():
+    return {
+        "integrantes": sheets.get_familia_integrantes(),
+        "relaciones": sheets.get_familia_relaciones(),
+    }
+
+
 # ─── Full pipeline ────────────────────────────────────────────────────────────
 
 class PipelineRequest(BaseModel):
