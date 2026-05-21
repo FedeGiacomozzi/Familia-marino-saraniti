@@ -85,11 +85,18 @@ def run(
     familia: str = "Familia Mariño · Saraniti",
     upload_to_drive: bool = False,
     solo_nuevas: bool = False,
+    on_progress: callable = None,
 ) -> PipelineResult:
     """
     Corre el pipeline completo (o desde un paso específico).
     solo_desde: uno de "transcriber", "voice", "chapters", "editor", "layout"
+    on_progress: callback(msg: str) llamado en cada paso importante
     """
+    def _emit(msg: str):
+        print(msg)
+        if on_progress:
+            on_progress(msg)
+
     result = PipelineResult(personas=nombres)
 
     start_idx = 0
@@ -102,47 +109,50 @@ def run(
         relaciones = sheets.get_familia_relaciones()
         fallecidos = sheets.get_fallecidos(integrantes)
     except Exception as e:
-        print(f"[orchestrator] Advertencia: no se pudieron cargar datos de familia: {e}")
+        _emit(f"[orchestrator] Advertencia: no se pudieron cargar datos de familia: {e}")
         integrantes, relaciones, fallecidos = [], [], []
 
     personas_meta = _build_personas_meta(nombres, integrantes, relaciones)
 
-    # Menores: se registran como skip, no se procesan
     menores = [p["nombre"] for p in personas_meta if p.get("es_menor")]
     adultos = [p["nombre"] for p in personas_meta if not p.get("es_menor")]
 
     if menores:
-        print(f"[orchestrator] Menores detectados (sin capítulo automático): {menores}")
+        _emit(f"[orchestrator] Menores detectados (sin capítulo automático): {menores}")
 
     # ── Paso 1: Transcriber ───────────────────────────────────────────────────
     if start_idx <= 0:
-        print("[orchestrator] Paso 1: transcripción de audios...")
+        _emit(f"[1/5] Transcribiendo audios para {len(adultos)} personas...")
         try:
             row_indices = _get_row_indices(adultos)
             if not row_indices:
                 result.errores.append("No se encontraron filas en el Sheet para los nombres dados")
                 return result
             result.transcriber = transcriber.run(row_indices, pais, solo_nuevas=solo_nuevas)
-            print(f"  → {result.transcriber}")
+            _emit(f"  → Transcripción: {result.transcriber['procesadas']} OK, {result.transcriber['errores']} errores")
         except Exception as e:
             result.errores.append(f"transcriber: {e}")
             return result
 
     # ── Paso 2: Voice agent ───────────────────────────────────────────────────
     if start_idx <= 1:
-        print("[orchestrator] Paso 2: análisis de voz...")
+        _emit(f"[2/5] Analizando perfil de voz...")
         try:
+            for nombre in adultos:
+                _emit(f"  → Analizando: {nombre}")
             result.voice = voice_agent.run(adultos)
             errores_voz = [n for n, v in result.voice.items() if "error" in v]
             if errores_voz:
                 result.errores.append(f"voice_agent falló para: {errores_voz}")
+            else:
+                _emit(f"  → Perfiles de voz generados para {len(result.voice)} personas")
         except Exception as e:
             result.errores.append(f"voice_agent: {e}")
             return result
 
     # ── Paso 3: Chapter agent ─────────────────────────────────────────────────
     if start_idx <= 2:
-        print("[orchestrator] Paso 3: generación de capítulos...")
+        _emit(f"[3/5] Generando capítulos...")
         try:
             import anthropic as _anthropic
             client = _anthropic.Anthropic()
@@ -158,6 +168,7 @@ def run(
                     result.errores.append(f"chapter_agent/{nombre}: perfil no encontrado")
                     continue
 
+                _emit(f"  → Escribiendo capítulo: {nombre}")
                 persona = {
                     "nombre": nombre,
                     "perfil_voz": p.get("perfil_voz", {}),
@@ -167,6 +178,7 @@ def run(
                 try:
                     cap = chapter_agent.generar_capitulo(client, persona)
                     result.chapters[nombre] = cap
+                    _emit(f"  → Capítulo listo: {nombre} ({len(cap.split())} palabras)")
                 except Exception as e:
                     result.errores.append(f"chapter_agent/{nombre}: {e}")
 
@@ -176,7 +188,7 @@ def run(
 
     # ── Paso 4: Editor agent ──────────────────────────────────────────────────
     if start_idx <= 3:
-        print("[orchestrator] Paso 4: edición del manuscrito...")
+        _emit(f"[4/5] Editando manuscrito (orden, transiciones, prólogo, epílogo)...")
         try:
             if start_idx > 2:
                 for pm in personas_meta:
@@ -185,7 +197,6 @@ def run(
                     if p and p.get("capitulo"):
                         result.chapters[nombre] = p["capitulo"]
 
-            # Build editor personas list (only those with chapters, excluding menores)
             editor_personas = [
                 {
                     "nombre": pm["nombre"],
@@ -203,6 +214,7 @@ def run(
                 fallecidos=fallecidos,
             )
             result._manuscript = result.editor
+            _emit(f"  → Orden del libro: {' → '.join(result.editor.orden)}")
 
         except Exception as e:
             result.errores.append(f"editor_agent: {e}")
@@ -210,16 +222,14 @@ def run(
 
     # ── Paso 5: Layout agent ──────────────────────────────────────────────────
     if start_idx <= 4:
-        print("[orchestrator] Paso 5: generación del PDF...")
+        _emit(f"[5/5] Generando PDF...")
         try:
             manuscript = result._manuscript or result.editor
             if manuscript is None:
                 raise ValueError("No hay manuscrito disponible para el layout")
 
-            # personas_meta for chapters (with rol/vive/fecha_fallec)
             capitulo_personas = [pm for pm in personas_meta if not pm.get("es_menor")]
 
-            # todos_integrantes = full family list for timeline
             todos_integrantes = [
                 {
                     "nombre": p["nombre"],
@@ -238,13 +248,14 @@ def run(
                 todos_integrantes=todos_integrantes,
             )
             result.layout = pdf_path
-            print(f"  → PDF generado: {pdf_path}")
+            _emit(f"  → PDF generado: {pdf_path}")
 
             if upload_to_drive and pdf_path:
                 import os
+                _emit(f"  → Subiendo a Drive...")
                 filename = os.path.basename(pdf_path)
                 drive_url = sheets.upload_to_drive(pdf_path, filename, "application/pdf")
-                print(f"  → Subido a Drive: {drive_url}")
+                _emit(f"  → Drive: {drive_url}")
                 result.layout = drive_url
 
         except Exception as e:

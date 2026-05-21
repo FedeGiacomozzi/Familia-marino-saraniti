@@ -3,7 +3,12 @@ FastAPI entrypoint for the pipeline.
 All heavy work happens in the agent modules.
 """
 
+import json
+import queue
+import threading
+
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from pipeline.agents import orchestrator, transcriber, voice_agent, chapter_agent, layout_agent
@@ -51,6 +56,51 @@ def run_pipeline(req: PipelineRequest):
         "layout": result.layout,
         "errores": result.errores,
     }
+
+
+@app.post("/run/pipeline/stream")
+def run_pipeline_stream(req: PipelineRequest):
+    """Same as /run/pipeline but streams progress lines as they happen."""
+    progress_queue: queue.Queue = queue.Queue()
+
+    def on_progress(msg: str):
+        progress_queue.put({"type": "progress", "msg": msg})
+
+    def run_in_thread():
+        try:
+            result = orchestrator.run(
+                nombres=req.nombres,
+                pais=req.pais,
+                solo_desde=req.solo_desde,
+                familia=req.familia,
+                upload_to_drive=req.upload_to_drive,
+                solo_nuevas=req.solo_nuevas,
+                on_progress=on_progress,
+            )
+            progress_queue.put({"type": "result", "data": {
+                "ok": result.ok,
+                "personas": result.personas,
+                "transcriber": result.transcriber,
+                "chapters_generados": list(result.chapters.keys()),
+                "orden": result.editor.orden if result.editor else [],
+                "layout": result.layout,
+                "errores": result.errores,
+            }})
+        except Exception as e:
+            progress_queue.put({"type": "error", "msg": str(e)})
+        finally:
+            progress_queue.put(None)
+
+    threading.Thread(target=run_in_thread, daemon=True).start()
+
+    def generate():
+        while True:
+            item = progress_queue.get()
+            if item is None:
+                break
+            yield f"data: {json.dumps(item, ensure_ascii=False)}\n\n"
+
+    return StreamingResponse(generate(), media_type="text/event-stream")
 
 
 # ─── Paso 1: Transcriber ──────────────────────────────────────────────────────
