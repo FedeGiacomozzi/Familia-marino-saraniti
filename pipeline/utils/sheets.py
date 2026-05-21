@@ -352,9 +352,15 @@ def upload_to_drive(local_path: str, filename: str, mime_type: str = "applicatio
     service = build("drive", "v3", credentials=creds)
     meta = {"name": filename, "parents": [FOLDER_ID]}
     media = MediaFileUpload(local_path, mimetype=mime_type)
-    f = service.files().create(body=meta, media_body=media, fields="id,webViewLink").execute()
+    f = service.files().create(
+        body=meta,
+        media_body=media,
+        fields="id,webViewLink",
+        supportsAllDrives=True,
+    ).execute()
     service.permissions().create(
         fileId=f["id"],
         body={"type": "anyone", "role": "reader"},
+        supportsAllDrives=True,
     ).execute()
     return f.get("webViewLink", "")
