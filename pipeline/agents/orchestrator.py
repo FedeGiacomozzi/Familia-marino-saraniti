@@ -225,6 +225,29 @@ def run(
         _emit(f"[5/5] Generando PDF...")
         try:
             manuscript = result._manuscript or result.editor
+            if manuscript is None and start_idx >= 4:
+                # Arrancando directo desde layout: reconstruir desde Sheets
+                _emit(f"  → Cargando capítulos desde Sheets para reconstruir manuscrito...")
+                for pm in personas_meta:
+                    nombre = pm["nombre"]
+                    if pm.get("es_menor"):
+                        continue
+                    p = sheets.get_profile(nombre)
+                    if p and (p.get("capitulo_revisado") or p.get("capitulo")):
+                        result.chapters[nombre] = p.get("capitulo_revisado") or p["capitulo"]
+                editor_personas = [
+                    {"nombre": pm["nombre"], "fecha_nac": pm["fecha_nac"], "perfil_voz": pm.get("familia_ctx", {})}
+                    for pm in personas_meta
+                    if not pm.get("es_menor") and pm["nombre"] in result.chapters
+                ]
+                result.editor = editor_agent.run(
+                    personas=editor_personas,
+                    capitulos={k: v for k, v in result.chapters.items()},
+                    relaciones=relaciones,
+                    fallecidos=fallecidos,
+                )
+                result._manuscript = result.editor
+                manuscript = result._manuscript
             if manuscript is None:
                 raise ValueError("No hay manuscrito disponible para el layout")
 
