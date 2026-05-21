@@ -5,12 +5,15 @@ Produce un BookManuscript listo para el layout agent.
 
 import json
 import re
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 
 import anthropic
 
 MODEL = "claude-opus-4-7"
+_MAX_INTENTOS = 3
+_RETRY_DELAYS = [10, 30, 60]
 
 PALABRAS_PROHIBIDAS = [
     "memorable", "invaluable", "legado", "tesoro",
@@ -52,6 +55,22 @@ def _verificar_palabras_prohibidas(texto: str) -> list[str]:
     return encontradas
 
 
+def _api_call_with_retry(fn):
+    last_err = None
+    for intento in range(1, _MAX_INTENTOS + 1):
+        try:
+            return fn()
+        except Exception as e:
+            last_err = e
+            if intento < _MAX_INTENTOS:
+                delay = _RETRY_DELAYS[intento - 1]
+                print(f"[editor] Intento {intento}/{_MAX_INTENTOS} falló: {e}. Reintentando en {delay}s...")
+                time.sleep(delay)
+            else:
+                print(f"[editor] Todos los intentos fallaron: {e}")
+    raise last_err
+
+
 def _call_orden(client: anthropic.Anthropic, personas: list[dict]) -> dict:
     """
     Determina el orden cronológico por fecha de nacimiento.
@@ -80,17 +99,19 @@ Devolvé SOLO JSON válido:
 Solo JSON. Sin markdown.
 """
 
-    message = client.messages.create(
-        model=MODEL,
-        max_tokens=1024,
-        system=_SYSTEM_EDITOR,
-        messages=[{"role": "user", "content": prompt}],
-    )
+    def _call():
+        message = client.messages.create(
+            model=MODEL,
+            max_tokens=1024,
+            system=_SYSTEM_EDITOR,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        text = message.content[0].text.strip()
+        text = re.sub(r"^```(?:json)?\s*", "", text)
+        text = re.sub(r"\s*```$", "", text)
+        return json.loads(text)
 
-    text = message.content[0].text.strip()
-    text = re.sub(r"^```(?:json)?\s*", "", text)
-    text = re.sub(r"\s*```$", "", text)
-    return json.loads(text)
+    return _api_call_with_retry(_call)
 
 
 def _call_una_transicion(
@@ -130,14 +151,12 @@ La transición debe:
 Solo el texto de la transición. Sin títulos ni notas.
 """
 
-    message = client.messages.create(
+    return _api_call_with_retry(lambda: client.messages.create(
         model=MODEL,
         max_tokens=512,
         system=_SYSTEM_EDITOR,
         messages=[{"role": "user", "content": prompt}],
-    )
-
-    return message.content[0].text.strip()
+    ).content[0].text.strip())
 
 
 def _relacion_entre(nombre_a: str, nombre_b: str, relaciones: list[dict]) -> str:
@@ -267,21 +286,19 @@ El epílogo debe:
 Solo el texto del epílogo.
 """
 
-    prologo_msg = client.messages.create(
+    prologo = _api_call_with_retry(lambda: client.messages.create(
         model=MODEL,
         max_tokens=2048,
         system=_SYSTEM_EDITOR,
         messages=[{"role": "user", "content": prologo_prompt}],
-    )
-    prologo = prologo_msg.content[0].text.strip()
+    ).content[0].text.strip())
 
-    epilogo_msg = client.messages.create(
+    epilogo = _api_call_with_retry(lambda: client.messages.create(
         model=MODEL,
         max_tokens=2048,
         system=_SYSTEM_EDITOR,
         messages=[{"role": "user", "content": epilogo_prompt}],
-    )
-    epilogo = epilogo_msg.content[0].text.strip()
+    ).content[0].text.strip())
 
     return prologo, epilogo
 
