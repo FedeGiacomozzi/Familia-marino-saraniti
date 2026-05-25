@@ -4,6 +4,10 @@ One-shot migration: Drive + Sheets → GCS + Firestore.
 Idempotent: files already in GCS are skipped; Firestore docs use set(merge=True).
 DO NOT run without coordinator confirmation.
 Never modifies Drive or Sheets.
+
+Al finalizar genera:
+  - migration_report.json  (consola + archivo)
+  - Firestore: reportes/migracion (doc con el mismo JSON)
 """
 import io
 import json
@@ -32,6 +36,7 @@ BUCKET_FOTOS = "libro-familiar-fotos"
 BUCKET_LIBROS = "libro-familiar-libros"
 
 LOG_FILE = "migrate.log"
+REPORT_FILE = "migration_report.json"
 
 _SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets.readonly",
@@ -116,6 +121,79 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+# ─── Report builder ───────────────────────────────────────────────────────────
+
+
+def _build_report(integrantes: dict) -> dict:
+    """
+    Build the audio transcription report from the in-memory integrantes dict.
+    Each respuesta already has audio_gcs_url populated after migration.
+    """
+    con_transcripcion = []
+    sin_transcripcion = []
+
+    for integrante_id, data in integrantes.items():
+        nombre = data["nombre"]
+        for resp in data["respuestas"]:
+            audio_url = resp.get("audio_gcs_url") or resp.get("audio_url_drive", "")
+            transcripcion = resp.get("transcripcion", "").strip()
+            entry = {
+                "familia": FAMILIA_NOMBRE,
+                "familia_id": FAMILIA_ID,
+                "integrante": nombre,
+                "integrante_id": integrante_id,
+                "pregunta_id": resp["pregunta_id"],
+                "audio_url": audio_url,
+            }
+            if transcripcion:
+                entry["transcripcion_preview"] = transcripcion[:120] + ("…" if len(transcripcion) > 120 else "")
+                con_transcripcion.append(entry)
+            else:
+                entry["pendiente_whisper"] = True
+                sin_transcripcion.append(entry)
+
+    return {
+        "familia": FAMILIA_NOMBRE,
+        "familia_id": FAMILIA_ID,
+        "fecha_reporte": _now_iso(),
+        "con_transcripcion": con_transcripcion,
+        "sin_transcripcion": sin_transcripcion,
+        "resumen": {
+            "total_integrantes": len(integrantes),
+            "total_audios": len(con_transcripcion) + len(sin_transcripcion),
+            "con_transcripcion": len(con_transcripcion),
+            "sin_transcripcion": len(sin_transcripcion),
+        },
+    }
+
+
+def _print_report(report: dict):
+    r = report["resumen"]
+    print("\n" + "=" * 60)
+    print("REPORTE DE AUDIOS MIGRADOS")
+    print(f"  Familia            : {report['familia']}")
+    print(f"  Integrantes        : {r['total_integrantes']}")
+    print(f"  Total audios       : {r['total_audios']}")
+    print(f"  Con transcripción  : {r['con_transcripcion']}")
+    print(f"  Sin transcripción  : {r['sin_transcripcion']}  ← pendientes Whisper")
+    print("=" * 60)
+
+    if report["con_transcripcion"]:
+        print("\n✅ CON TRANSCRIPCIÓN:")
+        for e in report["con_transcripcion"]:
+            print(f"  [{e['integrante']}] {e['pregunta_id']}")
+            print(f"    audio : {e['audio_url']}")
+            print(f"    texto : {e.get('transcripcion_preview', '')}")
+
+    if report["sin_transcripcion"]:
+        print("\n⚠️  SIN TRANSCRIPCIÓN (pendientes de Whisper):")
+        for e in report["sin_transcripcion"]:
+            print(f"  [{e['integrante']}] {e['pregunta_id']}")
+            print(f"    audio : {e['audio_url']}")
+
+    print("=" * 60)
+
+
 # ─── Migration ────────────────────────────────────────────────────────────────
 
 
@@ -133,8 +211,7 @@ def migrate():
     ws = gc.open_by_key(SHEET_ID).worksheet("Respuestas")
     rows = ws.get_all_values()
 
-    # Build per-integrante structure from sheet rows
-    integrantes: dict[str, dict] = {}  # integrante_id -> data
+    integrantes: dict[str, dict] = {}
     for row in rows[1:]:
         if not any(cell.strip() for cell in row):
             continue
@@ -160,6 +237,7 @@ def migrate():
             integrantes[integrante_id]["respuestas"].append({
                 "pregunta_id": _slug(pregunta) if pregunta else f"p{idx}",
                 "audio_url_drive": audio_url,
+                "audio_gcs_url": None,   # populated below
                 "transcripcion": transcripcion,
             })
 
@@ -219,8 +297,8 @@ def migrate():
 
         for resp in data["respuestas"]:
             pregunta_id = resp["pregunta_id"]
-            audio_gcs_url = None
             audio_drive_url = resp.get("audio_url_drive", "")
+            audio_gcs_url = None
 
             if audio_drive_url:
                 file_id = _extract_file_id(audio_drive_url)
@@ -237,6 +315,9 @@ def migrate():
                         log.error(f"ERROR audio {pregunta_id} / {nombre}: {exc}")
                         stats["errores"] += 1
 
+            # Store resolved GCS URL back into in-memory dict for the report
+            resp["audio_gcs_url"] = audio_gcs_url
+
             integrante_ref.collection("respuestas").document(pregunta_id).set(
                 {
                     "audio_url": audio_gcs_url or audio_drive_url,
@@ -247,7 +328,7 @@ def migrate():
             )
             stats["registros_creados"] += 1
 
-    # ── 4. Sweep Drive folder for files not already linked from the sheet ──────
+    # ── 4. Sweep Drive folder for files not linked from the sheet ─────────────
     log.info("Scanning Drive folder for additional files...")
     page_token = None
     while True:
@@ -284,7 +365,23 @@ def migrate():
         if not page_token:
             break
 
-    # ── Summary ───────────────────────────────────────────────────────────────
+    # ── 5. Build + save report ─────────────────────────────────────────────────
+    log.info("Generating audio transcription report...")
+    report = _build_report(integrantes)
+
+    # Print to console
+    _print_report(report)
+
+    # Save JSON file
+    with open(REPORT_FILE, "w", encoding="utf-8") as f:
+        json.dump(report, f, ensure_ascii=False, indent=2)
+    log.info(f"Report saved to {REPORT_FILE}")
+
+    # Save to Firestore under reportes/migracion
+    db.collection("reportes").document("migracion").set(report)
+    log.info("Report saved to Firestore: reportes/migracion")
+
+    # ── Migration summary ──────────────────────────────────────────────────────
     summary = (
         f"\n{'='*60}\n"
         f"RESUMEN DE MIGRACIÓN\n"
