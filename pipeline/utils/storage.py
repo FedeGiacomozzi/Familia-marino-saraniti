@@ -18,11 +18,15 @@ def _get_creds():
     creds_json = os.environ.get("GOOGLE_CREDENTIALS_JSON")
     if creds_json:
         info = json.loads(creds_json)
-    else:
-        path = os.environ.get("GOOGLE_CREDENTIALS_FILE", "/secrets/credentials.json")
-        with open(path) as f:
+        return service_account.Credentials.from_service_account_info(info, scopes=_SCOPES)
+    creds_file = os.environ.get("GOOGLE_CREDENTIALS_FILE")
+    if creds_file:
+        with open(creds_file) as f:
             info = json.load(f)
-    return service_account.Credentials.from_service_account_info(info, scopes=_SCOPES)
+        return service_account.Credentials.from_service_account_info(info, scopes=_SCOPES)
+    import google.auth
+    creds, _ = google.auth.default(scopes=_SCOPES)
+    return creds
 
 
 def _client() -> storage.Client:
