@@ -4,6 +4,7 @@ All heavy work happens in the agent modules.
 """
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 import subprocess
 
@@ -11,6 +12,7 @@ from pipeline.agents import orchestrator, transcriber, voice_agent, chapter_agen
 from pipeline.agents.editor_agent import BookManuscript
 from pipeline.utils import sheets
 from pipeline.utils import firestore as fstore
+from pipeline.utils import storage
 
 app = FastAPI(title="Familia Libro Pipeline", version="1.0")
 
@@ -31,6 +33,16 @@ def debug_integrantes():
     """Lista los nombres exactos de integrantes en Firestore (para diagnóstico)."""
     integrantes = fstore.get_familia_integrantes()
     return {"count": len(integrantes), "nombres": [i["nombre"] for i in integrantes]}
+
+
+@app.get("/libro/{familia_id}")
+def get_libro(familia_id: str):
+    """Genera una URL firmada de 7 días para descargar el libro de la familia."""
+    gcs_path = fstore.get_libro_gcs_path(familia_id)
+    if not gcs_path:
+        raise HTTPException(status_code=404, detail=f"No hay libro generado para {familia_id}")
+    signed_url = storage.get_signed_url(gcs_path, expiration_days=7)
+    return RedirectResponse(url=signed_url)
 
 
 # ─── Full pipeline ────────────────────────────────────────────────────────────

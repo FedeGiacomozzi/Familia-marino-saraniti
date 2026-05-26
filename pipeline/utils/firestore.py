@@ -193,3 +193,21 @@ def save_chapter(
     if capitulo_revisado:
         update["capitulo_revisado"] = capitulo_revisado
     ref.set(update, merge=True)
+
+
+# ─── Libro entregado ─────────────────────────────────────────────────────────
+
+def save_libro_gcs_path(gcs_path: str, familia_id: str = FAMILIA_ID):
+    db = _get_db()
+    db.collection("familias").document(familia_id).set(
+        {"libro_gcs_path": gcs_path, "estado": "entregado"},
+        merge=True,
+    )
+
+
+def get_libro_gcs_path(familia_id: str = FAMILIA_ID) -> str | None:
+    db = _get_db()
+    doc = db.collection("familias").document(familia_id).get()
+    if not doc.exists:
+        return None
+    return doc.to_dict().get("libro_gcs_path")

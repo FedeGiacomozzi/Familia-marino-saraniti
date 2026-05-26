@@ -240,7 +240,8 @@ def run(
                 import os
                 filename = os.path.basename(pdf_path)
                 gcs_path = storage.upload_libro(pdf_path, "marino-saraniti", filename)
-                signed_url = storage.get_signed_url(gcs_path, expiration_days=30)
+                fstore.save_libro_gcs_path(gcs_path)
+                signed_url = storage.get_signed_url(gcs_path)
                 print(f"  → Subido a GCS: {gcs_path}")
                 result.layout = signed_url
 
