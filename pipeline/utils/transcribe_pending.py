@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-Reads Firestore for respuestas where `transcript` is null or empty, downloads
-each audio from `audio_gcs_url` using the Service Account / ADC credentials,
+Reads Firestore for respuestas where `transcripcion` is null or empty, downloads
+each audio from `audio_url` (gs:// path) using the Service Account / ADC credentials,
 transcribes with Whisper API (whisper-1, language=es), and writes the result
-back to Firestore in the `transcript` field.
+back to Firestore in the `transcripcion` field.
 
-Idempotent: documents that already have a non-empty `transcript` are skipped.
+Idempotent: documents that already have a non-empty `transcripcion` are skipped.
 Parallel: up to MAX_WORKERS simultaneous Whisper requests.
 """
 import io
@@ -62,7 +62,7 @@ def _parse_gcs_path(gcs_path: str) -> tuple[str, str]:
 def _collect_pending(db: firestore.Client) -> list[dict]:
     """
     Walk all familias → integrantes → respuestas and return items where
-    `transcript` is null or empty and `audio_gcs_url` is a valid gs:// path.
+    `transcripcion` is null or empty and `audio_url` is a valid gs:// path.
     """
     pending = []
     for familia_doc in db.collection("familias").stream():
@@ -83,21 +83,21 @@ def _collect_pending(db: firestore.Client) -> list[dict]:
             ):
                 data = resp_doc.to_dict()
 
-                # Skip if transcript already exists
-                if data.get("transcript", "").strip():
+                # Skip if transcripcion already exists
+                if data.get("transcripcion", "").strip():
                     continue
 
-                audio_url = data.get("audio_gcs_url", "").strip()
+                audio_url = data.get("audio_url", "").strip()
                 if not audio_url:
                     log.warning(
                         f"SKIP {familia_id}/{integrante_id}/{resp_doc.id}: "
-                        "audio_gcs_url is missing"
+                        "audio_url is missing"
                     )
                     continue
                 if not audio_url.startswith("gs://"):
                     log.warning(
                         f"SKIP {familia_id}/{integrante_id}/{resp_doc.id}: "
-                        f"audio_gcs_url is not a GCS path: {audio_url}"
+                        f"audio_url is not a GCS path: {audio_url}"
                     )
                     continue
 
@@ -107,7 +107,7 @@ def _collect_pending(db: firestore.Client) -> list[dict]:
                     "integrante_id": integrante_id,
                     "nombre": nombre,
                     "pregunta_id": resp_doc.id,
-                    "audio_gcs_url": audio_url,
+                    "audio_url": audio_url,
                     "ref": resp_doc.reference,
                 })
 
@@ -118,7 +118,7 @@ def _transcribe_one(item: dict, gcs: storage.Client, openai_client: OpenAI) -> d
     """Download audio from GCS and transcribe with Whisper."""
     label = f"[{item['familia_nombre']} / {item['nombre']}] {item['pregunta_id']}"
     try:
-        bucket_name, blob_name = _parse_gcs_path(item["audio_gcs_url"])
+        bucket_name, blob_name = _parse_gcs_path(item["audio_url"])
         audio_bytes = gcs.bucket(bucket_name).blob(blob_name).download_as_bytes()
 
         # Blob names have no extension (e.g. marino-saraniti/integrante/1).
@@ -131,12 +131,12 @@ def _transcribe_one(item: dict, gcs: storage.Client, openai_client: OpenAI) -> d
             file=(filename, io.BytesIO(audio_bytes)),
             language="es",
         )
-        transcript = response.text.strip()
-        log.info(f"OK {label}: {transcript[:80]}…")
-        return {"item": item, "transcript": transcript, "error": None}
+        transcripcion = response.text.strip()
+        log.info(f"OK {label}: {transcripcion[:80]}…")
+        return {"item": item, "transcripcion": transcripcion, "error": None}
     except Exception as exc:
         log.error(f"ERROR {label}: {exc}")
-        return {"item": item, "transcript": None, "error": str(exc)}
+        return {"item": item, "transcripcion": None, "error": str(exc)}
 
 
 # ─── Main ─────────────────────────────────────────────────────────────────────
@@ -179,11 +179,11 @@ def transcribe_pending():
                 by_familia[fid]["nombre"] = fnombre
                 by_familia[fid]["errors"].append({
                     "label": label,
-                    "audio": item["audio_gcs_url"],
+                    "audio": item["audio_url"],
                     "error": result["error"],
                 })
             else:
-                item["ref"].update({"transcript": result["transcript"]})
+                item["ref"].update({"transcripcion": result["transcripcion"]})
                 log.info(f"SAVED [{fnombre}] {label}")
                 by_familia[fid]["nombre"] = fnombre
                 by_familia[fid]["ok"].append(label)
