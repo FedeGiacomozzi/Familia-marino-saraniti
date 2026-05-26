@@ -1,13 +1,12 @@
 """
 Layout agent: genera el PDF del libro en formato A5 usando WeasyPrint.
-Estructura: Tapa → Blanco → Prólogo → [Capítulo + Transición] × N → Epílogo → Timeline
+Estructura: Tapa → Blanco → Prólogo → [Árbol + Capítulo] × N → Epílogo → Cronología
 """
 
 import os
 import re
-import tempfile
+import unicodedata
 from datetime import datetime
-from pathlib import Path
 
 from weasyprint import HTML, CSS
 
@@ -15,10 +14,13 @@ from pipeline.agents.editor_agent import BookManuscript
 from pipeline.utils import firestore as fstore
 from pipeline.utils import storage
 
-# ─── Paleta y tipografía ──────────────────────────────────────────────────────
 COLOR_FONDO = "#FAF8F5"
 COLOR_TEXTO = "#2C2C2C"
 COLOR_ACENTO = "#8B6F5E"
+COLOR_RAMA = "#7B5E45"
+COLOR_HOJA = "#A8C99A"
+COLOR_HOJA2 = "#B8D4A8"
+COLOR_HOJA3 = "#C5DDB8"
 
 CSS_BASE = f"""
 @import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=Montserrat:wght@300;400;600&display=swap');
@@ -26,6 +28,7 @@ CSS_BASE = f"""
 @page {{
   size: A5;
   margin: 22mm 18mm 24mm 22mm;
+  background: {COLOR_FONDO};
   @bottom-center {{
     content: counter(page);
     font-family: 'Montserrat', sans-serif;
@@ -38,7 +41,7 @@ CSS_BASE = f"""
 
 * {{ margin: 0; padding: 0; box-sizing: border-box; }}
 
-body {{
+html, body {{
   font-family: 'Lora', serif;
   font-size: 10.5pt;
   line-height: 1.7;
@@ -79,12 +82,19 @@ p {{
   hyphens: auto;
 }}
 
+p.apertura {{
+  font-style: italic;
+  font-size: 11.5pt;
+  color: {COLOR_ACENTO};
+  margin-bottom: 1.4em;
+  margin-top: 0.5em;
+}}
+
 em {{ font-style: italic; }}
 
 .page-break {{ page-break-after: always; }}
 .page-break-before {{ page-break-before: always; }}
 
-/* Tapa */
 .cover {{
   display: flex;
   flex-direction: column;
@@ -119,16 +129,28 @@ em {{ font-style: italic; }}
   color: {COLOR_ACENTO};
 }}
 
-/* Foto en capítulo */
 .foto-capitulo {{
   width: 100%;
-  max-height: 60mm;
-  object-fit: cover;
-  margin-bottom: 6mm;
+  height: auto;
+  max-width: 100%;
+  margin-bottom: 5mm;
   display: block;
 }}
 
-/* Transición */
+.foto-placeholder {{
+  width: 100%;
+  height: 55mm;
+  background: #EDE8E0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 5mm;
+  font-family: 'Lora', serif;
+  font-style: italic;
+  font-size: 32pt;
+  color: {COLOR_ACENTO};
+}}
+
 .transicion {{
   margin: 6mm 0;
   padding: 4mm 6mm;
@@ -138,12 +160,29 @@ em {{ font-style: italic; }}
   font-size: 9.5pt;
 }}
 
-/* Prólogo / Epílogo */
 .seccion-header {{
   margin-bottom: 8mm;
 }}
 
-/* Timeline */
+.cap-numero {{
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 300;
+  font-size: 9pt;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: {COLOR_ACENTO};
+  margin-bottom: 3mm;
+}}
+
+.arbol-pagina {{
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 180mm;
+}}
+
 .timeline-item {{
   display: flex;
   gap: 6mm;
@@ -165,12 +204,21 @@ em {{ font-style: italic; }}
 """
 
 
+def _norm(s: str) -> str:
+    return unicodedata.normalize("NFC", s).strip().lower()
+
+
+def _norm_bare(s: str) -> str:
+    nfkd = unicodedata.normalize("NFKD", unicodedata.normalize("NFC", s))
+    return "".join(c for c in nfkd if not unicodedata.combining(c)).strip().lower()
+
+
 def _texto_a_html(texto: str) -> str:
-    """Convert plain text to HTML paragraphs, preserving italics markers."""
     paragraphs = [p.strip() for p in texto.split("\n\n") if p.strip()]
     html_parts = []
     for p in paragraphs:
-        # Wrap lone lines that start with — as block quotes
+        p = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', p)
+        p = re.sub(r'\*(.+?)\*', r'<em>\1</em>', p)
         if p.startswith("—"):
             html_parts.append(f'<p class="cita">{p}</p>')
         else:
@@ -178,10 +226,234 @@ def _texto_a_html(texto: str) -> str:
     return "\n".join(html_parts)
 
 
-def _foto_tag(foto_path: str | None) -> str:
+def _texto_a_html_con_apertura(texto: str) -> str:
+    """First paragraph styled as apertura (italic hook)."""
+    paragraphs = [p.strip() for p in texto.split("\n\n") if p.strip()]
+    html_parts = []
+    for i, p in enumerate(paragraphs):
+        p = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', p)
+        p = re.sub(r'\*(.+?)\*', r'<em>\1</em>', p)
+        if i == 0:
+            html_parts.append(f'<p class="apertura">{p}</p>')
+        elif p.startswith("—"):
+            html_parts.append(f'<p class="cita">{p}</p>')
+        else:
+            html_parts.append(f"<p>{p}</p>")
+    return "\n".join(html_parts)
+
+
+def _inicial(nombre: str) -> str:
+    return nombre.strip()[0].upper() if nombre.strip() else "?"
+
+
+# ─── SVG del árbol creciente ─────────────────────────────────────────────────
+
+def _build_family_graph(personas: list[str], relaciones: list[dict]):
+    norm_map = {_norm(p): p for p in personas}
+    bare_map = {_norm_bare(p): p for p in personas}
+    first_norm_map: dict[str, str] = {}
+    first_bare_map: dict[str, str] = {}
+    for p in personas:
+        fn = _norm(p).split()[0]
+        if fn not in first_norm_map:
+            first_norm_map[fn] = p
+        fb = _norm_bare(p).split()[0]
+        if fb not in first_bare_map:
+            first_bare_map[fb] = p
+
+    def _resolve(name: str) -> str | None:
+        n = _norm(name)
+        if n in norm_map:
+            return norm_map[n]
+        b = _norm_bare(name)
+        if b in bare_map:
+            return bare_map[b]
+        fn = n.split()[0] if n else ""
+        if fn in first_norm_map:
+            return first_norm_map[fn]
+        fb = b.split()[0] if b else ""
+        return first_bare_map.get(fb)
+
+    couples: list[tuple[str, str]] = []
+    parents_of: dict[str, list[str]] = {p: [] for p in personas}
+
+    for r in relaciones:
+        a = _resolve(r["persona_a"])
+        b = _resolve(r["persona_b"])
+        if a is None or b is None:
+            continue
+        rel = r["relacion"]
+        if rel in ("cónyuge", "conyuge"):
+            if (a, b) not in couples and (b, a) not in couples:
+                couples.append((a, b))
+        elif rel in ("padre", "madre"):
+            if a not in parents_of[b]:
+                parents_of[b].append(a)
+    return couples, parents_of
+
+
+def _assign_generations(personas: list[str], parents_of: dict) -> dict:
+    gens: dict[str, int] = {}
+    for p in personas:
+        if not parents_of.get(p):
+            gens[p] = 0
+    changed = True
+    while changed:
+        changed = False
+        for p in personas:
+            if p in gens:
+                continue
+            pars = parents_of.get(p, [])
+            if pars and all(pp in gens for pp in pars):
+                gens[p] = max(gens[pp] for pp in pars) + 1
+                changed = True
+    for p in personas:
+        if p not in gens:
+            gens[p] = 0
+    return gens
+
+
+def _build_tree_svg(
+    all_personas: list[str],
+    visible_up_to_idx: int,
+    current_nombre: str,
+    relaciones: list[dict],
+    width: int = 240,
+    height: int = 280,
+) -> str:
+    visible = all_personas[: visible_up_to_idx + 1]
+    couples, parents_of = _build_family_graph(visible, relaciones)
+    gens = _assign_generations(visible, parents_of)
+
+    max_gen = max(gens.values()) if gens else 0
+    gen_groups: dict[int, list[str]] = {}
+    for p, g in gens.items():
+        gen_groups.setdefault(g, []).append(p)
+    for g in gen_groups:
+        gen_groups[g].sort(key=lambda p: all_personas.index(p) if p in all_personas else 0)
+
+    pad_x = 28
+    node_bottom = int(height * 0.62)
+    node_top = int(height * 0.22)
+    usable_h = node_bottom - node_top
+
+    gen_y: dict[int, int] = {}
+    for g in range(max_gen + 1):
+        ratio = g / max(max_gen, 1) if max_gen > 0 else 0
+        gen_y[g] = node_bottom - int(ratio * usable_h)
+
+    node_pos: dict[str, tuple[float, float]] = {}
+    for g, members in gen_groups.items():
+        n = len(members)
+        for i, p in enumerate(members):
+            x = pad_x + (i + 0.5) * (width - 2 * pad_x) / n
+            node_pos[p] = (x, gen_y[g])
+
+    elements = []
+
+    trunk_x = width // 2
+    oldest_y = max(y for _, y in node_pos.values()) if node_pos else node_bottom
+    trunk_top = oldest_y + 36
+    trunk_bot = height + 10
+    elements.append(
+        f'<path d="M{trunk_x} {trunk_bot} Q{trunk_x} {trunk_top + 20} {trunk_x} {trunk_top}" '
+        f'stroke="{COLOR_RAMA}" stroke-width="3" fill="none" stroke-linecap="round"/>'
+    )
+
+    for p, (x, y) in node_pos.items():
+        opacity = "1" if p == current_nombre else "0.55"
+        pars = parents_of.get(p, [])
+        par_positions = [node_pos[par] for par in pars if par in node_pos]
+        if par_positions:
+            origin_x = sum(pos[0] for pos in par_positions) / len(par_positions)
+            origin_y = sum(pos[1] for pos in par_positions) / len(par_positions)
+        else:
+            origin_x = float(trunk_x)
+            origin_y = float(trunk_top)
+        ctrl_x = (origin_x + x) / 2
+        ctrl_y = (origin_y + y) / 2
+        elements.append(
+            f'<path d="M{origin_x:.1f} {origin_y:.1f} Q{ctrl_x:.1f} {ctrl_y:.1f} {x:.1f} {y + 32:.1f}" '
+            f'stroke="{COLOR_RAMA}" stroke-width="2" fill="none" stroke-linecap="round" opacity="{opacity}"/>'
+        )
+
+    for (a, b) in couples:
+        if a in node_pos and b in node_pos:
+            ax, ay = node_pos[a]
+            bx, by = node_pos[b]
+            mx, my = (ax + bx) / 2, (ay + by) / 2
+            elements.append(
+                f'<path d="M{ax} {ay} Q{mx} {my - 8} {bx} {by}" '
+                f'stroke="{COLOR_ACENTO}" stroke-width="1" fill="none" stroke-dasharray="3,3" opacity="0.7"/>'
+            )
+
+    import random
+    rng = random.Random(42)
+    for p, (x, y) in node_pos.items():
+        for _ in range(3):
+            lx = x + rng.uniform(-28, 28)
+            ly = y - rng.uniform(10, 40)
+            rx, ry = rng.uniform(6, 10), rng.uniform(3, 6)
+            angle = rng.uniform(-40, 40)
+            col = rng.choice([COLOR_HOJA, COLOR_HOJA2, COLOR_HOJA3])
+            op = 0.75 if p == current_nombre else 0.45
+            elements.append(
+                f'<ellipse cx="{lx:.1f}" cy="{ly:.1f}" rx="{rx:.1f}" ry="{ry:.1f}" '
+                f'fill="{col}" opacity="{op}" transform="rotate({angle:.0f} {lx:.1f} {ly:.1f})"/>'
+            )
+
+    for p, (x, y) in node_pos.items():
+        is_current = p == current_nombre
+        r_outer = 34 if is_current else 28
+        r_inner = 30 if is_current else 24
+        stroke_w = "3" if is_current else "1.5"
+        stroke_col = COLOR_RAMA if is_current else "#B5A090"
+        fill_inner = "#F0EBE3" if is_current else COLOR_FONDO
+        text_col = COLOR_RAMA if is_current else "#B5A090"
+        font_size = 26 if is_current else 20
+        name_col = "#5C4A3A" if is_current else "#9A8878"
+        first_name = p.split()[0]
+        elements.append(
+            f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{r_outer}" '
+            f'fill="{COLOR_FONDO}" stroke="{stroke_col}" stroke-width="{stroke_w}"/>'
+        )
+        elements.append(
+            f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{r_inner}" fill="{fill_inner}" stroke="none"/>'
+        )
+        elements.append(
+            f'<text x="{x:.1f}" y="{y + 8:.1f}" text-anchor="middle" '
+            f'font-family="Georgia, serif" font-style="italic" font-size="{font_size}" '
+            f'fill="{text_col}">{_inicial(p)}</text>'
+        )
+        elements.append(
+            f'<text x="{x:.1f}" y="{y + r_outer + 14:.1f}" text-anchor="middle" '
+            f'font-family="Georgia, serif" font-size="8.5" fill="{name_col}" '
+            f'letter-spacing="0.05em">{first_name}</text>'
+        )
+
+    return (
+        f'<svg width="{width}" height="{height}" viewBox="0 0 {width} {height}" '
+        f'xmlns="http://www.w3.org/2000/svg">\n'
+        + "\n".join(elements)
+        + "\n</svg>"
+    )
+
+
+# ─── Foto / placeholder ───────────────────────────────────────────────────────
+
+def _foto_tag(foto_path: str | None, nombre: str) -> str:
     if foto_path and os.path.exists(foto_path):
-        return f'<img class="foto-capitulo" src="file://{foto_path}" alt="foto"/>'
-    return ""
+        return f'<img class="foto-capitulo" src="file://{foto_path}" alt="foto de {nombre}"/>'
+    return f'<div class="foto-placeholder">{_inicial(nombre)}</div>'
+
+
+# ─── HTML principal ───────────────────────────────────────────────────────────
+
+def _sort_fecha(fecha: str) -> str:
+    m = re.match(r"(\d{1,2})[-/](\d{1,2})[-/](\d{4})", fecha)
+    if m:
+        return f"{m.group(3)}-{m.group(2).zfill(2)}-{m.group(1).zfill(2)}"
+    return fecha
 
 
 def _build_html(
@@ -189,10 +461,10 @@ def _build_html(
     nombre_familia: str,
     fotos: dict[str, str],
     personas_meta: list[dict],
+    relaciones: list[dict],
 ) -> str:
     partes = []
 
-    # ── Tapa ──
     partes.append(f"""
 <div class="cover page-break">
   <div class="cover-linea"></div>
@@ -200,119 +472,92 @@ def _build_html(
   <div class="cover-subtitulo">Memorias · {datetime.now().year}</div>
 </div>
 """)
-
-    # ── Página blanca ──
     partes.append('<div class="page-break"></div>')
 
-    # ── Prólogo ──
     partes.append(f"""
 <div class="page-break-before">
-  <div class="seccion-header">
-    <h2>Prólogo</h2>
-  </div>
+  <div class="seccion-header"><h2>Prólogo</h2></div>
   {_texto_a_html(manuscript.prologo)}
 </div>
 """)
 
-    # ── Capítulos + Transiciones ──
-    for i, nombre in enumerate(manuscript.orden):
+    orden = manuscript.orden
+    for i, nombre in enumerate(orden):
         capitulo = manuscript.capitulos.get(nombre, "")
         if not capitulo:
             continue
 
-        foto_tag = _foto_tag(fotos.get(nombre))
-
+        svg = _build_tree_svg(orden, i, nombre, relaciones)
+        first_name = nombre.split()[0]
         partes.append(f"""
-<div class="page-break-before">
-  {foto_tag}
-  <div class="seccion-header">
-    <h3>{nombre}</h3>
-  </div>
-  {_texto_a_html(capitulo)}
+<div class="arbol-pagina page-break-before page-break">
+  <div class="cap-numero">Capítulo {i + 1}</div>
+  <h3 style="margin-bottom: 8mm; text-align:center">{first_name}</h3>
+  {svg}
 </div>
 """)
 
-        # Transición hacia el siguiente
-        if i < len(manuscript.orden) - 1:
-            siguiente = manuscript.orden[i + 1]
-            key = f"{nombre}→{siguiente}"
-            trans = manuscript.transiciones.get(key, "")
+        foto = _foto_tag(fotos.get(nombre), nombre)
+        partes.append(f"""
+<div class="page-break-before">
+  {foto}
+  {_texto_a_html_con_apertura(capitulo)}
+</div>
+""")
+
+        if i < len(orden) - 1:
+            siguiente = orden[i + 1]
+            trans = manuscript.transiciones.get(f"{nombre}→{siguiente}", "")
             if trans:
                 partes.append(f'<div class="transicion">{_texto_a_html(trans)}</div>')
 
-    # ── Epílogo ──
     partes.append(f"""
 <div class="page-break-before">
-  <div class="seccion-header">
-    <h2>Epílogo</h2>
-  </div>
+  <div class="seccion-header"><h2>Epílogo</h2></div>
   {_texto_a_html(manuscript.epilogo)}
 </div>
 """)
 
-    # ── Timeline / árbol ──
-    integrantes = personas_meta  # may include rol, fecha_fallec from familia sheet
     personas_con_fecha = sorted(
-        [p for p in integrantes if p.get("fecha_nac")],
+        [p for p in personas_meta if p.get("fecha_nac")],
         key=lambda p: _sort_fecha(p.get("fecha_nac", "")),
     )
-
     if personas_con_fecha:
-        timeline_items = []
+        items = []
         for p in personas_con_fecha:
             nombre_p = p["nombre"]
-            fecha_nac = p.get("fecha_nac", "")
-            fecha_fallec = p.get("fecha_fallec", "")
-            rol = p.get("rol", "")
-            vive = p.get("vive", True)
-
-            fechas = fecha_nac
-            if fecha_fallec:
-                fechas += f" – {fecha_fallec}"
-            elif not vive:
+            fechas = p.get("fecha_nac", "")
+            fd = p.get("fecha_fallec", "")
+            if fd:
+                fechas += f" – {fd}"
+            elif not p.get("vive", True):
                 fechas += " – †"
-
+            rol = p.get("rol", "")
             rol_tag = f'<span style="color:{COLOR_ACENTO};font-size:8pt;margin-left:4mm">{rol}</span>' if rol else ""
             en_libro = "●" if nombre_p in manuscript.orden else "○"
-
-            timeline_items.append(f"""<div class="timeline-item">
+            items.append(f"""<div class="timeline-item">
   <div class="timeline-fecha">{fechas}</div>
   <div class="timeline-nombre">{en_libro} {nombre_p} {rol_tag}</div>
 </div>""")
 
         partes.append(f"""
 <div class="page-break-before">
-  <div class="seccion-header">
-    <h2>Cronología</h2>
-  </div>
+  <div class="seccion-header"><h2>Cronología</h2></div>
   <p style="font-size:8.5pt;color:{COLOR_ACENTO};margin-bottom:5mm">
     ● incluido en el libro &nbsp;&nbsp; ○ integrante de la familia
   </p>
-  {"".join(timeline_items)}
+  {"".join(items)}
 </div>
 """)
 
     body = "\n".join(partes)
     return f"""<!DOCTYPE html>
 <html lang="es">
-<head>
-<meta charset="UTF-8"/>
-<style>
-{CSS_BASE}
-</style>
+<head><meta charset="UTF-8"/>
+<style>{CSS_BASE}</style>
 </head>
-<body>
-{body}
-</body>
+<body>{body}</body>
 </html>"""
-
-
-def _sort_fecha(fecha: str) -> str:
-    """Convert dd-mm-aaaa or dd/mm/aaaa to aaaa-mm-dd for sorting."""
-    m = re.match(r"(\d{1,2})[-/](\d{1,2})[-/](\d{4})", fecha)
-    if m:
-        return f"{m.group(3)}-{m.group(2).zfill(2)}-{m.group(1).zfill(2)}"
-    return fecha
 
 
 def run(
@@ -321,29 +566,24 @@ def run(
     nombre_familia: str = "Familia Mariño · Saraniti",
     output_path: str | None = None,
     todos_integrantes: list[dict] | None = None,
+    relaciones: list[dict] | None = None,
 ) -> str:
-    """
-    Genera el PDF y devuelve su path.
-    personas_meta: list of {nombre, fecha_nac, rol, fecha_fallec, vive} — los que tienen capítulo
-    todos_integrantes: full familia list for the timeline (includes people without chapters)
-    """
-    # Descargar fotos a /tmp/
     fotos: dict[str, str] = {}
     for p in personas_meta:
         nombre = p["nombre"]
         try:
             foto_url = fstore.get_foto_url(nombre)
             if foto_url:
-                ext = ".jpg"
-                dest = f"/tmp/foto_{re.sub(r'[^a-zA-Z0-9]', '_', nombre)}{ext}"
+                dest = f"/tmp/foto_{re.sub(r'[^a-zA-Z0-9]', '_', nombre)}.jpg"
                 storage.download_file(foto_url, dest)
                 fotos[nombre] = dest
         except Exception as e:
             print(f"[layout] No se pudo descargar foto de {nombre}: {e}")
 
-    # Use full integrantes list for timeline if available, else fall back to personas_meta
     timeline_personas = todos_integrantes if todos_integrantes else personas_meta
-    html_content = _build_html(manuscript, nombre_familia, fotos, timeline_personas)
+    html_content = _build_html(
+        manuscript, nombre_familia, fotos, timeline_personas, relaciones or []
+    )
 
     if output_path is None:
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -353,5 +593,4 @@ def run(
         output_path,
         stylesheets=[CSS(string=CSS_BASE)],
     )
-
     return output_path
