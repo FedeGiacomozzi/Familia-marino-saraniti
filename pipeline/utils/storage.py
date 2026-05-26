@@ -68,8 +68,9 @@ def upload_libro(local_path: str, familia_id: str, filename: str) -> str:
     return f"gs://{BUCKET_LIBROS}/{blob_name}"
 
 
-def get_signed_url(gcs_path: str, expiration_days: int = 30) -> str:
-    """Generate a signed URL valid for expiration_days."""
+def get_signed_url(gcs_path: str, expiration_days: int = 7) -> str:
+    """Generate a signed URL. Max 7 days with SA credentials."""
+    expiration_days = min(expiration_days, 7)
     bucket_name, blob_name = _parse_gcs_path(gcs_path)
     client = _get_client()
     bucket = client.bucket(bucket_name)
