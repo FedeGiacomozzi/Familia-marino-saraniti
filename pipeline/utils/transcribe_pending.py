@@ -152,7 +152,7 @@ def transcribe_pending():
         raise RuntimeError(
             "OPENAI_API_KEY environment variable is required.\n"
             "Example:\n"
-            "  OPENAI_API_KEY=OGVHLDdf8Rt0ig2AYAgemMK-1kS2SPCgqLMQyQ1xPj8KFwRz7Y-dAFb8ezYtUWlf_-QtIBXOlhT3BlbkFJlkYj41XFVlDZBUEkvyzQqZDC9nUkaSoIPnpc8oxzYQ0qQ1qn0tdYYRF3t6mKjVetEnsLGSkLMA "
+            "  OPENAI_API_KEY=sk-proj-... "
             "python pipeline/utils/transcribe_pending.py"
         )
     openai_client = OpenAI(api_key=api_key)
