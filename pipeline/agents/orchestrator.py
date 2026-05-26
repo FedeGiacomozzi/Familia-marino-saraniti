@@ -92,11 +92,13 @@ def run(
     if solo_desde and solo_desde in STEPS:
         start_idx = STEPS.index(solo_desde)
 
-    # ── Cargar datos de familia ───────────────────────────────────────────────
+    # ── Cargar datos de familia (Firestore como fuente principal) ────────────
     try:
-        integrantes = sheets.get_familia_integrantes()
-        relaciones = sheets.get_familia_relaciones()
-        fallecidos = sheets.get_fallecidos(integrantes)
+        integrantes = fstore.get_familia_integrantes()
+        relaciones = fstore.get_familia_relaciones()
+        if not relaciones:
+            relaciones = sheets.get_familia_relaciones()
+        fallecidos = [p for p in integrantes if not p.get("vive", True)]
     except Exception as e:
         print(f"[orchestrator] Advertencia: no se pudieron cargar datos de familia: {e}")
         integrantes, relaciones, fallecidos = [], [], []

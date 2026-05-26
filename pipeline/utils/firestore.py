@@ -178,6 +178,45 @@ def get_profile(nombre: str, familia_id: str = FAMILIA_ID) -> dict | None:
     }
 
 
+# ─── Actualizar campos de integrante ─────────────────────────────────────────
+
+def update_integrante_fields(nombre: str, fields: dict, familia_id: str = FAMILIA_ID):
+    """Merge arbitrary fields into an integrante document. Creates doc if missing."""
+    _, ref = _find_integrante(nombre, familia_id)
+    if not ref:
+        db = _get_db()
+        ref = (
+            db.collection("familias")
+            .document(familia_id)
+            .collection("integrantes")
+            .document()
+        )
+        fields = {"nombre": nombre, **fields}
+    ref.set(fields, merge=True)
+
+
+# ─── Relaciones ───────────────────────────────────────────────────────────────
+
+def get_familia_relaciones(familia_id: str = FAMILIA_ID) -> list[dict]:
+    """Returns [{persona_a, relacion, persona_b}] from Firestore."""
+    db = _get_db()
+    docs = (
+        db.collection("familias")
+        .document(familia_id)
+        .collection("relaciones")
+        .stream()
+    )
+    result = []
+    for doc in docs:
+        d = doc.to_dict()
+        a = d.get("persona_a", "")
+        rel = d.get("relacion", "")
+        b = d.get("persona_b", "")
+        if a and rel and b:
+            result.append({"persona_a": a, "relacion": rel, "persona_b": b})
+    return result
+
+
 # ─── Capítulo (chapter_agent) ────────────────────────────────────────────────
 
 def save_chapter(

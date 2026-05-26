@@ -32,7 +32,25 @@ def health():
 def debug_integrantes():
     """Lista los nombres exactos de integrantes en Firestore (para diagnóstico)."""
     integrantes = fstore.get_familia_integrantes()
-    return {"count": len(integrantes), "nombres": [i["nombre"] for i in integrantes]}
+    return {"count": len(integrantes), "integrantes": integrantes}
+
+
+class IntegranteUpdate(BaseModel):
+    nombre: str
+    fecha_nac: str | None = None
+    fecha_fallec: str | None = None
+    rol: str | None = None
+    es_menor: bool | None = None
+
+
+@app.post("/update/integrante")
+def update_integrante(req: IntegranteUpdate):
+    """Actualiza campos de un integrante en Firestore (fecha_nac, rol, etc.)."""
+    fields = {k: v for k, v in req.model_dump().items() if k != "nombre" and v is not None}
+    if not fields:
+        raise HTTPException(status_code=400, detail="No hay campos para actualizar")
+    fstore.update_integrante_fields(req.nombre, fields)
+    return {"ok": True, "nombre": req.nombre, "fields": fields}
 
 
 @app.get("/libro/{familia_id}")
