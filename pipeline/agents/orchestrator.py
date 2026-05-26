@@ -14,6 +14,7 @@ from pipeline.agents import (
 from pipeline.agents.editor_agent import BookManuscript
 from pipeline.utils import firestore as fstore
 from pipeline.utils import sheets
+from pipeline.utils import storage
 
 STEPS = ["transcriber", "voice", "chapters", "editor", "layout"]
 
@@ -238,9 +239,10 @@ def run(
             if upload_to_drive and pdf_path:
                 import os
                 filename = os.path.basename(pdf_path)
-                drive_url = sheets.upload_to_drive(pdf_path, filename, "application/pdf")
-                print(f"  → Subido a Drive: {drive_url}")
-                result.layout = drive_url
+                gcs_path = storage.upload_libro(pdf_path, "marino-saraniti", filename)
+                signed_url = storage.get_signed_url(gcs_path, expiration_days=30)
+                print(f"  → Subido a GCS: {gcs_path}")
+                result.layout = signed_url
 
         except Exception as e:
             result.errores.append(f"layout_agent: {e}")
