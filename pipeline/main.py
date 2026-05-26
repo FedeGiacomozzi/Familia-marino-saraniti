@@ -5,19 +5,32 @@ All heavy work happens in the agent modules.
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+import subprocess
 
 from pipeline.agents import orchestrator, transcriber, voice_agent, chapter_agent, layout_agent
 from pipeline.agents.editor_agent import BookManuscript
 from pipeline.utils import sheets
+from pipeline.utils import firestore as fstore
 
 app = FastAPI(title="Familia Libro Pipeline", version="1.0")
 
 
-# ─── Health ───────────────────────────────────────────────────────────────────
+# ─── Health + version ────────────────────────────────────────────────────────
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    try:
+        commit = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], text=True).strip()
+    except Exception:
+        commit = "unknown"
+    return {"status": "ok", "commit": commit}
+
+
+@app.get("/debug/integrantes")
+def debug_integrantes():
+    """Lista los nombres exactos de integrantes en Firestore (para diagnóstico)."""
+    integrantes = fstore.get_familia_integrantes()
+    return {"count": len(integrantes), "nombres": [i["nombre"] for i in integrantes]}
 
 
 # ─── Full pipeline ────────────────────────────────────────────────────────────

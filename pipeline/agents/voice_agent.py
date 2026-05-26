@@ -43,10 +43,27 @@ Solo JSON. Sin explicaciones. Sin markdown.
 
 def _parse_json_response(text: str) -> dict:
     text = text.strip()
-    # Strip markdown code fences if present
     text = re.sub(r"^```(?:json)?\s*", "", text)
     text = re.sub(r"\s*```$", "", text)
-    return json.loads(text)
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        # Fallback: extract the fields we actually need, skip citas_directas
+        # (citas often contain unescaped quotes that break JSON parsing)
+        result: dict = {"citas_directas": []}
+        for field in ("muletillas", "frases_propias", "detalles_sensoriales"):
+            m = re.search(rf'"{field}"\s*:\s*(\[.*?\])', text, re.DOTALL)
+            if m:
+                try:
+                    result[field] = json.loads(m.group(1))
+                except Exception:
+                    result[field] = []
+            else:
+                result[field] = []
+        for field in ("registro", "tono"):
+            m = re.search(rf'"{field}"\s*:\s*"((?:[^"\\]|\\.)*)"', text)
+            result[field] = m.group(1) if m else ""
+        return result
 
 
 def _analyze_persona(client: anthropic.Anthropic, nombre: str) -> dict:
