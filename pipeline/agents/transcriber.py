@@ -72,13 +72,15 @@ def run(row_indices: list[int], pais: str = "argentina") -> dict:
     """
     Transcribe audio for the given sheet row indices (1-based, skipping header).
     Updates col F (Transcripción) in the Sheet for each row.
-    Returns {"procesadas": N, "errores": M}.
+    Idempotent: rows that already have a transcription in col F are skipped.
+    Returns {"procesadas": N, "omitidas": K, "errores": M}.
     """
     client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
     prompt = _get_prompt(pais)
 
     all_rows = sheets.get_all_rows()
     procesadas = 0
+    omitidas = 0
     errores = 0
 
     for row_idx in row_indices:
@@ -89,6 +91,13 @@ def run(row_indices: list[int], pais: str = "argentina") -> dict:
 
             if not audio_url:
                 errores += 1
+                continue
+
+            # Skip if transcription already exists — prevents duplicate Whisper calls
+            existing = row[sheets.COL_TRANSCRIPCION - 1].strip() if len(row) >= sheets.COL_TRANSCRIPCION else ""
+            if existing:
+                print(f"[transcriber] Fila {row_idx}: ya transcripta, skip.")
+                omitidas += 1
                 continue
 
             with tempfile.NamedTemporaryFile(suffix=".webm", delete=False) as tmp:
@@ -117,4 +126,4 @@ def run(row_indices: list[int], pais: str = "argentina") -> dict:
             print(f"[transcriber] Error en fila {row_idx}: {e}")
             errores += 1
 
-    return {"procesadas": procesadas, "errores": errores}
+    return {"procesadas": procesadas, "omitidas": omitidas, "errores": errores}
