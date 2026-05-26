@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
 One-shot migration: Drive + Sheets → GCS + Firestore.
-Idempotent: files already in GCS are skipped; Firestore docs use set(merge=True).
-DO NOT run without coordinator confirmation.
-Never modifies Drive or Sheets.
+Idempotent via GCS-first: blob.exists() is checked before any Drive call.
+Drive is only touched when a blob is actually missing from GCS.
+DO NOT run without coordinator confirmation. Never modifies Drive or Sheets.
 
-Al finalizar genera:
-  - migration_report.json  (consola + archivo)
-  - Firestore: reportes/migracion (doc con el mismo JSON)
+Outputs at the end:
+  - migration_report.json
+  - Firestore: reportes/migracion
 """
 import io
 import json
@@ -106,34 +106,32 @@ def _download_bytes(drive_service, file_id: str) -> bytes:
     return buf.getvalue()
 
 
-def _upload_if_missing(
-    gcs: storage.Client,
-    bucket_name: str,
-    blob_name: str,
-    data: bytes,
-    content_type: str,
-) -> bool:
-    blob = gcs.bucket(bucket_name).blob(blob_name)
-    if blob.exists():
-        log.info(f"SKIP (exists) gs://{bucket_name}/{blob_name}")
-        return False
-    blob.upload_from_string(data, content_type=content_type)
-    log.info(f"UPLOADED gs://{bucket_name}/{blob_name}")
-    return True
+def _gcs_upload(gcs: storage.Client, bucket_name: str, blob_name: str, data: bytes, content_type: str) -> str:
+    gcs.bucket(bucket_name).blob(blob_name).upload_from_string(data, content_type=content_type)
+    url = f"gs://{bucket_name}/{blob_name}"
+    log.info(f"UPLOADED {url}")
+    return url
+
+
+def _find_existing_foto(gcs: storage.Client, integrante_id: str) -> str | None:
+    """Return gs:// URL if any foto.* blob exists for this integrante, else None."""
+    prefix = f"{FAMILIA_ID}/{integrante_id}/foto."
+    blobs = list(gcs.bucket(BUCKET_FOTOS).list_blobs(prefix=prefix, max_results=1))
+    if blobs:
+        url = f"gs://{BUCKET_FOTOS}/{blobs[0].name}"
+        log.info(f"SKIP (exists) {url}")
+        return url
+    return None
 
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-# ─── Report builder ───────────────────────────────────────────────────────────
+# ─── Report ───────────────────────────────────────────────────────────────────
 
 
 def _build_report(integrantes: dict) -> dict:
-    """
-    Build the audio transcription report from the in-memory integrantes dict.
-    Each respuesta already has audio_gcs_url populated after migration.
-    """
     con_transcripcion = []
     sin_transcripcion = []
 
@@ -242,7 +240,7 @@ def migrate():
             integrantes[integrante_id]["respuestas"].append({
                 "pregunta_id": _slug(pregunta) if pregunta else f"p{idx}",
                 "audio_url_drive": audio_url,
-                "audio_gcs_url": None,   # populated below
+                "audio_gcs_url": None,
                 "transcripcion": transcripcion,
             })
 
@@ -267,10 +265,13 @@ def migrate():
         nombre = data["nombre"]
         log.info(f"Processing integrante: {nombre}")
 
-        foto_gcs_url = None
-        foto_drive_url = data.get("foto_url_drive", "")
-        if foto_drive_url:
-            file_id = _extract_file_id(foto_drive_url)
+        # Foto — check GCS first, Drive only if missing
+        foto_gcs_url = _find_existing_foto(gcs, integrante_id)
+        if foto_gcs_url:
+            stats["omitidos"] += 1
+        else:
+            foto_drive_url = data.get("foto_url_drive", "")
+            file_id = _extract_file_id(foto_drive_url) if foto_drive_url else None
             if file_id:
                 try:
                     meta = drive.files().get(fileId=file_id, fields="mimeType").execute()
@@ -278,9 +279,8 @@ def migrate():
                     ext = mime.split("/")[-1] if "/" in mime else "jpg"
                     blob_name = f"{FAMILIA_ID}/{integrante_id}/foto.{ext}"
                     foto_bytes = _download_bytes(drive, file_id)
-                    uploaded = _upload_if_missing(gcs, BUCKET_FOTOS, blob_name, foto_bytes, mime)
-                    stats["archivos_migrados" if uploaded else "omitidos"] += 1
-                    foto_gcs_url = f"gs://{BUCKET_FOTOS}/{blob_name}"
+                    foto_gcs_url = _gcs_upload(gcs, BUCKET_FOTOS, blob_name, foto_bytes, mime)
+                    stats["archivos_migrados"] += 1
                 except Exception as exc:
                     log.error(f"ERROR foto {nombre}: {exc}")
                     stats["errores"] += 1
@@ -292,7 +292,7 @@ def migrate():
                 "fecha_nac": data.get("fecha_nac", ""),
                 "token_unico": str(uuid.uuid5(uuid.NAMESPACE_DNS, integrante_id)),
                 "estado": "completado",
-                "foto_url": foto_gcs_url or foto_drive_url,
+                "foto_url": foto_gcs_url or data.get("foto_url_drive", ""),
                 "porcentaje_avance": 100,
                 "es_comprador": False,
             },
@@ -303,29 +303,30 @@ def migrate():
         for resp in data["respuestas"]:
             pregunta_id = resp["pregunta_id"]
             audio_drive_url = resp.get("audio_url_drive", "")
-            audio_gcs_url = None
+            blob_name = f"{FAMILIA_ID}/{integrante_id}/{pregunta_id}"
 
-            if audio_drive_url:
-                file_id = _extract_file_id(audio_drive_url)
+            # Audio — check GCS first; Drive only if blob is missing
+            blob = gcs.bucket(BUCKET_AUDIOS).blob(blob_name)
+            if blob.exists():
+                log.info(f"SKIP (exists) gs://{BUCKET_AUDIOS}/{blob_name}")
+                resp["audio_gcs_url"] = f"gs://{BUCKET_AUDIOS}/{blob_name}"
+                stats["omitidos"] += 1
+            else:
+                file_id = _extract_file_id(audio_drive_url) if audio_drive_url else None
                 if file_id:
                     try:
                         meta = drive.files().get(fileId=file_id, fields="mimeType").execute()
-                        mime = meta.get("mimeType", "audio/mpeg")
-                        blob_name = f"{FAMILIA_ID}/{integrante_id}/{pregunta_id}"
+                        mime = meta.get("mimeType", "audio/webm")
                         audio_bytes = _download_bytes(drive, file_id)
-                        uploaded = _upload_if_missing(gcs, BUCKET_AUDIOS, blob_name, audio_bytes, mime)
-                        stats["archivos_migrados" if uploaded else "omitidos"] += 1
-                        audio_gcs_url = f"gs://{BUCKET_AUDIOS}/{blob_name}"
+                        resp["audio_gcs_url"] = _gcs_upload(gcs, BUCKET_AUDIOS, blob_name, audio_bytes, mime)
+                        stats["archivos_migrados"] += 1
                     except Exception as exc:
                         log.error(f"ERROR audio {pregunta_id} / {nombre}: {exc}")
                         stats["errores"] += 1
 
-            # Store resolved GCS URL back into in-memory dict for the report
-            resp["audio_gcs_url"] = audio_gcs_url
-
             integrante_ref.collection("respuestas").document(pregunta_id).set(
                 {
-                    "audio_url": audio_gcs_url or audio_drive_url,
+                    "audio_url": resp.get("audio_gcs_url") or audio_drive_url,
                     "transcripcion": resp.get("transcripcion", ""),
                     "timestamp": _now_iso(),
                 },
@@ -358,10 +359,17 @@ def migrate():
                 continue
 
             blob_name = f"{FAMILIA_ID}/drive/{file_id}/{name}"
+
+            # GCS-first: skip Drive download entirely if blob already exists
+            if gcs.bucket(bucket).blob(blob_name).exists():
+                log.info(f"SKIP (exists) gs://{bucket}/{blob_name}")
+                stats["omitidos"] += 1
+                continue
+
             try:
                 raw = _download_bytes(drive, file_id)
-                uploaded = _upload_if_missing(gcs, bucket, blob_name, raw, mime)
-                stats["archivos_migrados" if uploaded else "omitidos"] += 1
+                _gcs_upload(gcs, bucket, blob_name, raw, mime)
+                stats["archivos_migrados"] += 1
             except Exception as exc:
                 log.error(f"ERROR Drive file {name}: {exc}")
                 stats["errores"] += 1
@@ -373,20 +381,16 @@ def migrate():
     # ── 5. Build + save report ─────────────────────────────────────────────────
     log.info("Generating audio transcription report...")
     report = _build_report(integrantes)
-
-    # Print to console
     _print_report(report)
 
-    # Save JSON file
     with open(REPORT_FILE, "w", encoding="utf-8") as f:
         json.dump(report, f, ensure_ascii=False, indent=2)
     log.info(f"Report saved to {REPORT_FILE}")
 
-    # Save to Firestore under reportes/migracion
     db.collection("reportes").document("migracion").set(report)
     log.info("Report saved to Firestore: reportes/migracion")
 
-    # ── Migration summary ──────────────────────────────────────────────────────
+    # ── Summary ───────────────────────────────────────────────────────────────
     summary = (
         f"\n{'='*60}\n"
         f"RESUMEN DE MIGRACIÓN\n"
