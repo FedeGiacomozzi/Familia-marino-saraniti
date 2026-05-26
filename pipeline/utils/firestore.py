@@ -5,6 +5,7 @@ Reemplaza la lectura de datos de pipeline desde sheets.py.
 
 import json
 import os
+import unicodedata
 
 from google.cloud import firestore
 from google.oauth2 import service_account
@@ -31,15 +32,33 @@ def _get_db() -> firestore.Client:
     return _db_instance
 
 
+def _normalize(s: str) -> str:
+    """Lowercase + strip accents for fuzzy name matching."""
+    return "".join(
+        c for c in unicodedata.normalize("NFD", s.lower())
+        if unicodedata.category(c) != "Mn"
+    ).strip()
+
+
 def _find_integrante(nombre: str, familia_id: str = FAMILIA_ID):
-    """Returns (data_dict, doc_ref) or (None, None)."""
+    """Returns (data_dict, doc_ref) or (None, None). Tolerates accent/case differences."""
     db = _get_db()
     col = db.collection("familias").document(familia_id).collection("integrantes")
+
+    # Try exact match first (fast)
     docs = list(col.where("nombre", "==", nombre).limit(1).stream())
-    if not docs:
-        return None, None
-    doc = docs[0]
-    return doc.to_dict(), col.document(doc.id)
+    if docs:
+        doc = docs[0]
+        return doc.to_dict(), col.document(doc.id)
+
+    # Fallback: client-side fuzzy match (accent + case insensitive)
+    nombre_norm = _normalize(nombre)
+    for doc in col.stream():
+        d = doc.to_dict()
+        if _normalize(d.get("nombre", "")) == nombre_norm:
+            return d, col.document(doc.id)
+
+    return None, None
 
 
 # ─── Lectura de transcripciones ──────────────────────────────────────────────
