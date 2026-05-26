@@ -1,11 +1,14 @@
 // Google Apps Script — Receptor de audio y fotos
 // Sheet: "Respuestas"  |  Drive folder: 1rZmvh5WC9KEPSQ99AtC3ZvJkJRKJp6L3
 // Columnas: A=Fecha/hora  B=Nombre  C=FechaNac  D=Nº pregunta  E=Link Audio  F=Transcripción  G=Fotografía
+//
+// Configuración requerida (correr una sola vez desde el editor):
+//   configurar("https://TU_CLOUD_RUN_URL", "marino-saraniti")
 
-var SHEET_ID        = '1A1M79ITLeRVWkwct7pqjUTmLu9NWXn9uDLpKWMMomgM';
-var SHEET_NAME      = 'Respuestas';
-var FOLDER_ID       = '1rZmvh5WC9KEPSQ99AtC3ZvJkJRKJp6L3';  // audios
-var PHOTOS_FOLDER_ID = '1MGjJCL3gE1ljT9r8qbdR-f_c1BWUC_JC'; // fotos
+var SHEET_ID         = '1A1M79ITLeRVWkwct7pqjUTmLu9NWXn9uDLpKWMMomgM';
+var SHEET_NAME       = 'Respuestas';
+var FOLDER_ID        = '1rZmvh5WC9KEPSQ99AtC3ZvJkJRKJp6L3';
+var PHOTOS_FOLDER_ID = '1MGjJCL3gE1ljT9r8qbdR-f_c1BWUC_JC';
 
 function buildResponse(obj) {
   return ContentService
@@ -32,12 +35,10 @@ function doPost(e) {
       return buildResponse({ ok: true, msg: 'ping recibido', ts: new Date().toISOString() });
     }
 
-    // ── Foto ──────────────────────────────────────────────────────────────────
     if (data.tipo === 'foto') {
       return _guardarFoto(data);
     }
 
-    // ── Audio ─────────────────────────────────────────────────────────────────
     return _guardarAudio(data);
 
   } catch (err) {
@@ -75,6 +76,15 @@ function _guardarAudio(data) {
   var ts    = _now();
   sheet.appendRow([ts, persona, fechaNac, pregunta, fileUrl, '', '']);
 
+  // ── Notificar a Cloud Run para que guarde en GCS + Firestore ─────────────
+  _notificarCloudRun('/ingest-audio', {
+    nombre:      persona,
+    fecha_nac:   fechaNac,
+    pregunta_id: String(pregunta),
+    drive_url:   fileUrl,
+    mime_type:   mime
+  });
+
   Logger.log('Audio guardado: ' + fileUrl);
   return buildResponse({ ok: true, fileUrl: fileUrl, ts: ts });
 }
@@ -102,12 +112,9 @@ function _guardarFoto(data) {
   try { file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch(ex) {}
   var fileUrl = file.getUrl();
 
-  // Buscar fila existente para esta persona y actualizar col G,
-  // o agregar una fila placeholder si no existe ninguna.
-  var sheet    = _getOrCreateSheet();
-  var data_    = sheet.getDataRange().getValues();
-  var updated  = false;
-
+  var sheet   = _getOrCreateSheet();
+  var data_   = sheet.getDataRange().getValues();
+  var updated = false;
   for (var i = 1; i < data_.length; i++) {
     if ((data_[i][1] || '').toString().trim().toLowerCase() === persona.trim().toLowerCase()) {
       sheet.getRange(i + 1, 7).setValue(fileUrl);
@@ -115,14 +122,46 @@ function _guardarFoto(data) {
       break;
     }
   }
-
   if (!updated) {
-    var ts = _now();
-    sheet.appendRow([ts, persona, '', '', '', '', fileUrl]);
+    sheet.appendRow([_now(), persona, '', '', '', '', fileUrl]);
   }
+
+  // ── Notificar a Cloud Run ─────────────────────────────────────────────────
+  _notificarCloudRun('/ingest-foto', {
+    nombre:    persona,
+    drive_url: fileUrl,
+    mime_type: mime
+  });
 
   Logger.log('Foto guardada: ' + fileUrl);
   return buildResponse({ ok: true, fileUrl: fileUrl });
+}
+
+// ── Cloud Run notify (fire-and-forget, no bloquea si falla) ──────────────────
+
+function _notificarCloudRun(path, payload) {
+  try {
+    var props      = PropertiesService.getScriptProperties();
+    var baseUrl    = props.getProperty('CLOUD_RUN_URL');
+    var familiaId  = props.getProperty('FAMILIA_ID') || 'marino-saraniti';
+
+    if (!baseUrl) {
+      Logger.log('CLOUD_RUN_URL no configurado — skip Firestore/GCS sync');
+      return;
+    }
+
+    payload.familia_id = familiaId;
+
+    UrlFetchApp.fetch(baseUrl + path, {
+      method:             'post',
+      contentType:        'application/json',
+      payload:            JSON.stringify(payload),
+      muteHttpExceptions: true,
+      followRedirects:    true
+    });
+  } catch (ex) {
+    Logger.log('Cloud Run notify error (no bloquea): ' + ex);
+  }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -143,6 +182,16 @@ function _sanitize(name) {
 
 function _now() {
   return Utilities.formatDate(new Date(), 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy HH:mm:ss');
+}
+
+// ── Configuración (correr UNA vez desde el editor tras el deploy) ─────────────
+// Ejemplo: configurar("https://familia-pipeline-xxxx-uc.a.run.app", "marino-saraniti")
+
+function configurar(cloudRunUrl, familiaId) {
+  var props = PropertiesService.getScriptProperties();
+  props.setProperty('CLOUD_RUN_URL', cloudRunUrl);
+  props.setProperty('FAMILIA_ID',    familiaId || 'marino-saraniti');
+  Logger.log('Configurado: CLOUD_RUN_URL=' + cloudRunUrl + '  FAMILIA_ID=' + (familiaId || 'marino-saraniti'));
 }
 
 // ── Tests manuales ────────────────────────────────────────────────────────────
@@ -190,4 +239,12 @@ function testFoto() {
   };
   var result = doPost(fakeEvent);
   Logger.log('testFoto result: ' + result.getContent());
+}
+
+function testCloudRun() {
+  var props   = PropertiesService.getScriptProperties();
+  var baseUrl = props.getProperty('CLOUD_RUN_URL');
+  if (!baseUrl) { Logger.log('CLOUD_RUN_URL no configurado'); return; }
+  var resp = UrlFetchApp.fetch(baseUrl + '/health', { muteHttpExceptions: true });
+  Logger.log('Cloud Run health: ' + resp.getContentText());
 }
