@@ -103,7 +103,7 @@ def generar_capitulo(client: anthropic.Anthropic, persona: dict) -> str:
 
     message = client.messages.create(
         model=MODEL,
-        max_tokens=5000,
+        max_tokens=16000,
         system=_SYSTEM,
         messages=[{"role": "user", "content": prompt}],
     )

@@ -82,7 +82,7 @@ Solo JSON. Sin markdown.
 
     message = client.messages.create(
         model=MODEL,
-        max_tokens=1024,
+        max_tokens=4096,
         system=_SYSTEM_EDITOR,
         messages=[{"role": "user", "content": prompt}],
     )
@@ -132,7 +132,7 @@ Solo el texto de la transición. Sin títulos ni notas.
 
     message = client.messages.create(
         model=MODEL,
-        max_tokens=512,
+        max_tokens=2048,
         system=_SYSTEM_EDITOR,
         messages=[{"role": "user", "content": prompt}],
     )
@@ -269,7 +269,7 @@ Solo el texto del epílogo.
 
     prologo_msg = client.messages.create(
         model=MODEL,
-        max_tokens=1024,
+        max_tokens=4096,
         system=_SYSTEM_EDITOR,
         messages=[{"role": "user", "content": prologo_prompt}],
     )
@@ -277,7 +277,7 @@ Solo el texto del epílogo.
 
     epilogo_msg = client.messages.create(
         model=MODEL,
-        max_tokens=1024,
+        max_tokens=4096,
         system=_SYSTEM_EDITOR,
         messages=[{"role": "user", "content": epilogo_prompt}],
     )
