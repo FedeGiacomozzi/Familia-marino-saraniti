@@ -12,7 +12,8 @@ from pathlib import Path
 from weasyprint import HTML, CSS
 
 from pipeline.agents.editor_agent import BookManuscript
-from pipeline.utils import sheets
+from pipeline.utils import firestore as fstore
+from pipeline.utils import storage
 
 # ─── Paleta y tipografía ──────────────────────────────────────────────────────
 COLOR_FONDO = "#FAF8F5"
@@ -331,11 +332,11 @@ def run(
     for p in personas_meta:
         nombre = p["nombre"]
         try:
-            foto_url = sheets.get_foto_url(nombre)
+            foto_url = fstore.get_foto_url(nombre)
             if foto_url:
                 ext = ".jpg"
                 dest = f"/tmp/foto_{re.sub(r'[^a-zA-Z0-9]', '_', nombre)}{ext}"
-                sheets.download_drive_file(foto_url, dest)
+                storage.download_file(foto_url, dest)
                 fotos[nombre] = dest
         except Exception as e:
             print(f"[layout] No se pudo descargar foto de {nombre}: {e}")

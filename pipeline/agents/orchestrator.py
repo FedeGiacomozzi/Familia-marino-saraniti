@@ -12,6 +12,7 @@ from pipeline.agents import (
     voice_agent,
 )
 from pipeline.agents.editor_agent import BookManuscript
+from pipeline.utils import firestore as fstore
 from pipeline.utils import sheets
 
 STEPS = ["transcriber", "voice", "chapters", "editor", "layout"]
@@ -147,7 +148,7 @@ def run(
                     result.chapters[nombre] = f"[MENOR: {nombre} — capítulo a escribir por padres/tutores]"
                     continue
 
-                p = sheets.get_profile(nombre)
+                p = fstore.get_profile(nombre)
                 if not p:
                     result.errores.append(f"chapter_agent/{nombre}: perfil no encontrado")
                     continue
@@ -175,7 +176,7 @@ def run(
             if start_idx > 2:
                 for pm in personas_meta:
                     nombre = pm["nombre"]
-                    p = sheets.get_profile(nombre)
+                    p = fstore.get_profile(nombre)
                     if p and p.get("capitulo"):
                         result.chapters[nombre] = p["capitulo"]
 

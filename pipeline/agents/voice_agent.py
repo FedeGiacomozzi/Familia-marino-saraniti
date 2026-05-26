@@ -9,7 +9,7 @@ from datetime import datetime
 
 import anthropic
 
-from pipeline.utils import sheets
+from pipeline.utils import firestore as fstore
 
 MODEL = "claude-opus-4-7"
 
@@ -51,7 +51,7 @@ def _parse_json_response(text: str) -> dict:
 
 
 def _analyze_persona(client: anthropic.Anthropic, nombre: str) -> dict:
-    transcripciones = sheets.get_transcripciones(nombre)
+    transcripciones = fstore.get_transcripciones(nombre)
     if not transcripciones:
         raise ValueError(f"No hay transcripciones para {nombre}")
 
@@ -76,7 +76,7 @@ def _analyze_persona(client: anthropic.Anthropic, nombre: str) -> dict:
 
     transcripcion_completa = "\n\n".join(t["transcripcion"] for t in transcripciones)
     fecha_process = datetime.now().strftime("%d/%m/%Y %H:%M")
-    sheets.save_profile(nombre, fecha_process, json.dumps(perfil, ensure_ascii=False), transcripcion_completa)
+    fstore.save_profile(nombre, fecha_process, json.dumps(perfil, ensure_ascii=False), transcripcion_completa)
 
     return perfil
 
