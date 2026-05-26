@@ -149,7 +149,12 @@ def transcribe_pending():
 
     api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
-        raise RuntimeError("OPENAI_API_KEY environment variable is required")
+        raise RuntimeError(
+            "OPENAI_API_KEY environment variable is required.\n"
+            "Example:\n"
+            "  OPENAI_API_KEY=OGVHLDdf8Rt0ig2AYAgemMK-1kS2SPCgqLMQyQ1xPj8KFwRz7Y-dAFb8ezYtUWlf_-QtIBXOlhT3BlbkFJlkYj41XFVlDZBUEkvyzQqZDC9nUkaSoIPnpc8oxzYQ0qQ1qn0tdYYRF3t6mKjVetEnsLGSkLMA "
+            "python pipeline/utils/transcribe_pending.py"
+        )
     openai_client = OpenAI(api_key=api_key)
 
     log.info("Collecting pending transcriptions from Firestore...")
