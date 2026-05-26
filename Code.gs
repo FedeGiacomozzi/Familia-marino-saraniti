@@ -248,3 +248,7 @@ function testCloudRun() {
   var resp = UrlFetchApp.fetch(baseUrl + '/health', { muteHttpExceptions: true });
   Logger.log('Cloud Run health: ' + resp.getContentText());
 }
+
+function configurarNow() {
+  configurar('https://familia-pipeline-776445604502.us-central1.run.app', 'marino-saraniti');
+}
