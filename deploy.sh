@@ -31,12 +31,12 @@ gcloud run deploy "${SERVICE}" \
   --region="${REGION}" \
   --platform=managed \
   --allow-unauthenticated \
-  --memory=4Gi \
-  --cpu=4 \
+  --memory=2Gi \
+  --cpu=2 \
   --timeout=1800 \
   --concurrency=2 \
   --min-instances=1 \
-  --max-instances=20 \
+  --max-instances=10 \
   --service-account="familia-pipeline@familia-marino.iam.gserviceaccount.com" \
   --clear-env-vars \
   --set-secrets="ANTHROPIC_API_KEY=ANTHROPIC_API_KEY:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,GOOGLE_CREDENTIALS_JSON=GOOGLE_CREDENTIALS:latest"
