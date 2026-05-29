@@ -3,14 +3,16 @@ FastAPI entrypoint for the pipeline.
 All heavy work happens in the agent modules.
 """
 
+import os
+
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
 from pipeline.agents import orchestrator, transcriber, voice_agent, chapter_agent, layout_agent
-from pipeline.agents.editor_agent import BookManuscript
-from pipeline.utils import sheets
+from pipeline.utils import firestore as db
+from pipeline.utils import storage
 
-app = FastAPI(title="Familia Libro Pipeline", version="1.0")
+app = FastAPI(title="Familia Libro Pipeline", version="2.0")
 
 
 # ─── Health ───────────────────────────────────────────────────────────────────
@@ -27,7 +29,7 @@ class PipelineRequest(BaseModel):
     pais: str = "argentina"
     solo_desde: str | None = None
     familia: str = "Familia Mariño · Saraniti"
-    upload_to_drive: bool = False
+    upload_to_gcs: bool = True
 
 
 @app.post("/run/pipeline")
@@ -37,7 +39,7 @@ def run_pipeline(req: PipelineRequest):
         pais=req.pais,
         solo_desde=req.solo_desde,
         familia=req.familia,
-        upload_to_drive=req.upload_to_drive,
+        upload_to_gcs=req.upload_to_gcs,
     )
     return {
         "ok": result.ok,
@@ -54,13 +56,20 @@ def run_pipeline(req: PipelineRequest):
 # ─── Paso 1: Transcriber ──────────────────────────────────────────────────────
 
 class TranscriberRequest(BaseModel):
-    row_indices: list[int]
+    doc_ids: list[str] | None = None
+    nombre: str | None = None
     pais: str = "argentina"
+    solo_pendientes: bool = True
 
 
 @app.post("/run/transcriber")
 def run_transcriber(req: TranscriberRequest):
-    result = transcriber.run(req.row_indices, req.pais)
+    result = transcriber.run(
+        doc_ids=req.doc_ids,
+        pais=req.pais,
+        nombre=req.nombre,
+        solo_pendientes=req.solo_pendientes,
+    )
     return result
 
 
@@ -97,13 +106,13 @@ def run_editor(req: EditorRequest):
     personas_meta = []
     capitulos = {}
     for nombre in req.nombres:
-        p = sheets.get_profile(nombre)
+        p = db.get_profile(nombre)
         if not p:
-            raise HTTPException(status_code=404, detail=f"Perfil no encontrado: {nombre}")
+            raise HTTPException(status_code=404, detail=f"Perfil no encontrado en Firestore: {nombre}")
         personas_meta.append(
             {
                 "nombre": nombre,
-                "fecha_nac": sheets.get_fecha_nac(nombre),
+                "fecha_nac": db.get_fecha_nac(nombre),
                 "perfil_voz": p.get("perfil_voz", {}),
             }
         )
@@ -123,23 +132,24 @@ def run_editor(req: EditorRequest):
 class LayoutRequest(BaseModel):
     nombres: list[str]
     familia: str = "Familia Mariño · Saraniti"
-    upload_to_drive: bool = False
+    upload_to_gcs: bool = True
 
 
 @app.post("/run/layout")
 def run_layout(req: LayoutRequest):
     from pipeline.agents import editor_agent
+    from datetime import datetime
 
     personas_meta = []
     capitulos = {}
     for nombre in req.nombres:
-        p = sheets.get_profile(nombre)
+        p = db.get_profile(nombre)
         if not p:
-            raise HTTPException(status_code=404, detail=f"Perfil no encontrado: {nombre}")
+            raise HTTPException(status_code=404, detail=f"Perfil no encontrado en Firestore: {nombre}")
         personas_meta.append(
             {
                 "nombre": nombre,
-                "fecha_nac": sheets.get_fecha_nac(nombre),
+                "fecha_nac": db.get_fecha_nac(nombre),
                 "perfil_voz": p.get("perfil_voz", {}),
             }
         )
@@ -152,9 +162,10 @@ def run_layout(req: LayoutRequest):
         nombre_familia=req.familia,
     )
 
-    if req.upload_to_drive:
-        import os
-        drive_url = sheets.upload_to_drive(pdf_path, os.path.basename(pdf_path), "application/pdf")
-        return {"pdf": drive_url, "uploaded": True}
+    if req.upload_to_gcs:
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"libro_{db.FAMILIA_ID}_{ts}.pdf"
+        gcs_url = storage.upload_pdf(pdf_path, filename)
+        return {"pdf": gcs_url, "uploaded": True}
 
     return {"pdf": pdf_path, "uploaded": False}

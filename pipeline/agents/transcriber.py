@@ -1,6 +1,7 @@
 """
 Whisper-based transcriber agent.
-Reads audio links from the Sheet, transcribes each one, writes back to col F.
+Lee audios desde GCS (via Firestore doc ids o lista de docs sin transcripción),
+transcribe cada uno con Whisper y guarda la transcripción en Firestore.
 """
 
 import os
@@ -8,10 +9,10 @@ import tempfile
 
 from openai import OpenAI
 
-from pipeline.utils import sheets
+from pipeline.utils import firestore as db
+from pipeline.utils import storage
 
 # Regional vocabulary hints to nudge Whisper's acoustic model.
-# These are NOT for analysis — voice_agent handles linguistic profiling.
 _VOCAB_HINTS: dict[str, str] = {
     "argentina": (
         "che, boludo, pibe, mina, laburo, quilombo, morfar, chabón, guita, copado, "
@@ -68,53 +69,80 @@ def _get_prompt(pais: str) -> str:
     )
 
 
-def run(row_indices: list[int], pais: str = "argentina") -> dict:
+def run(
+    doc_ids: list[str] | None = None,
+    pais: str = "argentina",
+    nombre: str | None = None,
+    solo_pendientes: bool = True,
+) -> dict:
     """
-    Transcribe audio for the given sheet row indices (1-based, skipping header).
-    Updates col F (Transcripción) in the Sheet for each row.
-    Returns {"procesadas": N, "errores": M}.
+    Transcribe audios desde GCS y guarda en Firestore.
+
+    Args:
+        doc_ids: IDs de documentos Firestore a procesar. Si None, procesa
+                 todos los pendientes (sin transcripción) del nombre dado.
+        pais: código de país para hints de vocabulario Whisper.
+        nombre: filtro opcional por integrante.
+        solo_pendientes: si True (default) omite docs que ya tienen transcripción.
+
+    Returns:
+        {"procesadas": N, "errores": M}
     """
     client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
     prompt = _get_prompt(pais)
 
-    all_rows = sheets.get_all_rows()
+    if doc_ids:
+        # Cargar docs por ID explícito
+        all_docs = db.get_all_respuestas()
+        docs = [d for d in all_docs if d["_id"] in doc_ids]
+        if solo_pendientes:
+            docs = [d for d in docs if not d.get("transcripcion", "").strip()]
+    else:
+        docs = db.get_respuestas_sin_transcripcion(nombre)
+
     procesadas = 0
     errores = 0
 
-    for row_idx in row_indices:
+    for doc in docs:
+        doc_id = doc["_id"]
+        audio_url = doc.get("link_audio", "").strip()
+        if not audio_url:
+            errores += 1
+            continue
+
+        ext = _audio_ext(audio_url)
+        with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp:
+            tmp_path = tmp.name
+
         try:
-            # row_idx is 1-based; all_rows is 0-based
-            row = all_rows[row_idx - 1]
-            audio_url = row[sheets.COL_LINK_AUDIO - 1].strip() if len(row) >= sheets.COL_LINK_AUDIO else ""
+            storage.download_audio(audio_url, tmp_path)
 
-            if not audio_url:
-                errores += 1
-                continue
+            with open(tmp_path, "rb") as audio_file:
+                result = client.audio.transcriptions.create(
+                    model="whisper-1",
+                    file=audio_file,
+                    language="es",
+                    prompt=prompt,
+                )
 
-            with tempfile.NamedTemporaryFile(suffix=".webm", delete=False) as tmp:
-                tmp_path = tmp.name
-
-            try:
-                sheets.download_drive_file(audio_url, tmp_path)
-
-                with open(tmp_path, "rb") as audio_file:
-                    result = client.audio.transcriptions.create(
-                        model="whisper-1",
-                        file=audio_file,
-                        language="es",
-                        prompt=prompt,
-                    )
-
-                transcripcion = result.text.strip()
-                sheets.save_transcription(row_idx, transcripcion)
-                procesadas += 1
-
-            finally:
-                if os.path.exists(tmp_path):
-                    os.unlink(tmp_path)
+            transcripcion = result.text.strip()
+            db.save_transcripcion(doc_id, transcripcion)
+            print(f"[transcriber] ✓ {doc.get('nombre', '?')} / {doc.get('pregunta', '?')}")
+            procesadas += 1
 
         except Exception as e:
-            print(f"[transcriber] Error en fila {row_idx}: {e}")
+            print(f"[transcriber] Error en doc {doc_id}: {e}")
             errores += 1
 
+        finally:
+            if os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+
     return {"procesadas": procesadas, "errores": errores}
+
+
+def _audio_ext(url: str) -> str:
+    for ext in (".mp3", ".mp4", ".wav", ".ogg", ".m4a", ".webm", ".flac"):
+        if url.lower().endswith(ext):
+            return ext
+    return ".webm"

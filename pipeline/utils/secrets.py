@@ -50,7 +50,7 @@ def get_google_credentials():
     """
     from google.oauth2 import service_account
 
-    cred_raw = get_secret("GOOGLE_CREDENTIALS_JSON")
+    cred_raw = get_secret("GCP_SA_KEY_JSON")
 
     # Puede ser JSON string o path a archivo
     try:

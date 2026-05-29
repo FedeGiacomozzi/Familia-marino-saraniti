@@ -4,7 +4,7 @@ Genera un capítulo narrativo de 3200–3800 palabras por persona.
 
 import anthropic
 
-from pipeline.utils import sheets
+from pipeline.utils import firestore as db
 
 MODEL = "claude-opus-4-7"
 
@@ -109,7 +109,7 @@ def generar_capitulo(client: anthropic.Anthropic, persona: dict) -> str:
     )
 
     capitulo = message.content[0].text.strip()
-    sheets.save_chapter(nombre, capitulo)
+    db.save_chapter(nombre, capitulo)
     return capitulo
 
 
@@ -120,7 +120,7 @@ def run(nombres: list[str]) -> dict[str, str]:
 
     for nombre in nombres:
         try:
-            profile = sheets.get_profile(nombre)
+            profile = db.get_profile(nombre)
             if not profile:
                 raise ValueError(f"No hay perfil guardado para {nombre}")
 
