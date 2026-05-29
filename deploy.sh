@@ -36,7 +36,7 @@ gcloud run deploy "${SERVICE}" \
   --timeout=900 \
   --service-account="familia-pipeline@familia-marino.iam.gserviceaccount.com" \
   --clear-env-vars \
-  --set-secrets="ANTHROPIC_API_KEY=ANTHROPIC_API_KEY:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,GOOGLE_CREDENTIALS_JSON=GOOGLE_CREDENTIALS:latest"
+  --set-secrets="ANTHROPIC_API_KEY=ANTHROPIC_API_KEY:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,GCP_SA_KEY_JSON=GOOGLE_CREDENTIALS:latest,SHEET_ID=SHEET_ID:latest,DRIVE_FOLDER_ID=DRIVE_FOLDER_ID:latest"
 
 echo ""
 echo "Deploy complete."
