@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<link rel="stylesheet" href="estilos.css" />
+</head>
+<body>
+  <div class="page cover">
+    <div class="rail-v"></div>
+
+    <div class="year"><span>{{ libro.anio_label | default('MEMORIAS · 2026') }}</span></div>
+
+    <div class="block">
+      <div class="kicker" style="color:var(--brown)">{{ libro.kicker | default('El libro de la familia') }}</div>
+      <h1 class="title serif">
+        {{ libro.apellido_1 }}<br />
+        <span class="mid">·</span> {{ libro.apellido_2 }}
+      </h1>
+      <p class="body lede">{{ libro.lede | default('Cada voz, un capítulo. Cada capítulo, una rama nueva en el árbol de los que somos.') }}</p>
+    </div>
+
+    <div class="pin">
+      <div class="polaroid">
+        {% if libro.portada_img %}
+        <img class="ph-img" style="height:150px" src="{{ libro.portada_img }}" alt="" />
+        {% else %}
+        <div class="ph" style="height:150px"><span>retrato de familia</span></div>
+        {% endif %}
+        <div class="cap">{{ libro.portada_cap | default('la familia, hoy') }}</div>
+      </div>
+    </div>
+
+    <div class="sig"><span class="kicker">{{ libro.firma }}</span></div>
+  </div>
+</body>
+</html>
