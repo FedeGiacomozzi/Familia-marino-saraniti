@@ -35,7 +35,7 @@ class Integrante(BaseModel):
     rol: str = ""
     fecha_nac: str = ""
     es_menor: bool = False
-    variante: str = ""  # Variante de idioma/acento para Whisper (ej: "es-AR")
+    pais: str = ""
 
 
 class Relacion(BaseModel):
@@ -48,7 +48,6 @@ class OnboardingRequest(BaseModel):
     familia_id: str
     nombre_familia: str
     email_comprador: str
-    pais: str
     integrantes: list[Integrante]
     relaciones: list[Relacion] = []
 
@@ -64,7 +63,6 @@ def onboarding(req: OnboardingRequest):
         familia_id=req.familia_id,
         nombre_familia=req.nombre_familia,
         email_comprador=req.email_comprador,
-        pais=req.pais,
     )
 
     # 2. Registrar integrantes
@@ -75,6 +73,7 @@ def onboarding(req: OnboardingRequest):
             rol=ing.rol,
             es_menor=ing.es_menor,
             email=ing.email,
+            pais=ing.pais,
             familia_id=req.familia_id,
         )
 

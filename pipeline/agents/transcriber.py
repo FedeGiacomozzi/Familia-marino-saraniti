@@ -89,7 +89,6 @@ def run(
         {"procesadas": N, "errores": M}
     """
     client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
-    prompt = _get_prompt(pais)
 
     if doc_ids:
         # Cargar docs por ID explícito
@@ -109,6 +108,15 @@ def run(
         if not audio_url:
             errores += 1
             continue
+
+        # Leer el pais del integrante en Firestore; usar el global como fallback
+        doc_nombre = doc.get("nombre", "").strip()
+        pais_integrante = pais  # fallback al parámetro global
+        if doc_nombre:
+            integrante = db.get_integrante(doc_nombre)
+            if integrante and integrante.get("pais"):
+                pais_integrante = integrante["pais"]
+        prompt = _get_prompt(pais_integrante)
 
         ext = _audio_ext(audio_url)
         with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp:

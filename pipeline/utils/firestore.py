@@ -53,13 +53,12 @@ def _familia_ref(familia_id: str | None = None):
 
 # ─── Familia ──────────────────────────────────────────────────────────────────
 
-def create_familia(familia_id: str, nombre_familia: str, email_comprador: str, pais: str) -> None:
+def create_familia(familia_id: str, nombre_familia: str, email_comprador: str) -> None:
     """Crea o actualiza el documento raíz de una familia."""
     _db().collection("familias").document(familia_id).set(
         {
             "nombre": nombre_familia,
             "comprador": {"email": email_comprador},
-            "pais": pais,
             "estado": "onboarding",
             "fecha_creacion": datetime.utcnow().isoformat(),
         },
@@ -78,11 +77,6 @@ def get_familia(familia_id: str) -> dict | None:
 def update_familia_estado(familia_id: str, estado: str) -> None:
     """Actualiza solo el campo estado de una familia."""
     _db().collection("familias").document(familia_id).update({"estado": estado})
-
-
-def update_familia_campo(familia_id: str, campo: str, valor) -> None:
-    """Actualiza un campo arbitrario en el documento de familia."""
-    _db().collection("familias").document(familia_id).update({campo: valor})
 
 
 # ─── Tokens ───────────────────────────────────────────────────────────────────
@@ -284,6 +278,7 @@ def get_familia_integrantes(familia_id: str | None = None) -> list[dict]:
                 "es_menor": bool(data.get("es_menor", False)),
                 "vive": not bool(fecha_fallec),
                 "email": data.get("email", "").strip(),
+                "pais": data.get("pais", "").strip(),
             }
         )
     return result
@@ -369,6 +364,7 @@ def seed_integrante(
     rol: str = "",
     es_menor: bool = False,
     email: str = "",
+    pais: str = "",
     familia_id: str | None = None,
 ):
     """Upsert un integrante en Firestore."""
@@ -382,6 +378,7 @@ def seed_integrante(
             "rol": rol.lower(),
             "es_menor": es_menor,
             "email": email,
+            "pais": pais,
         },
         merge=True,
     )

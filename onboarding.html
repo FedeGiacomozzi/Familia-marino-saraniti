@@ -140,90 +140,6 @@ header p {
   }
 }
 
-/* ── Hint / nota debajo de campo ── */
-.field-hint {
-  font-size: 11px;
-  color: var(--accent);
-  font-style: italic;
-  margin-top: 5px;
-  line-height: 1.4;
-}
-
-/* ── Upload de foto de portada ── */
-.foto-upload-area {
-  border: 2px dashed var(--accent-light);
-  border-radius: 8px;
-  padding: 20px;
-  text-align: center;
-  cursor: pointer;
-  transition: border-color 0.2s, background 0.2s;
-  background: var(--bg);
-  position: relative;
-}
-
-.foto-upload-area:hover {
-  border-color: var(--accent);
-  background: #f5f0ed;
-}
-
-.foto-upload-area input[type="file"] {
-  position: absolute;
-  inset: 0;
-  opacity: 0;
-  width: 100%;
-  height: 100%;
-  cursor: pointer;
-  font-size: 0;
-}
-
-.foto-upload-label {
-  font-size: 13px;
-  color: var(--accent);
-  font-weight: 500;
-  pointer-events: none;
-}
-
-.foto-upload-label span {
-  display: block;
-  font-size: 11px;
-  font-weight: 400;
-  color: var(--accent-light);
-  margin-top: 4px;
-}
-
-.foto-preview-wrap {
-  margin-top: 14px;
-  display: none;
-}
-
-.foto-preview-wrap img {
-  max-height: 180px;
-  width: 100%;
-  object-fit: cover;
-  border-radius: 8px;
-  display: block;
-}
-
-.btn-quitar-foto {
-  display: inline-block;
-  margin-top: 10px;
-  background: none;
-  border: 1px solid var(--accent-light);
-  color: var(--accent);
-  font-family: 'Montserrat', sans-serif;
-  font-size: 12px;
-  font-weight: 500;
-  padding: 5px 14px;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-quitar-foto:hover {
-  border-color: var(--error);
-  color: var(--error);
-}
-
 /* ── Checkbox ── */
 .field-check {
   display: flex;
@@ -536,6 +452,176 @@ header p {
   text-decoration: underline;
   cursor: pointer;
 }
+
+/* ── Toggle regalo ── */
+.toggle-regalo-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 12px 16px;
+  background: #fdf8f5;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.toggle-regalo-wrap input[type="checkbox"] {
+  width: 0;
+  height: 0;
+  opacity: 0;
+  position: absolute;
+}
+
+.toggle-switch {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  background: var(--border);
+  border-radius: 11px;
+  flex-shrink: 0;
+  transition: background 0.25s;
+}
+
+.toggle-switch::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  background: var(--white);
+  border-radius: 50%;
+  transition: transform 0.25s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+}
+
+input#es_regalo:checked + .toggle-regalo-wrap .toggle-switch,
+.toggle-switch.active {
+  background: var(--accent);
+}
+
+input#es_regalo:checked + .toggle-regalo-wrap .toggle-switch::after,
+.toggle-switch.active::after {
+  transform: translateX(18px);
+}
+
+.toggle-regalo-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  user-select: none;
+}
+
+.regalo-info {
+  display: none;
+  background: #fdf6f0;
+  border: 1px solid #e8c9b0;
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 13px;
+  color: var(--accent);
+  line-height: 1.5;
+  margin-top: 12px;
+}
+
+.regalo-info.show {
+  display: block;
+}
+
+/* ── Badge "Vos" ── */
+.badge-vos {
+  display: inline-block;
+  background: var(--accent);
+  color: var(--white);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+/* ── Foto de portada ── */
+.field-hint {
+  font-size: 12px;
+  color: var(--accent);
+  font-style: italic;
+  margin-top: 5px;
+  line-height: 1.5;
+}
+
+.field-variante-hint {
+  font-size: 11px;
+  color: #8B6F5E;
+  font-style: italic;
+  margin-top: 5px;
+  line-height: 1.5;
+}
+
+.foto-input-wrap {
+  position: relative;
+  border: 2px dashed var(--accent-light);
+  border-radius: 8px;
+  padding: 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  background: var(--bg);
+}
+
+.foto-input-wrap:hover {
+  border-color: var(--accent);
+  background: #fdf6f2;
+}
+
+.foto-input-wrap input[type="file"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+}
+
+.foto-input-label {
+  font-size: 13px;
+  color: var(--accent);
+  pointer-events: none;
+}
+
+.foto-preview-wrap {
+  display: none;
+  margin-top: 12px;
+}
+
+.foto-preview-wrap img {
+  width: 100%;
+  max-height: 180px;
+  object-fit: cover;
+  border-radius: 8px;
+  display: block;
+}
+
+.btn-quitar-foto {
+  margin-top: 8px;
+  background: none;
+  border: 1px solid var(--accent-light);
+  color: var(--accent);
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 5px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-quitar-foto:hover {
+  border-color: var(--error);
+  color: var(--error);
+}
 </style>
 </head>
 <body>
@@ -567,97 +653,24 @@ header p {
 
       <div class="field-row">
         <div class="field">
-          <label for="email_comprador">Email del comprador</label>
-          <input type="email" id="email_comprador" placeholder="comprador@email.com">
+          <label for="nombre_comprador">Nombre del comprador</label>
+          <input type="text" id="nombre_comprador" placeholder="ej: Juan López" autocomplete="off">
         </div>
         <div class="field">
-          <label for="pais">País</label>
-          <select id="pais">
-            <option value="">— Seleccioná un país —</option>
-            <optgroup label="América del Sur">
-              <option value="argentina">Argentina</option>
-              <option value="bolivia">Bolivia</option>
-              <option value="brasil">Brasil</option>
-              <option value="chile">Chile</option>
-              <option value="colombia">Colombia</option>
-              <option value="ecuador">Ecuador</option>
-              <option value="guyana">Guyana</option>
-              <option value="paraguay">Paraguay</option>
-              <option value="peru">Perú</option>
-              <option value="surinam">Surinam</option>
-              <option value="uruguay">Uruguay</option>
-              <option value="venezuela">Venezuela</option>
-            </optgroup>
-            <optgroup label="América Central y Caribe">
-              <option value="costa rica">Costa Rica</option>
-              <option value="cuba">Cuba</option>
-              <option value="el salvador">El Salvador</option>
-              <option value="guatemala">Guatemala</option>
-              <option value="haiti">Haití</option>
-              <option value="honduras">Honduras</option>
-              <option value="jamaica">Jamaica</option>
-              <option value="mexico">México</option>
-              <option value="nicaragua">Nicaragua</option>
-              <option value="panama">Panamá</option>
-              <option value="puerto rico">Puerto Rico</option>
-              <option value="republica dominicana">República Dominicana</option>
-              <option value="trinidad">Trinidad y Tobago</option>
-            </optgroup>
-            <optgroup label="América del Norte">
-              <option value="canada">Canadá</option>
-              <option value="estados unidos">Estados Unidos</option>
-            </optgroup>
-            <optgroup label="Europa">
-              <option value="alemania">Alemania</option>
-              <option value="austria">Austria</option>
-              <option value="belgica">Bélgica</option>
-              <option value="croacia">Croacia</option>
-              <option value="dinamarca">Dinamarca</option>
-              <option value="eslovaquia">Eslovaquia</option>
-              <option value="eslovenia">Eslovenia</option>
-              <option value="espana">España</option>
-              <option value="finlandia">Finlandia</option>
-              <option value="francia">Francia</option>
-              <option value="grecia">Grecia</option>
-              <option value="hungria">Hungría</option>
-              <option value="irlanda">Irlanda</option>
-              <option value="italia">Italia</option>
-              <option value="noruega">Noruega</option>
-              <option value="paises bajos">Países Bajos</option>
-              <option value="polonia">Polonia</option>
-              <option value="portugal">Portugal</option>
-              <option value="reino unido">Reino Unido</option>
-              <option value="republica checa">República Checa</option>
-              <option value="rumania">Rumanía</option>
-              <option value="rusia">Rusia</option>
-              <option value="suecia">Suecia</option>
-              <option value="suiza">Suiza</option>
-              <option value="ucrania">Ucrania</option>
-            </optgroup>
-            <optgroup label="Asia y Oceanía">
-              <option value="australia">Australia</option>
-              <option value="china">China</option>
-              <option value="corea del sur">Corea del Sur</option>
-              <option value="filipinas">Filipinas</option>
-              <option value="india">India</option>
-              <option value="indonesia">Indonesia</option>
-              <option value="japon">Japón</option>
-              <option value="nueva zelanda">Nueva Zelanda</option>
-              <option value="tailandia">Tailandia</option>
-              <option value="turquia">Turquía</option>
-              <option value="vietnam">Vietnam</option>
-            </optgroup>
-            <optgroup label="África y Medio Oriente">
-              <option value="arabia saudita">Arabia Saudita</option>
-              <option value="egipto">Egipto</option>
-              <option value="emiratos arabes">Emiratos Árabes</option>
-              <option value="israel">Israel</option>
-              <option value="marruecos">Marruecos</option>
-              <option value="nigeria">Nigeria</option>
-              <option value="sudafrica">Sudáfrica</option>
-            </optgroup>
-          </select>
+          <label for="email_comprador" id="label_email_comprador">Email del comprador</label>
+          <input type="email" id="email_comprador" placeholder="comprador@email.com">
         </div>
+      </div>
+
+      <label for="es_regalo" style="display:none" aria-hidden="true"></label>
+      <input type="checkbox" id="es_regalo" style="display:none">
+      <div class="toggle-regalo-wrap" onclick="toggleRegalo()" id="toggle-regalo-wrap">
+        <div class="toggle-switch" id="toggle-switch"></div>
+        <span class="toggle-regalo-label">Lo hago como regalo 🎁</span>
+      </div>
+
+      <div class="regalo-info" id="regalo-info">
+        El libro es para otra persona. Los integrantes son quienes van a grabar.
       </div>
     </div>
 
@@ -667,19 +680,14 @@ header p {
 
       <div class="field">
         <label>Foto del preámbulo (opcional)</label>
-        <p style="font-size:12px;color:var(--accent);font-style:italic;margin-bottom:12px;line-height:1.5;">
-          Una foto grupal de la familia para abrir el libro. Puede ser reciente o histórica — la que mejor los represente a todos.
-        </p>
-        <div class="foto-upload-area" id="foto-drop-area">
-          <input type="file" id="foto-portada-input" accept="image/*" onchange="onFotoSeleccionada(this)">
-          <div class="foto-upload-label">
-            Hacé clic o arrastrá una imagen aquí
-            <span>JPG, PNG, WEBP — máx. 10 MB</span>
-          </div>
+        <p class="field-hint">Una foto grupal de la familia para abrir el libro. Puede ser reciente o histórica — la que mejor los represente a todos.</p>
+        <div class="foto-input-wrap" id="foto-drop-zone" onclick="document.getElementById('foto-portada-input').click()">
+          <input type="file" id="foto-portada-input" accept="image/*" onchange="onFotoSeleccionada(this)" onclick="event.stopPropagation()">
+          <span class="foto-input-label" id="foto-input-label">Hacé clic para elegir una foto&hellip;</span>
         </div>
         <div class="foto-preview-wrap" id="foto-preview-wrap">
-          <img id="foto-preview-img" src="" alt="Preview foto portada">
-          <button class="btn-quitar-foto" onclick="quitarFoto()">Quitar foto</button>
+          <img id="foto-preview-img" src="" alt="Preview foto de portada">
+          <button type="button" class="btn-quitar-foto" onclick="quitarFoto()">Quitar foto</button>
         </div>
       </div>
     </div>
@@ -757,6 +765,194 @@ const API_BASE = BASE_URL; // mismo origen; puede cambiarse a '' para URL relati
 
 let contIntegrantes = 0;
 let contRelaciones  = 0;
+let esRegalo        = false;  // toggle "Lo hago como regalo"
+
+// ─────────────────────────────────────────────────────────────────────
+// Toggle regalo
+// ─────────────────────────────────────────────────────────────────────
+
+function toggleRegalo() {
+  esRegalo = !esRegalo;
+  const sw    = document.getElementById('toggle-switch');
+  const info  = document.getElementById('regalo-info');
+  const label = document.getElementById('label_email_comprador');
+
+  if (esRegalo) {
+    sw.classList.add('active');
+    info.classList.add('show');
+    label.textContent = 'Tu email (para enviarte el libro)';
+    // Desvincular primera card si existía vínculo
+    desvincularPrimerCard();
+  } else {
+    sw.classList.remove('active');
+    info.classList.remove('show');
+    label.textContent = 'Email del comprador';
+    // Re-sincronizar primera card con datos del comprador
+    sincronizarPrimerCard();
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Sincronización comprador ↔ primer integrante
+// ─────────────────────────────────────────────────────────────────────
+
+function getPrimerCard() {
+  return document.querySelector('#lista-integrantes .card');
+}
+
+function sincronizarPrimerCard() {
+  if (esRegalo) return;
+  const card = getPrimerCard();
+  if (!card || card.dataset.desvinculado === 'true') return;
+
+  const nombreComp = document.getElementById('nombre_comprador').value;
+  const emailComp  = document.getElementById('email_comprador').value;
+  const nombreInput = card.querySelector('.ing-nombre');
+  const emailInput  = card.querySelector('.ing-email');
+
+  if (nombreInput) nombreInput.value = nombreComp;
+  if (emailInput)  emailInput.value  = emailComp;
+  actualizarBadge(card);
+}
+
+function desvincularPrimerCard() {
+  const card = getPrimerCard();
+  if (!card) return;
+  card.dataset.desvinculado = 'true';
+  actualizarBadge(card);
+}
+
+function actualizarBadge(card) {
+  const badgeExistente = card.querySelector('.badge-vos');
+  if (badgeExistente) badgeExistente.remove();
+
+  if (!esRegalo && card.dataset.desvinculado !== 'true') {
+    const numSpan = card.querySelector('.card-num');
+    if (numSpan) {
+      const badge = document.createElement('span');
+      badge.className = 'badge-vos';
+      badge.textContent = 'Vos';
+      numSpan.appendChild(badge);
+    }
+  }
+}
+
+function onCompradorInput() {
+  sincronizarPrimerCard();
+}
+
+function onPrimerIngInput(card) {
+  // Solo desvincula si la card es la primera
+  const primerCard = getPrimerCard();
+  if (card === primerCard) {
+    const nombreInput = card.querySelector('.ing-nombre');
+    const emailInput  = card.querySelector('.ing-email');
+    const nombreComp  = document.getElementById('nombre_comprador').value;
+    const emailComp   = document.getElementById('email_comprador').value;
+
+    // Desvincula solo si el usuario cambió algo respecto al valor del comprador
+    const nombreDiferente = nombreInput && nombreInput.value !== nombreComp;
+    const emailDiferente  = emailInput  && emailInput.value  !== emailComp;
+
+    if (nombreDiferente || emailDiferente) {
+      card.dataset.desvinculado = 'true';
+      actualizarBadge(card);
+    }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// HTML de un select de países (reutilizable por card)
+// ─────────────────────────────────────────────────────────────────────
+
+function paisSelectHTML(valorInicial = '') {
+  return `
+    <select class="ing-pais">
+      <option value="">— Variante del idioma —</option>
+      <optgroup label="América del Sur">
+        <option value="argentina"${valorInicial==='argentina'?' selected':''}>Argentina</option>
+        <option value="bolivia"${valorInicial==='bolivia'?' selected':''}>Bolivia</option>
+        <option value="brasil"${valorInicial==='brasil'?' selected':''}>Brasil</option>
+        <option value="chile"${valorInicial==='chile'?' selected':''}>Chile</option>
+        <option value="colombia"${valorInicial==='colombia'?' selected':''}>Colombia</option>
+        <option value="ecuador"${valorInicial==='ecuador'?' selected':''}>Ecuador</option>
+        <option value="guyana"${valorInicial==='guyana'?' selected':''}>Guyana</option>
+        <option value="paraguay"${valorInicial==='paraguay'?' selected':''}>Paraguay</option>
+        <option value="peru"${valorInicial==='peru'?' selected':''}>Perú</option>
+        <option value="surinam"${valorInicial==='surinam'?' selected':''}>Surinam</option>
+        <option value="uruguay"${valorInicial==='uruguay'?' selected':''}>Uruguay</option>
+        <option value="venezuela"${valorInicial==='venezuela'?' selected':''}>Venezuela</option>
+      </optgroup>
+      <optgroup label="América Central y Caribe">
+        <option value="costa rica"${valorInicial==='costa rica'?' selected':''}>Costa Rica</option>
+        <option value="cuba"${valorInicial==='cuba'?' selected':''}>Cuba</option>
+        <option value="el salvador"${valorInicial==='el salvador'?' selected':''}>El Salvador</option>
+        <option value="guatemala"${valorInicial==='guatemala'?' selected':''}>Guatemala</option>
+        <option value="haiti"${valorInicial==='haiti'?' selected':''}>Haití</option>
+        <option value="honduras"${valorInicial==='honduras'?' selected':''}>Honduras</option>
+        <option value="jamaica"${valorInicial==='jamaica'?' selected':''}>Jamaica</option>
+        <option value="mexico"${valorInicial==='mexico'?' selected':''}>México</option>
+        <option value="nicaragua"${valorInicial==='nicaragua'?' selected':''}>Nicaragua</option>
+        <option value="panama"${valorInicial==='panama'?' selected':''}>Panamá</option>
+        <option value="puerto rico"${valorInicial==='puerto rico'?' selected':''}>Puerto Rico</option>
+        <option value="republica dominicana"${valorInicial==='republica dominicana'?' selected':''}>República Dominicana</option>
+        <option value="trinidad"${valorInicial==='trinidad'?' selected':''}>Trinidad y Tobago</option>
+      </optgroup>
+      <optgroup label="América del Norte">
+        <option value="canada"${valorInicial==='canada'?' selected':''}>Canadá</option>
+        <option value="estados unidos"${valorInicial==='estados unidos'?' selected':''}>Estados Unidos</option>
+      </optgroup>
+      <optgroup label="Europa">
+        <option value="alemania"${valorInicial==='alemania'?' selected':''}>Alemania</option>
+        <option value="austria"${valorInicial==='austria'?' selected':''}>Austria</option>
+        <option value="belgica"${valorInicial==='belgica'?' selected':''}>Bélgica</option>
+        <option value="croacia"${valorInicial==='croacia'?' selected':''}>Croacia</option>
+        <option value="dinamarca"${valorInicial==='dinamarca'?' selected':''}>Dinamarca</option>
+        <option value="eslovaquia"${valorInicial==='eslovaquia'?' selected':''}>Eslovaquia</option>
+        <option value="eslovenia"${valorInicial==='eslovenia'?' selected':''}>Eslovenia</option>
+        <option value="espana"${valorInicial==='espana'?' selected':''}>España</option>
+        <option value="finlandia"${valorInicial==='finlandia'?' selected':''}>Finlandia</option>
+        <option value="francia"${valorInicial==='francia'?' selected':''}>Francia</option>
+        <option value="grecia"${valorInicial==='grecia'?' selected':''}>Grecia</option>
+        <option value="hungria"${valorInicial==='hungria'?' selected':''}>Hungría</option>
+        <option value="irlanda"${valorInicial==='irlanda'?' selected':''}>Irlanda</option>
+        <option value="italia"${valorInicial==='italia'?' selected':''}>Italia</option>
+        <option value="noruega"${valorInicial==='noruega'?' selected':''}>Noruega</option>
+        <option value="paises bajos"${valorInicial==='paises bajos'?' selected':''}>Países Bajos</option>
+        <option value="polonia"${valorInicial==='polonia'?' selected':''}>Polonia</option>
+        <option value="portugal"${valorInicial==='portugal'?' selected':''}>Portugal</option>
+        <option value="reino unido"${valorInicial==='reino unido'?' selected':''}>Reino Unido</option>
+        <option value="republica checa"${valorInicial==='republica checa'?' selected':''}>República Checa</option>
+        <option value="rumania"${valorInicial==='rumania'?' selected':''}>Rumanía</option>
+        <option value="rusia"${valorInicial==='rusia'?' selected':''}>Rusia</option>
+        <option value="suecia"${valorInicial==='suecia'?' selected':''}>Suecia</option>
+        <option value="suiza"${valorInicial==='suiza'?' selected':''}>Suiza</option>
+        <option value="ucrania"${valorInicial==='ucrania'?' selected':''}>Ucrania</option>
+      </optgroup>
+      <optgroup label="Asia y Oceanía">
+        <option value="australia"${valorInicial==='australia'?' selected':''}>Australia</option>
+        <option value="china"${valorInicial==='china'?' selected':''}>China</option>
+        <option value="corea del sur"${valorInicial==='corea del sur'?' selected':''}>Corea del Sur</option>
+        <option value="filipinas"${valorInicial==='filipinas'?' selected':''}>Filipinas</option>
+        <option value="india"${valorInicial==='india'?' selected':''}>India</option>
+        <option value="indonesia"${valorInicial==='indonesia'?' selected':''}>Indonesia</option>
+        <option value="japon"${valorInicial==='japon'?' selected':''}>Japón</option>
+        <option value="nueva zelanda"${valorInicial==='nueva zelanda'?' selected':''}>Nueva Zelanda</option>
+        <option value="tailandia"${valorInicial==='tailandia'?' selected':''}>Tailandia</option>
+        <option value="turquia"${valorInicial==='turquia'?' selected':''}>Turquía</option>
+        <option value="vietnam"${valorInicial==='vietnam'?' selected':''}>Vietnam</option>
+      </optgroup>
+      <optgroup label="África y Medio Oriente">
+        <option value="arabia saudita"${valorInicial==='arabia saudita'?' selected':''}>Arabia Saudita</option>
+        <option value="egipto"${valorInicial==='egipto'?' selected':''}>Egipto</option>
+        <option value="emiratos arabes"${valorInicial==='emiratos arabes'?' selected':''}>Emiratos Árabes</option>
+        <option value="israel"${valorInicial==='israel'?' selected':''}>Israel</option>
+        <option value="marruecos"${valorInicial==='marruecos'?' selected':''}>Marruecos</option>
+        <option value="nigeria"${valorInicial==='nigeria'?' selected':''}>Nigeria</option>
+        <option value="sudafrica"${valorInicial==='sudafrica'?' selected':''}>Sudáfrica</option>
+      </optgroup>
+    </select>`;
+}
 
 // ─────────────────────────────────────────────────────────────────────
 // Integrantes
@@ -765,6 +961,14 @@ let contRelaciones  = 0;
 function agregarIntegrante() {
   contIntegrantes++;
   const idx = contIntegrantes;
+
+  // Copiar el país del último integrante para pre-seleccionarlo
+  let paisAnterior = '';
+  const ultimaCard = document.querySelector('#lista-integrantes .card:last-child');
+  if (ultimaCard) {
+    const selectPais = ultimaCard.querySelector('.ing-pais');
+    if (selectPais) paisAnterior = selectPais.value;
+  }
 
   const card = document.createElement('div');
   card.className = 'card';
@@ -784,7 +988,12 @@ function agregarIntegrante() {
         <input type="email" class="ing-email" placeholder="juan@email.com">
       </div>
     </div>
-    <div class="field-row-3">
+    <div class="field-row">
+      <div class="field">
+        <label>¿Cómo habla?</label>
+        ${paisSelectHTML(paisAnterior)}
+        <p class="field-variante-hint">Para transcribir mejor el audio. Elegí el acento o vocabulario que usa, no el país de nacimiento.</p>
+      </div>
       <div class="field">
         <label>Rol en la familia</label>
         <select class="ing-rol">
@@ -799,6 +1008,8 @@ function agregarIntegrante() {
           <option value="otro">Otro</option>
         </select>
       </div>
+    </div>
+    <div class="field-row">
       <div class="field">
         <label>Fecha de nac.</label>
         <input type="date" class="ing-fecha_nac">
@@ -810,42 +1021,24 @@ function agregarIntegrante() {
         </div>
       </div>
     </div>
-    <div class="field">
-      <label>¿Cómo habla?</label>
-      <select class="ing-variante">
-        <option value="">— Variante del idioma —</option>
-        <optgroup label="Español">
-          <option value="es-AR">Español — Argentina</option>
-          <option value="es-UY">Español — Uruguay</option>
-          <option value="es-PY">Español — Paraguay</option>
-          <option value="es-BO">Español — Bolivia</option>
-          <option value="es-CL">Español — Chile</option>
-          <option value="es-PE">Español — Perú</option>
-          <option value="es-EC">Español — Ecuador</option>
-          <option value="es-CO">Español — Colombia</option>
-          <option value="es-VE">Español — Venezuela</option>
-          <option value="es-MX">Español — México</option>
-          <option value="es-419">Español — América Central / Caribe</option>
-          <option value="es-ES">Español — España</option>
-          <option value="es">Español — otro / mixto</option>
-        </optgroup>
-        <optgroup label="Portugués">
-          <option value="pt-BR">Portugués — Brasil</option>
-          <option value="pt-PT">Portugués — Portugal</option>
-        </optgroup>
-        <optgroup label="Otros">
-          <option value="it">Italiano</option>
-          <option value="fr">Francés</option>
-          <option value="de">Alemán</option>
-          <option value="en-US">Inglés — Estados Unidos</option>
-          <option value="en-GB">Inglés — Reino Unido / Australia</option>
-        </optgroup>
-      </select>
-      <p class="field-hint">Para transcribir mejor el audio. Elegí el acento o vocabulario que usa, no el país de nacimiento.</p>
-    </div>
   `;
 
   document.getElementById('lista-integrantes').appendChild(card);
+
+  // Wiring: si es la primera card, vincular con comprador
+  if (idx === 1) {
+    const nombreInput = card.querySelector('.ing-nombre');
+    const emailInput  = card.querySelector('.ing-email');
+    if (nombreInput) {
+      nombreInput.addEventListener('input', () => onPrimerIngInput(card));
+    }
+    if (emailInput) {
+      emailInput.addEventListener('input', () => onPrimerIngInput(card));
+    }
+    // Sincronizar inmediatamente si hay datos del comprador
+    sincronizarPrimerCard();
+    actualizarBadge(card);
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -927,13 +1120,11 @@ function recolectarDatos() {
   const familiaId    = document.getElementById('familia_id').value.trim();
   const nombreFam    = document.getElementById('nombre_familia').value.trim();
   const emailComp    = document.getElementById('email_comprador').value.trim();
-  const pais         = document.getElementById('pais').value;
 
   // Validaciones básicas
   if (!familiaId)    return { error: 'El ID de familia es obligatorio.' };
   if (!nombreFam)    return { error: 'El nombre de la familia es obligatorio.' };
   if (!emailComp)    return { error: 'El email del comprador es obligatorio.' };
-  if (!pais)         return { error: 'Seleccioná un país.' };
 
   // Integrantes
   const ingCards = document.querySelectorAll('[id^="ing-"]');
@@ -943,13 +1134,15 @@ function recolectarDatos() {
   for (const card of ingCards) {
     const nombre = card.querySelector('.ing-nombre')?.value.trim() || '';
     if (!nombre) return { error: 'Todos los integrantes deben tener nombre.' };
+    const pais = card.querySelector('.ing-pais')?.value || '';
+    if (!pais) return { error: `Seleccioná la variante de idioma para "${nombre}".` };
     integrantes.push({
       nombre,
       email:     card.querySelector('.ing-email')?.value.trim()     || '',
       rol:       card.querySelector('.ing-rol')?.value               || '',
       fecha_nac: card.querySelector('.ing-fecha_nac')?.value         || '',
       es_menor:  card.querySelector('.ing-es_menor')?.checked        || false,
-      variante:  card.querySelector('.ing-variante')?.value          || '',
+      pais,
     });
   }
 
@@ -971,7 +1164,6 @@ function recolectarDatos() {
       familia_id:      familiaId,
       nombre_familia:  nombreFam,
       email_comprador: emailComp,
-      pais,
       integrantes,
       relaciones,
     }
@@ -1007,9 +1199,9 @@ async function enviarOnboarding() {
 
     const data = await resp.json();
 
-    // Si hay foto de portada seleccionada, subirla después del onboarding
+    // Si hay foto seleccionada, subirla al endpoint de foto-portada
     const fotoInput = document.getElementById('foto-portada-input');
-    if (fotoInput && fotoInput.files && fotoInput.files.length > 0) {
+    if (fotoInput && fotoInput.files && fotoInput.files[0] && data.familia_id) {
       try {
         const formData = new FormData();
         formData.append('file', fotoInput.files[0]);
@@ -1017,9 +1209,9 @@ async function enviarOnboarding() {
           method: 'POST',
           body: formData,
         });
-      } catch (fotoErr) {
-        // Error no bloqueante — la foto es opcional
-        console.warn('No se pudo subir la foto de portada:', fotoErr.message);
+        // No bloqueamos el flujo aunque falle la foto
+      } catch (_) {
+        // silencioso: el onboarding ya fue exitoso
       }
     }
 
@@ -1110,14 +1302,17 @@ function copiarLink(texto, btn) {
 // ─────────────────────────────────────────────────────────────────────
 
 function onFotoSeleccionada(input) {
-  if (!input.files || !input.files[0]) return;
-  const file = input.files[0];
+  const file = input.files && input.files[0];
+  if (!file) return;
+
   const reader = new FileReader();
-  reader.onload = (e) => {
-    const wrap = document.getElementById('foto-preview-wrap');
-    const img  = document.getElementById('foto-preview-img');
+  reader.onload = function(e) {
+    const img   = document.getElementById('foto-preview-img');
+    const wrap  = document.getElementById('foto-preview-wrap');
+    const label = document.getElementById('foto-input-label');
     img.src = e.target.result;
     wrap.style.display = 'block';
+    label.textContent = file.name;
   };
   reader.readAsDataURL(file);
 }
@@ -1125,10 +1320,13 @@ function onFotoSeleccionada(input) {
 function quitarFoto() {
   const input = document.getElementById('foto-portada-input');
   const wrap  = document.getElementById('foto-preview-wrap');
+  const label = document.getElementById('foto-input-label');
   const img   = document.getElementById('foto-preview-img');
+
   input.value = '';
   img.src = '';
   wrap.style.display = 'none';
+  label.textContent = 'Hacé clic para elegir una foto…';
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -1137,23 +1335,28 @@ function quitarFoto() {
 
 function reiniciar() {
   // Limpiar campos
-  ['familia_id','nombre_familia','email_comprador'].forEach(id => {
+  ['familia_id','nombre_familia','nombre_comprador','email_comprador'].forEach(id => {
     document.getElementById(id).value = '';
   });
-  document.getElementById('pais').value = '';
   document.getElementById('lista-integrantes').innerHTML = '';
   document.getElementById('lista-relaciones').innerHTML  = '';
   contIntegrantes = 0;
   contRelaciones  = 0;
 
-  // Limpiar foto de portada
+  // Resetear foto de portada
   quitarFoto();
+
+  // Resetear toggle regalo
+  if (esRegalo) toggleRegalo();
 
   // Volver al formulario
   document.getElementById('formulario').style.display = 'block';
   document.getElementById('resultado').style.display  = 'none';
   ocultarError();
   window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  // Inicializar primer integrante
+  agregarIntegrante();
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -1174,8 +1377,13 @@ function escAttr(str) {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Inicializar con un integrante vacío
+// Inicializar
 // ─────────────────────────────────────────────────────────────────────
+
+// Listeners para sincronización comprador → primer integrante
+document.getElementById('nombre_comprador').addEventListener('input', onCompradorInput);
+document.getElementById('email_comprador').addEventListener('input', onCompradorInput);
+
 agregarIntegrante();
 </script>
 
