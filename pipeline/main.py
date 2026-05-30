@@ -443,6 +443,170 @@ def _enviar_email_entrega(email_comprador: str, nombre_familia: str, pdf_url: st
         pass
 
 
+# ─── Email de progreso al comprador ──────────────────────────────────────────
+
+@app.post("/familia/{familia_id}/email-progreso")
+def enviar_email_progreso(
+    familia_id: str,
+    x_admin_key: Optional[str] = Header(default=None),
+):
+    """
+    Manda al comprador un resumen del progreso: quién completó, quién falta,
+    y una stat de posición relativa entre todas las familias.
+    """
+    if x_admin_key != ADMIN_KEY:
+        raise HTTPException(status_code=403, detail="Acceso denegado")
+
+    familia = db.get_familia(familia_id)
+    if familia is None:
+        raise HTTPException(status_code=404, detail="Familia no encontrada")
+
+    email_comprador = familia.get("comprador", {}).get("email", "")
+    if not email_comprador:
+        raise HTTPException(status_code=422, detail="El comprador no tiene email registrado")
+
+    nombre_familia = familia.get("nombre", familia_id)
+    tokens = db.get_tokens_familia(familia_id)
+
+    completados = [t for t in tokens if t.get("estado") == "completado"]
+    pendientes  = [t for t in tokens if t.get("estado") != "completado"]
+    total       = len(tokens)
+    n_comp      = len(completados)
+
+    # Stat relativa: % de familias con igual o menor tasa de completado
+    todas = db.get_all_familias()
+    tasas = []
+    for f in todas:
+        fid = f["_id"]
+        if fid == familia_id:
+            continue
+        tkns = db.get_tokens_familia(fid)
+        if not tkns:
+            continue
+        tasa = sum(1 for t in tkns if t.get("estado") == "completado") / len(tkns)
+        tasas.append(tasa)
+
+    tasa_propia = n_comp / total if total else 0
+    if tasas:
+        mejor_que = sum(1 for t in tasas if tasa_propia > t)
+        percentil = round((mejor_que / len(tasas)) * 100)
+    else:
+        percentil = 100
+
+    _enviar_email_progreso_html(
+        email=email_comprador,
+        nombre_familia=nombre_familia,
+        completados=completados,
+        pendientes=pendientes,
+        total=total,
+        percentil=percentil,
+    )
+
+    return {"ok": True, "email": email_comprador, "percentil": percentil}
+
+
+def _enviar_email_progreso_html(
+    email: str,
+    nombre_familia: str,
+    completados: list,
+    pendientes: list,
+    total: int,
+    percentil: int,
+):
+    try:
+        import resend  # type: ignore
+        resend.api_key = os.environ.get("RESEND_API_KEY", "")
+        if not resend.api_key:
+            return
+
+        n_comp = len(completados)
+        pct    = round((n_comp / total) * 100) if total else 0
+
+        # Rows de la tabla
+        def fila_comp(t):
+            return (
+                f"<tr>"
+                f"<td style='padding:10px 16px;border-bottom:1px solid #f0e8d8'>{t.get('nombre','')}</td>"
+                f"<td style='padding:10px 16px;border-bottom:1px solid #f0e8d8;color:#3B6D11;font-weight:600'>✓ Completó</td>"
+                f"</tr>"
+            )
+
+        def fila_pend(t):
+            link = f"https://familia-pipeline-776445604502.us-central1.run.app/r/{t.get('token','')}"
+            return (
+                f"<tr>"
+                f"<td style='padding:10px 16px;border-bottom:1px solid #f0e8d8'>{t.get('nombre','')}</td>"
+                f"<td style='padding:10px 16px;border-bottom:1px solid #f0e8d8;color:#aaa'>"
+                f"○ Pendiente &nbsp;<a href='{link}' style='font-size:11px;color:#8b5e3c'>Mandar link →</a>"
+                f"</td>"
+                f"</tr>"
+            )
+
+        filas = "".join(fila_comp(t) for t in completados) + "".join(fila_pend(t) for t in pendientes)
+
+        stat_txt = ""
+        if percentil >= 90:
+            stat_txt = f"🏆 Están en el <strong>top {100-percentil}% de familias más rápidas</strong> respondiendo."
+        elif percentil >= 70:
+            stat_txt = f"⚡ Van más rápido que el <strong>{percentil}% de las familias</strong>. ¡Siguen bien!"
+        elif percentil >= 40:
+            stat_txt = f"📈 Van a buen ritmo — más rápido que el <strong>{percentil}%</strong> de las familias."
+        else:
+            stat_txt = f"💬 Todavía están a tiempo — la mayoría de las historias se graban en una semana."
+
+        html = f"""
+        <div style="font-family:'Georgia',serif;max-width:560px;margin:0 auto;color:#3d2b0a">
+          <div style="background:#fdf8f2;border-bottom:2px solid #c8a96e;padding:32px 40px;text-align:center">
+            <p style="font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#c8a96e;margin:0 0 8px">Libro de Memorias</p>
+            <h1 style="font-size:26px;font-weight:400;margin:0">{nombre_familia}</h1>
+          </div>
+
+          <div style="background:#fff;padding:32px 40px">
+            <p style="font-size:16px;margin:0 0 24px">
+              Ya grabaron <strong>{n_comp} de {total}</strong> historias ({pct}% completado).
+            </p>
+
+            <!-- Barra de progreso -->
+            <div style="background:#e8d9b8;border-radius:99px;height:8px;margin-bottom:28px">
+              <div style="background:#c8a96e;height:8px;border-radius:99px;width:{pct}%"></div>
+            </div>
+
+            <!-- Stat -->
+            <div style="background:#fdf6f0;border-left:3px solid #c8a96e;padding:14px 20px;margin-bottom:28px;font-size:14px">
+              {stat_txt}
+            </div>
+
+            <!-- Tabla -->
+            <table style="width:100%;border-collapse:collapse;font-size:14px">
+              <thead>
+                <tr style="background:#faf6f0">
+                  <th style="padding:10px 16px;text-align:left;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#9a7b5a;font-weight:600">Integrante</th>
+                  <th style="padding:10px 16px;text-align:left;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#9a7b5a;font-weight:600">Estado</th>
+                </tr>
+              </thead>
+              <tbody>{filas}</tbody>
+            </table>
+          </div>
+
+          <div style="background:#fdf8f2;padding:24px 40px;text-align:center;border-top:1px solid #e8d9b8">
+            <p style="font-size:12px;color:#9a7b5a;margin:0">
+              Este es un mail automático del Libro de Memorias Familiar.<br>
+              Respondé este mail si necesitás ayuda.
+            </p>
+          </div>
+        </div>
+        """
+
+        resend.Emails.send({
+            "from": os.environ.get("RESEND_FROM", "Libro Familiar <noreply@librofamiliar.com>"),
+            "to": email,
+            "subject": f"Progreso del {nombre_familia} — {len(completados)}/{total} grabaciones",
+            "html": html,
+        })
+    except Exception:
+        pass
+
+
 @app.post("/familia/{familia_id}/trigger-pipeline")
 def trigger_pipeline(
     familia_id: str,

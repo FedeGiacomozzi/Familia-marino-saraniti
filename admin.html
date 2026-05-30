@@ -516,6 +516,7 @@ function renderTabla() {
             ${f.estado === 'entregado'
               ? `<button class="btn btn-secondary btn-sm" onclick="descargarPdf('${esc(f.familia_id)}', this)">↓ PDF</button>`
               : `<button class="btn btn-secondary btn-sm" onclick="enviarReminder('${esc(f.familia_id)}', this)" title="Envía email a quienes no grabaron aún">✉ Reminder</button>`}
+            <button class="btn btn-secondary btn-sm" onclick="enviarProgreso('${esc(f.familia_id)}', this)" title="Manda resumen de progreso al comprador">📊 Progreso</button>
             ${f.estado === 'error'
               ? `<button class="btn btn-danger btn-sm" onclick="triggerPipeline('${esc(f.familia_id)}', this)">↺ Reintentar</button>`
               : ''}
@@ -593,6 +594,30 @@ async function triggerPipeline(familiaId, btn) {
     alert(`Error: ${e.message}`);
     btn.disabled = false;
     btn.textContent = '▶ Pipeline';
+  }
+}
+
+// ─── Email progreso ───────────────────────────────────────────────────────────
+
+async function enviarProgreso(familiaId, btn) {
+  btn.disabled = true;
+  btn.textContent = '⏳ Enviando…';
+  try {
+    const r = await fetch(`${API_BASE}/familia/${familiaId}/email-progreso`, {
+      method: 'POST',
+      headers: { 'X-Admin-Key': _adminKey }
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      throw new Error(err.detail || `HTTP ${r.status}`);
+    }
+    const data = await r.json();
+    btn.textContent = '✓ Enviado';
+    setTimeout(() => { btn.textContent = '📊 Progreso'; btn.disabled = false; }, 3000);
+  } catch(e) {
+    alert(`Error: ${e.message}`);
+    btn.textContent = '📊 Progreso';
+    btn.disabled = false;
   }
 }
 
