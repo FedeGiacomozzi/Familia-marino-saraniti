@@ -250,6 +250,24 @@ def _build_html(
 </div>
 """)
 
+    # ── Árbol genealógico SVG ──
+    try:
+        from pipeline.utils.tree import generar_arbol_svg
+        relaciones = db.get_familia_relaciones()
+        svg_arbol = generar_arbol_svg(personas_meta, relaciones, nombre_familia, width=480)
+        partes.append(f"""
+<div class="page-break-before">
+  <div class="seccion-header">
+    <h2>Árbol genealógico</h2>
+  </div>
+  <div style="text-align:center;margin-top:8mm">
+    {svg_arbol}
+  </div>
+</div>
+""")
+    except Exception as _tree_err:
+        print(f"[layout] árbol genealógico omitido: {_tree_err}")
+
     # ── Timeline / árbol ──
     integrantes = personas_meta  # may include rol, fecha_fallec from familia sheet
     personas_con_fecha = sorted(
