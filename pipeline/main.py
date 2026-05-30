@@ -6,7 +6,7 @@ All heavy work happens in the agent modules.
 import os
 from typing import Optional
 
-from fastapi import BackgroundTasks, FastAPI, File, Header, HTTPException, UploadFile
+from fastapi import BackgroundTasks, FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -20,7 +20,8 @@ app = FastAPI(title="Familia Libro Pipeline", version="2.0")
 BASE_URL = os.environ.get("SERVICE_URL", "https://familia-pipeline-776445604502.us-central1.run.app")
 ADMIN_KEY = "familia-admin-2026"
 
-_ONBOARDING_HTML = os.path.join(os.path.dirname(__file__), "..", "onboarding.html")
+_ONBOARDING_HTML  = os.path.join(os.path.dirname(__file__), "..", "onboarding.html")
+_RECORDING_HTML   = os.path.join(os.path.dirname(__file__), "..", "recording.html")
 
 
 # ─── Health ───────────────────────────────────────────────────────────────────
@@ -138,6 +139,13 @@ async def subir_foto_portada(familia_id: str, file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=f"Error al subir foto: {exc}") from exc
 
 
+# ─── Grabación: servir UI ─────────────────────────────────────────────────────
+
+@app.get("/recording", response_class=FileResponse)
+def recording_ui():
+    return FileResponse(_RECORDING_HTML, media_type="text/html")
+
+
 # ─── Redirección por token ─────────────────────────────────────────────────────
 
 @app.get("/r/{token}")
@@ -150,7 +158,117 @@ def redirigir_token(token: str):
     if familia_id:
         db.marcar_token_usado(familia_id=familia_id, token=token)
 
-    return RedirectResponse(url=BASE_URL, status_code=302)
+    return RedirectResponse(url=f"{BASE_URL}/recording?token={token}", status_code=302)
+
+
+# ─── Token info (para recording.html) ─────────────────────────────────────────
+
+@app.get("/token/{token}/info")
+def token_info(token: str):
+    doc = db.get_token(token)
+    if doc is None:
+        raise HTTPException(status_code=404, detail="Token no encontrado")
+    return {
+        "nombre": doc.get("nombre"),
+        "familia_id": doc.get("familia_id"),
+        "estado": doc.get("estado", "pendiente"),
+    }
+
+
+# ─── Guardar respuesta de audio ────────────────────────────────────────────────
+
+@app.post("/token/{token}/respuesta")
+async def guardar_respuesta(
+    token: str,
+    pregunta: int = Form(...),
+    audio: UploadFile = File(...),
+):
+    doc = db.get_token(token)
+    if doc is None:
+        raise HTTPException(status_code=404, detail="Token no encontrado")
+
+    familia_id = doc["familia_id"]
+    nombre     = doc["nombre"]
+
+    content      = await audio.read()
+    ct           = audio.content_type or "audio/webm"
+    ext          = ct.split("/")[-1].split(";")[0] or "webm"
+    blob_name    = f"{familia_id}/{db._nombre_key(nombre)}/q{pregunta}.{ext}"
+    gcs_uri      = storage.upload_audio_bytes(content, storage.AUDIO_BUCKET, blob_name, ct)
+
+    db.seed_respuesta(nombre=nombre, pregunta=pregunta, link_audio=gcs_uri, familia_id=familia_id)
+
+    if doc.get("estado", "pendiente") == "pendiente":
+        db.update_token_estado(familia_id, token, "en_progreso")
+
+    return {"ok": True}
+
+
+# ─── Completar grabación ───────────────────────────────────────────────────────
+
+@app.post("/token/{token}/completar")
+async def completar_token(token: str):
+    doc = db.get_token(token)
+    if doc is None:
+        raise HTTPException(status_code=404, detail="Token no encontrado")
+
+    familia_id = doc["familia_id"]
+    nombre     = doc["nombre"]
+    db.update_token_estado(familia_id, token, "completado")
+
+    familia        = db.get_familia(familia_id)
+    email_comprador = (familia or {}).get("comprador", {}).get("email", "")
+    nombre_familia  = (familia or {}).get("nombre", familia_id)
+
+    if email_comprador:
+        _enviar_email_completado(nombre, email_comprador, nombre_familia)
+
+    return {"ok": True}
+
+
+def _enviar_email_completado(nombre_integrante: str, email_comprador: str, nombre_familia: str):
+    try:
+        import resend  # type: ignore
+        resend.api_key = os.environ.get("RESEND_API_KEY", "")
+        if not resend.api_key:
+            return
+        resend.Emails.send({
+            "from": os.environ.get("RESEND_FROM", "Libro Familiar <noreply@librofamiliar.com>"),
+            "to": email_comprador,
+            "subject": f"{nombre_integrante} completó su grabación",
+            "html": (
+                f"<p>¡Hola!</p>"
+                f"<p><strong>{nombre_integrante}</strong> ya terminó de grabar su historia "
+                f"para el <strong>{nombre_familia}</strong>.</p>"
+                f"<p>Podés ver el progreso del resto en tu panel de seguimiento.</p>"
+            ),
+        })
+    except Exception:
+        pass
+
+
+# ─── Estado de tokens por familia (para dashboard) ────────────────────────────
+
+@app.get("/familia/{familia_id}/tokens-estado")
+def tokens_estado(familia_id: str):
+    familia = db.get_familia(familia_id)
+    if familia is None:
+        raise HTTPException(status_code=404, detail="Familia no encontrada")
+    tokens = db.get_tokens_familia(familia_id)
+    return {
+        "familia_id": familia_id,
+        "nombre_familia": familia.get("nombre", ""),
+        "tokens": [
+            {
+                "nombre": t.get("nombre", ""),
+                "token":  t.get("token", ""),
+                "link":   f"{BASE_URL}/r/{t.get('token','')}",
+                "estado": t.get("estado", "pendiente"),
+                "usado":  t.get("usado", False),
+            }
+            for t in tokens
+        ],
+    }
 
 
 # ─── Estado de familia ────────────────────────────────────────────────────────

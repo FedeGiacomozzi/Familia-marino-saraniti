@@ -120,6 +120,13 @@ def get_token(token: str) -> dict | None:
     return docs[0].to_dict() | {"_id": docs[0].id}
 
 
+def update_token_estado(familia_id: str, token: str, estado: str) -> None:
+    """Actualiza el estado de un token (pendiente → en_progreso → completado)."""
+    _db().collection("familias").document(familia_id).collection("tokens").document(token).update(
+        {"estado": estado, f"fecha_{estado}": datetime.utcnow().isoformat()}
+    )
+
+
 def marcar_token_usado(familia_id: str, token: str) -> None:
     """Marca un token como usado y registra la fecha de uso."""
     _db().collection("familias").document(familia_id).collection("tokens").document(token).update(

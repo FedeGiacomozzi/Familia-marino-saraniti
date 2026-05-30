@@ -529,18 +529,87 @@ input#es_regalo:checked + .toggle-regalo-wrap .toggle-switch::after,
   display: block;
 }
 
-/* ── Badge "Vos" ── */
-.badge-vos {
-  display: inline-block;
-  background: var(--accent);
-  color: var(--white);
-  font-size: 10px;
+/* ── Dashboard de resultado ── */
+.dashboard-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.dash-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+#dash-progreso-txt {
+  font-size: 13px;
   font-weight: 600;
-  letter-spacing: 0.5px;
-  padding: 2px 8px;
-  border-radius: 10px;
-  margin-left: 8px;
-  vertical-align: middle;
+  color: var(--accent);
+}
+
+.dash-refresh-txt {
+  font-size: 11px;
+  color: var(--accent-light);
+  font-style: italic;
+}
+
+.dash-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--white);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+
+.dash-nombre {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dash-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 20px;
+  white-space: nowrap;
+  background: color-mix(in srgb, var(--estado-color) 12%, transparent);
+  color: var(--estado-color);
+  border: 1px solid color-mix(in srgb, var(--estado-color) 30%, transparent);
+}
+
+.dash-acciones {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.btn-sm {
+  padding: 6px 14px;
+  font-size: 12px;
+  border-radius: 6px;
+}
+
+@media (max-width: 560px) {
+  .dash-row {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ── Foto de portada ── */
@@ -724,12 +793,18 @@ input#es_regalo:checked + .toggle-regalo-wrap .toggle-switch::after,
     <div class="resultado-header">
       <div class="checkmark">✓</div>
       <h2 id="resultado-titulo">¡Familia creada!</h2>
-      <p id="resultado-subtitulo"></p>
+      <p id="resultado-subtitulo">Compartí cada link con la persona que corresponde. El estado se actualiza solo.</p>
     </div>
 
-    <div class="tokens-section">
-      <div class="section-title">Links de grabación por integrante</div>
-      <div id="lista-tokens"></div>
+    <div class="section">
+      <div class="dashboard-top">
+        <div class="section-title">Progreso de grabaciones</div>
+        <div class="dash-meta">
+          <span id="dash-progreso-txt"></span>
+          <span id="dash-refresh-txt" class="dash-refresh-txt"></span>
+        </div>
+      </div>
+      <div id="dashboard-tabla"></div>
     </div>
 
     <div class="nueva-familia">
@@ -811,18 +886,17 @@ function desvincularPrimerCard() {
 }
 
 function actualizarBadge(card) {
-  const badgeExistente = card.querySelector('.badge-vos');
-  if (badgeExistente) badgeExistente.remove();
+  // Actualiza el header de la card para mostrar el nombre si ya fue escrito
+  renumerar();
+}
 
-  if (!esRegalo && card.dataset.desvinculado !== 'true') {
-    const numSpan = card.querySelector('.card-num');
-    if (numSpan) {
-      const badge = document.createElement('span');
-      badge.className = 'badge-vos';
-      badge.textContent = 'Vos';
-      numSpan.appendChild(badge);
-    }
-  }
+function renumerar() {
+  document.querySelectorAll('#lista-integrantes .card').forEach((card, i) => {
+    const span = card.querySelector('.card-num');
+    if (!span) return;
+    const nombre = card.querySelector('.ing-nombre')?.value.trim();
+    span.textContent = nombre || `Integrante ${i + 1}`;
+  });
 }
 
 function onCompradorInput() {
@@ -1014,20 +1088,22 @@ function agregarIntegrante() {
 
   document.getElementById('lista-integrantes').appendChild(card);
 
-  // Wiring: si es la primera card, vincular con comprador
+  // Todos los cards: actualizar header al escribir nombre
+  const nombreInput = card.querySelector('.ing-nombre');
+  if (nombreInput) {
+    nombreInput.addEventListener('input', renumerar);
+  }
+
+  // Primer card: vincular con comprador
   if (idx === 1) {
-    const nombreInput = card.querySelector('.ing-nombre');
-    const emailInput  = card.querySelector('.ing-email');
-    if (nombreInput) {
-      nombreInput.addEventListener('input', () => onPrimerIngInput(card));
-    }
-    if (emailInput) {
-      emailInput.addEventListener('input', () => onPrimerIngInput(card));
-    }
-    // Sincronizar inmediatamente si hay datos del comprador
+    const emailInput = card.querySelector('.ing-email');
+    if (nombreInput) nombreInput.addEventListener('input', () => onPrimerIngInput(card));
+    if (emailInput)  emailInput.addEventListener('input',  () => onPrimerIngInput(card));
     sincronizarPrimerCard();
     actualizarBadge(card);
   }
+
+  renumerar();
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -1037,6 +1113,7 @@ function agregarIntegrante() {
 function eliminar(id) {
   const el = document.getElementById(id);
   if (el) el.remove();
+  renumerar();
 }
 
 function mostrarError(msg) {
@@ -1159,41 +1236,68 @@ async function enviarOnboarding() {
 // Mostrar resultado
 // ─────────────────────────────────────────────────────────────────────
 
+// ─────────────────────────────────────────────────────────────────────
+// Dashboard de resultado
+// ─────────────────────────────────────────────────────────────────────
+
+let _dashFamiliaId  = null;
+let _dashTokensInit = [];
+let _dashInterval   = null;
+
+const WA_SVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>`;
+
+function _estadoInfo(t) {
+  if (t.estado === 'completado')  return { label: '✓ Completó',      color: '#3B6D11' };
+  if (t.estado === 'en_progreso') return { label: '⏺ Grabando…',     color: '#c8522a' };
+  if (t.usado)                    return { label: '👁 Abrió el link', color: '#c8a96e' };
+  return                                 { label: '○ Pendiente',      color: '#aaa'    };
+}
+
+function _renderDashboard(tokens) {
+  const completados = tokens.filter(t => t.estado === 'completado').length;
+  document.getElementById('dash-progreso-txt').textContent =
+    `${completados} de ${tokens.length} grabaciones completadas`;
+
+  const tabla = document.getElementById('dashboard-tabla');
+  tabla.innerHTML = tokens.map(t => {
+    const link    = t.link;
+    const waText  = encodeURIComponent(`Hola ${t.nombre}, te comparto el link para grabar tu historia para el libro familiar: ${link}`);
+    const ei      = _estadoInfo(t);
+    return `
+      <div class="dash-row">
+        <div class="dash-nombre">${escHtml(t.nombre)}</div>
+        <div class="dash-badge" style="--estado-color:${ei.color}">${ei.label}</div>
+        <div class="dash-acciones">
+          <button class="btn btn-secondary btn-sm" onclick="copiarLink('${escAttr(link)}', this)">Copiar link</button>
+          <a class="btn-whatsapp btn-sm" href="https://wa.me/?text=${encodeURIComponent(`Hola ${t.nombre}, te comparto el link para grabar tu historia para el libro familiar: ${link}`)}" target="_blank" rel="noopener">${WA_SVG} WhatsApp</a>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+async function _pollDashboard() {
+  if (!_dashFamiliaId) return;
+  try {
+    const r    = await fetch(`${API_BASE}/familia/${_dashFamiliaId}/tokens-estado`);
+    const data = await r.json();
+    _renderDashboard(data.tokens);
+    const now = new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+    document.getElementById('dash-refresh-txt').textContent = `Actualizado ${now}`;
+  } catch(_) {}
+}
+
 function mostrarResultado(data, nombreFamilia) {
   document.getElementById('formulario').style.display = 'none';
   document.getElementById('resultado').style.display  = 'block';
-
   document.getElementById('resultado-titulo').textContent = `¡${nombreFamilia} lista!`;
-  document.getElementById('resultado-subtitulo').textContent =
-    'Compartí cada link con la persona correspondiente — por WhatsApp, en persona, como prefieras.';
 
-  const lista = document.getElementById('lista-tokens');
-  lista.innerHTML = '';
+  _dashFamiliaId  = data.familia_id;
+  _dashTokensInit = data.tokens.map(t => ({ ...t, estado: 'pendiente', usado: false }));
 
-  for (const t of data.tokens) {
-    const card = document.createElement('div');
-    card.className = 'token-card';
+  _renderDashboard(_dashTokensInit);
 
-    const link      = t.link;
-    const waText    = encodeURIComponent(
-      `Hola ${t.nombre}, te comparto el link para grabar tu historia para el libro familiar: ${link}`
-    );
-    const waUrl     = `https://wa.me/?text=${waText}`;
-
-    card.innerHTML = `
-      <div class="token-nombre">${escHtml(t.nombre)}</div>
-      <div class="token-code">${escHtml(t.token)}</div>
-      <div class="token-link">${escHtml(link)}</div>
-      <div class="token-actions">
-        <button class="btn-copy" onclick="copiarLink('${escAttr(link)}', this)">Copiar link</button>
-        <a class="btn-whatsapp" href="${escAttr(waUrl)}" target="_blank" rel="noopener">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-          WhatsApp
-        </a>
-      </div>
-    `;
-    lista.appendChild(card);
-  }
+  if (_dashInterval) clearInterval(_dashInterval);
+  _dashInterval = setInterval(_pollDashboard, 30000);
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -1264,6 +1368,9 @@ function quitarFoto() {
 // ─────────────────────────────────────────────────────────────────────
 
 function reiniciar() {
+  if (_dashInterval) { clearInterval(_dashInterval); _dashInterval = null; }
+  _dashFamiliaId = null;
+
   // Limpiar campos
   ['familia_id','nombre_familia','nombre_comprador','email_comprador'].forEach(id => {
     document.getElementById(id).value = '';

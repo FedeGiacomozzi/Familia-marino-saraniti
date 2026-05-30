@@ -99,6 +99,14 @@ def upload_pdf(local_path: str, filename: str, public: bool = True) -> str:
     return f"gs://{PDF_BUCKET}/{filename}"
 
 
+def upload_audio_bytes(content: bytes, bucket_name: str, blob_name: str, content_type: str = "audio/webm") -> str:
+    """Sube bytes de audio directamente a GCS. Retorna gs:// URI."""
+    bucket = _client().bucket(bucket_name)
+    blob   = bucket.blob(blob_name)
+    blob.upload_from_string(content, content_type=content_type)
+    return f"gs://{bucket_name}/{blob_name}"
+
+
 def upload_file(
     local_path: str,
     bucket_name: str,

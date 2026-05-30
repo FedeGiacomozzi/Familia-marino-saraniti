@@ -20,6 +20,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY pipeline/ ./pipeline/
 COPY onboarding.html .
+COPY recording.html .
 
 ENV PYTHONUNBUFFERED=1
 ENV PORT=8080
