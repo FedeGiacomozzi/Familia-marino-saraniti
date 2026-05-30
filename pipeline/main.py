@@ -31,6 +31,16 @@ ADMIN_KEY = "familia-admin-2026"
 _ONBOARDING_HTML  = os.path.join(os.path.dirname(__file__), "..", "onboarding.html")
 _RECORDING_HTML   = os.path.join(os.path.dirname(__file__), "..", "recording.html")
 _ADMIN_HTML       = os.path.join(os.path.dirname(__file__), "..", "admin.html")
+_TEMPLATES_DIR    = os.path.join(os.path.dirname(__file__), "templates")
+
+
+def _load_template(name: str) -> str:
+    path = os.path.join(_TEMPLATES_DIR, name)
+    try:
+        with open(path) as f:
+            return f.read()
+    except FileNotFoundError:
+        return ""
 
 
 # ─── Health ───────────────────────────────────────────────────────────────────
@@ -261,19 +271,25 @@ async def completar_token(token: str):
 def _enviar_email_completado(nombre_integrante: str, email_comprador: str, nombre_familia: str):
     try:
         import resend  # type: ignore
+        from datetime import datetime
         resend.api_key = os.environ.get("RESEND_API_KEY", "")
         if not resend.api_key:
             return
+        now = datetime.utcnow().strftime("%-d de %B, %Y a las %H:%M")
+        dashboard_url = f"{BASE_URL}/onboarding"
+        tpl = _load_template("email_completado.html")
+        html = (tpl
+            .replace("{{COMPRADOR_NOMBRE}}", email_comprador.split("@")[0].capitalize())
+            .replace("{{INTEGRANTE_NOMBRE}}", nombre_integrante)
+            .replace("{{FAMILIA_NOMBRE}}", nombre_familia)
+            .replace("{{FECHA_HORA}}", now)
+            .replace("{{DASHBOARD_URL}}", dashboard_url)
+        ) if tpl else f"<p>{nombre_integrante} completó su grabación para {nombre_familia}.</p>"
         resend.Emails.send({
             "from": os.environ.get("RESEND_FROM", "Libro Familiar <noreply@librofamiliar.com>"),
             "to": email_comprador,
-            "subject": f"{nombre_integrante} completó su grabación",
-            "html": (
-                f"<p>¡Hola!</p>"
-                f"<p><strong>{nombre_integrante}</strong> ya terminó de grabar su historia "
-                f"para el <strong>{nombre_familia}</strong>.</p>"
-                f"<p>Podés ver el progreso del resto en tu panel de seguimiento.</p>"
-            ),
+            "subject": f"{nombre_integrante} completó su grabación — {nombre_familia}",
+            "html": html,
         })
     except Exception:
         pass
@@ -424,20 +440,29 @@ def _run_pipeline_bg(familia_id: str, nombres: list[str], nombre_familia: str, p
 def _enviar_email_entrega(email_comprador: str, nombre_familia: str, pdf_url: str):
     try:
         import resend  # type: ignore
+        from datetime import datetime
         resend.api_key = os.environ.get("RESEND_API_KEY", "")
         if not resend.api_key:
             return
+        tokens = db.get_tokens_familia_by_email(email_comprador) if hasattr(db, "get_tokens_familia_by_email") else []
+        total = len(tokens) if tokens else "varias"
+        fecha = datetime.utcnow().strftime("%-d de %B, %Y")
+        año = datetime.utcnow().year
+        tpl = _load_template("email_entrega.html")
+        html = (tpl
+            .replace("{{COMPRADOR_NOMBRE}}", email_comprador.split("@")[0].capitalize())
+            .replace("{{FAMILIA_NOMBRE}}", nombre_familia)
+            .replace("{{PDF_URL}}", pdf_url)
+            .replace("{{DASHBOARD_URL}}", BASE_URL)
+            .replace("{{TOTAL_HISTORIAS}}", str(total))
+            .replace("{{FECHA_GENERACION}}", fecha)
+            .replace("{{AÑO}}", str(año))
+        ) if tpl else f"<p>Tu libro <strong>{nombre_familia}</strong> está listo. <a href='{pdf_url}'>Descargar PDF</a></p>"
         resend.Emails.send({
             "from": os.environ.get("RESEND_FROM", "Libro Familiar <noreply@librofamiliar.com>"),
             "to": email_comprador,
-            "subject": f"¡Tu libro está listo! — {nombre_familia}",
-            "html": (
-                f"<p>¡Hola!</p>"
-                f"<p>El <strong>{nombre_familia}</strong> ya está terminado. "
-                f"Podés descargarlo en el link de abajo — válido por 30 días.</p>"
-                f"<p><a href='{pdf_url}' style='font-size:16px;font-weight:bold'>→ Descargar el libro</a></p>"
-                f"<p style='font-size:12px;color:#888'>Si el link venció, contactanos y te generamos uno nuevo.</p>"
-            ),
+            "subject": f"El libro de la {nombre_familia} está listo ↓",
+            "html": html,
         })
     except Exception:
         pass
@@ -493,6 +518,7 @@ def enviar_email_progreso(
     else:
         percentil = 100
 
+    comprador_nombre = familia.get("comprador", {}).get("nombre", "")
     _enviar_email_progreso_html(
         email=email_comprador,
         nombre_familia=nombre_familia,
@@ -500,6 +526,7 @@ def enviar_email_progreso(
         pendientes=pendientes,
         total=total,
         percentil=percentil,
+        comprador_nombre=comprador_nombre,
     )
 
     return {"ok": True, "email": email_comprador, "percentil": percentil}
@@ -512,6 +539,7 @@ def _enviar_email_progreso_html(
     pendientes: list,
     total: int,
     percentil: int,
+    comprador_nombre: str = "",
 ):
     try:
         import resend  # type: ignore
@@ -522,85 +550,60 @@ def _enviar_email_progreso_html(
         n_comp = len(completados)
         pct    = round((n_comp / total) * 100) if total else 0
 
-        # Rows de la tabla
         def fila_comp(t):
             return (
                 f"<tr>"
-                f"<td style='padding:10px 16px;border-bottom:1px solid #f0e8d8'>{t.get('nombre','')}</td>"
-                f"<td style='padding:10px 16px;border-bottom:1px solid #f0e8d8;color:#3B6D11;font-weight:600'>✓ Completó</td>"
+                f"<td style='padding:10px 0;border-bottom:0.5px solid #e8d9b8;color:#3d2b0a'>{t.get('nombre','')}</td>"
+                f"<td style='padding:10px 0;border-bottom:0.5px solid #e8d9b8;text-align:right'>"
+                f"<span style='background:#EAF3DE;color:#3B6D11;font-size:11px;padding:3px 10px;border-radius:100px;font-weight:700'>✓ Completó</span>"
+                f"</td>"
                 f"</tr>"
             )
 
         def fila_pend(t):
-            link = f"https://familia-pipeline-776445604502.us-central1.run.app/r/{t.get('token','')}"
             return (
                 f"<tr>"
-                f"<td style='padding:10px 16px;border-bottom:1px solid #f0e8d8'>{t.get('nombre','')}</td>"
-                f"<td style='padding:10px 16px;border-bottom:1px solid #f0e8d8;color:#aaa'>"
-                f"○ Pendiente &nbsp;<a href='{link}' style='font-size:11px;color:#8b5e3c'>Mandar link →</a>"
+                f"<td style='padding:10px 0;border-bottom:0.5px solid #e8d9b8;color:#3d2b0a'>{t.get('nombre','')}</td>"
+                f"<td style='padding:10px 0;border-bottom:0.5px solid #e8d9b8;text-align:right'>"
+                f"<span style='background:#FFF3E0;color:#8B5E10;font-size:11px;padding:3px 10px;border-radius:100px'>Pendiente</span>"
                 f"</td>"
                 f"</tr>"
             )
 
         filas = "".join(fila_comp(t) for t in completados) + "".join(fila_pend(t) for t in pendientes)
 
-        stat_txt = ""
         if percentil >= 90:
-            stat_txt = f"🏆 Están en el <strong>top {100-percentil}% de familias más rápidas</strong> respondiendo."
+            stat_titulo = f"Top {100-percentil}% de familias más rápidas"
+            stat_sub = "Están grabando a un ritmo excepcional."
         elif percentil >= 70:
-            stat_txt = f"⚡ Van más rápido que el <strong>{percentil}% de las familias</strong>. ¡Siguen bien!"
+            stat_titulo = f"Más rápidos que el {percentil}% de las familias"
+            stat_sub = "Van muy bien — siguen así."
         elif percentil >= 40:
-            stat_txt = f"📈 Van a buen ritmo — más rápido que el <strong>{percentil}%</strong> de las familias."
+            stat_titulo = f"Más rápidos que el {percentil}% de las familias"
+            stat_sub = "Van a buen ritmo."
         else:
-            stat_txt = f"💬 Todavía están a tiempo — la mayoría de las historias se graban en una semana."
+            stat_titulo = "Todavía están a tiempo"
+            stat_sub = "La mayoría de las historias se graban en la primera semana."
 
-        html = f"""
-        <div style="font-family:'Georgia',serif;max-width:560px;margin:0 auto;color:#3d2b0a">
-          <div style="background:#fdf8f2;border-bottom:2px solid #c8a96e;padding:32px 40px;text-align:center">
-            <p style="font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#c8a96e;margin:0 0 8px">Libro de Memorias</p>
-            <h1 style="font-size:26px;font-weight:400;margin:0">{nombre_familia}</h1>
-          </div>
+        nombre_display = comprador_nombre or email.split("@")[0].capitalize()
 
-          <div style="background:#fff;padding:32px 40px">
-            <p style="font-size:16px;margin:0 0 24px">
-              Ya grabaron <strong>{n_comp} de {total}</strong> historias ({pct}% completado).
-            </p>
-
-            <!-- Barra de progreso -->
-            <div style="background:#e8d9b8;border-radius:99px;height:8px;margin-bottom:28px">
-              <div style="background:#c8a96e;height:8px;border-radius:99px;width:{pct}%"></div>
-            </div>
-
-            <!-- Stat -->
-            <div style="background:#fdf6f0;border-left:3px solid #c8a96e;padding:14px 20px;margin-bottom:28px;font-size:14px">
-              {stat_txt}
-            </div>
-
-            <!-- Tabla -->
-            <table style="width:100%;border-collapse:collapse;font-size:14px">
-              <thead>
-                <tr style="background:#faf6f0">
-                  <th style="padding:10px 16px;text-align:left;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#9a7b5a;font-weight:600">Integrante</th>
-                  <th style="padding:10px 16px;text-align:left;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#9a7b5a;font-weight:600">Estado</th>
-                </tr>
-              </thead>
-              <tbody>{filas}</tbody>
-            </table>
-          </div>
-
-          <div style="background:#fdf8f2;padding:24px 40px;text-align:center;border-top:1px solid #e8d9b8">
-            <p style="font-size:12px;color:#9a7b5a;margin:0">
-              Este es un mail automático del Libro de Memorias Familiar.<br>
-              Respondé este mail si necesitás ayuda.
-            </p>
-          </div>
-        </div>
-        """
+        tpl = _load_template("email_progreso.html")
+        html = (tpl
+            .replace("{{COMPRADOR_NOMBRE}}", nombre_display)
+            .replace("{{FAMILIA_NOMBRE}}", nombre_familia)
+            .replace("{{PCT}}", str(pct))
+            .replace("{{COMPLETADOS}}", str(n_comp))
+            .replace("{{TOTAL}}", str(total))
+            .replace("{{STAT_TITULO}}", stat_titulo)
+            .replace("{{STAT_SUBTITULO}}", stat_sub)
+            .replace("{{FILAS_TABLA}}", filas)
+            .replace("{{DASHBOARD_URL}}", BASE_URL)
+        ) if tpl else f"<p>Progreso de {nombre_familia}: {n_comp}/{total} grabaciones completadas.</p>"
 
         resend.Emails.send({
             "from": os.environ.get("RESEND_FROM", "Libro Familiar <noreply@librofamiliar.com>"),
             "to": email,
-            "subject": f"Progreso del {nombre_familia} — {len(completados)}/{total} grabaciones",
+            "subject": f"Actualización de la {nombre_familia} — {n_comp}/{total} grabaciones",
             "html": html,
         })
     except Exception:
@@ -685,18 +688,17 @@ def _enviar_email_reminder(email: str, nombre: str, nombre_familia: str, link: s
         resend.api_key = os.environ.get("RESEND_API_KEY", "")
         if not resend.api_key:
             return
+        tpl = _load_template("email_reminder.html")
+        html = (tpl
+            .replace("{{NOMBRE}}", nombre)
+            .replace("{{FAMILIA_NOMBRE}}", nombre_familia)
+            .replace("{{RECORDING_URL}}", link)
+        ) if tpl else f"<p>Hola {nombre}, todavía falta tu historia. <a href='{link}'>Empezar a grabar</a></p>"
         resend.Emails.send({
             "from": os.environ.get("RESEND_FROM", "Libro Familiar <noreply@librofamiliar.com>"),
             "to": email,
-            "subject": f"Todavía falta tu historia, {nombre} — {nombre_familia}",
-            "html": (
-                f"<p>Hola {nombre},</p>"
-                f"<p>Te escribimos porque todavía no grabaste tu historia para el <strong>{nombre_familia}</strong>.</p>"
-                f"<p>Son 16 preguntas cortas — podés hacerlo en una sola sentada o de a poco. "
-                f"Tu historia queda guardada para siempre.</p>"
-                f"<p><a href='{link}' style='font-size:16px;font-weight:bold'>→ Empezar a grabar</a></p>"
-                f"<p style='font-size:12px;color:#888'>Si ya grabaste, ignorá este mensaje.</p>"
-            ),
+            "subject": f"{nombre}, tu historia todavía no está escrita — {nombre_familia}",
+            "html": html,
         })
     except Exception:
         pass
