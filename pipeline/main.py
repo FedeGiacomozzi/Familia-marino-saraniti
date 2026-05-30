@@ -4,8 +4,10 @@ All heavy work happens in the agent modules.
 """
 
 import os
+from typing import Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import BackgroundTasks, FastAPI, Header, HTTPException
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 
 from pipeline.agents import orchestrator, transcriber, voice_agent, chapter_agent, layout_agent
@@ -14,12 +16,223 @@ from pipeline.utils import storage
 
 app = FastAPI(title="Familia Libro Pipeline", version="2.0")
 
+BASE_URL = os.environ.get("SERVICE_URL", "https://familia-pipeline-776445604502.us-central1.run.app")
+ADMIN_KEY = "familia-admin-2026"
+
 
 # ─── Health ───────────────────────────────────────────────────────────────────
 
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+# ─── Onboarding ───────────────────────────────────────────────────────────────
+
+class Integrante(BaseModel):
+    nombre: str
+    email: str = ""
+    rol: str = ""
+    fecha_nac: str = ""
+    es_menor: bool = False
+
+
+class Relacion(BaseModel):
+    persona_a: str
+    relacion: str
+    persona_b: str
+
+
+class OnboardingRequest(BaseModel):
+    familia_id: str
+    nombre_familia: str
+    email_comprador: str
+    pais: str
+    integrantes: list[Integrante]
+    relaciones: list[Relacion] = []
+
+
+@app.post("/onboarding")
+def onboarding(req: OnboardingRequest):
+    """
+    Crea/actualiza la familia en Firestore, registra integrantes, relaciones
+    y genera tokens únicos de grabación para cada integrante.
+    """
+    # 1. Crear familia
+    db.create_familia(
+        familia_id=req.familia_id,
+        nombre_familia=req.nombre_familia,
+        email_comprador=req.email_comprador,
+        pais=req.pais,
+    )
+
+    # 2. Registrar integrantes
+    for ing in req.integrantes:
+        db.seed_integrante(
+            nombre=ing.nombre,
+            fecha_nac=ing.fecha_nac,
+            rol=ing.rol,
+            es_menor=ing.es_menor,
+            email=ing.email,
+            familia_id=req.familia_id,
+        )
+
+    # 3. Registrar relaciones
+    for rel in req.relaciones:
+        db.seed_relacion(
+            persona_a=rel.persona_a,
+            relacion=rel.relacion,
+            persona_b=rel.persona_b,
+            familia_id=req.familia_id,
+        )
+
+    # 4. Generar y guardar tokens
+    tokens_result = []
+    for ing in req.integrantes:
+        token = db.generar_token(ing.nombre)
+        db.create_token(
+            familia_id=req.familia_id,
+            token=token,
+            nombre=ing.nombre,
+            email=ing.email,
+        )
+        link = f"{BASE_URL}/r/{token}"
+        tokens_result.append(
+            {
+                "nombre": ing.nombre,
+                "token": token,
+                "link": link,
+            }
+        )
+
+    return {
+        "familia_id": req.familia_id,
+        "estado": "onboarding",
+        "tokens": tokens_result,
+    }
+
+
+# ─── Redirección por token ─────────────────────────────────────────────────────
+
+@app.get("/r/{token}")
+def redirigir_token(token: str):
+    """
+    Valida y consume un token de grabación, luego redirige
+    a la página de grabación del servicio.
+    """
+    doc = db.get_token(token)
+    if doc is None:
+        raise HTTPException(status_code=404, detail="Token no encontrado")
+
+    familia_id = doc.get("familia_id")
+    if familia_id:
+        db.marcar_token_usado(familia_id=familia_id, token=token)
+
+    # Redirige a la página de grabación (raíz del servicio)
+    return RedirectResponse(url=BASE_URL, status_code=302)
+
+
+# ─── Estado de familia ────────────────────────────────────────────────────────
+
+@app.get("/familia/{familia_id}/estado")
+def estado_familia(familia_id: str):
+    """
+    Retorna el estado general de la familia, la lista de integrantes
+    y cuántos tienen transcripción y capítulo generado.
+    """
+    familia = db.get_familia(familia_id)
+    if familia is None:
+        raise HTTPException(status_code=404, detail="Familia no encontrada")
+
+    integrantes = db.get_familia_integrantes(familia_id)
+
+    con_transcripcion = 0
+    con_capitulo = 0
+    integrantes_detalle = []
+    for ing in integrantes:
+        nombre = ing["nombre"]
+        transcripciones = db.get_transcripciones(nombre, familia_id)
+        perfil = db.get_profile(nombre, familia_id)
+        tiene_trans = len(transcripciones) > 0
+        tiene_cap = bool(perfil and perfil.get("capitulo"))
+        if tiene_trans:
+            con_transcripcion += 1
+        if tiene_cap:
+            con_capitulo += 1
+        integrantes_detalle.append(
+            {
+                "nombre": nombre,
+                "rol": ing.get("rol", ""),
+                "es_menor": ing.get("es_menor", False),
+                "tiene_transcripcion": tiene_trans,
+                "tiene_capitulo": tiene_cap,
+            }
+        )
+
+    return {
+        "familia_id": familia_id,
+        "nombre_familia": familia.get("nombre", ""),
+        "estado": familia.get("estado", ""),
+        "pais": familia.get("pais", ""),
+        "total_integrantes": len(integrantes),
+        "con_transcripcion": con_transcripcion,
+        "con_capitulo": con_capitulo,
+        "integrantes": integrantes_detalle,
+    }
+
+
+# ─── Trigger pipeline ─────────────────────────────────────────────────────────
+
+def _run_pipeline_bg(familia_id: str, nombres: list[str], nombre_familia: str, pais: str):
+    """Tarea en background: ejecuta el pipeline completo."""
+    db.update_familia_estado(familia_id, "generando")
+    try:
+        orchestrator.run(
+            nombres=nombres,
+            pais=pais,
+            familia=nombre_familia,
+        )
+        db.update_familia_estado(familia_id, "entregado")
+    except Exception:
+        db.update_familia_estado(familia_id, "error")
+        raise
+
+
+@app.post("/familia/{familia_id}/trigger-pipeline")
+def trigger_pipeline(
+    familia_id: str,
+    background_tasks: BackgroundTasks,
+    x_admin_key: Optional[str] = Header(default=None),
+):
+    """
+    Dispara el pipeline completo en background para una familia.
+    Requiere header X-Admin-Key con el valor correcto.
+    """
+    if x_admin_key != ADMIN_KEY:
+        raise HTTPException(status_code=403, detail="Acceso denegado")
+
+    familia = db.get_familia(familia_id)
+    if familia is None:
+        raise HTTPException(status_code=404, detail="Familia no encontrada")
+
+    integrantes = db.get_familia_integrantes(familia_id)
+    nombres = [ing["nombre"] for ing in integrantes if not ing.get("es_menor")]
+
+    if not nombres:
+        raise HTTPException(status_code=422, detail="No hay integrantes adultos para procesar")
+
+    nombre_familia = familia.get("nombre", familia_id)
+    pais = familia.get("pais", "argentina")
+
+    background_tasks.add_task(
+        _run_pipeline_bg,
+        familia_id=familia_id,
+        nombres=nombres,
+        nombre_familia=nombre_familia,
+        pais=pais,
+    )
+
+    return {"status": "iniciado", "familia_id": familia_id, "nombres": nombres}
 
 
 # ─── Full pipeline ────────────────────────────────────────────────────────────

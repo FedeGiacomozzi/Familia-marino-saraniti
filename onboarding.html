@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Onboarding Familia — Libro de Memorias</title>
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=Montserrat:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #FAF8F5;
+  --text: #2C2C2C;
+  --accent: #8B6F5E;
+  --accent-light: #c8a99a;
+  --border: #e0d6cf;
+  --white: #ffffff;
+  --success: #4a7c59;
+  --error: #a94442;
+  --shadow: 0 2px 12px rgba(139, 111, 94, 0.12);
+}
+
+body {
+  font-family: 'Montserrat', sans-serif;
+  background: var(--bg);
+  min-height: 100vh;
+  color: var(--text);
+}
+
+header {
+  background: var(--white);
+  border-bottom: 1px solid var(--border);
+  padding: 28px 24px;
+  text-align: center;
+}
+
+header h1 {
+  font-family: 'Lora', serif;
+  font-size: 26px;
+  font-weight: 400;
+  color: var(--text);
+  letter-spacing: 0.3px;
+}
+
+header p {
+  font-size: 11px;
+  color: var(--accent);
+  margin-top: 6px;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
+.container {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 40px 24px 80px;
+}
+
+/* ── Secciones del formulario ── */
+.section {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 32px;
+  margin-bottom: 24px;
+  box-shadow: var(--shadow);
+}
+
+.section-title {
+  font-family: 'Lora', serif;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* ── Campos ── */
+.field {
+  margin-bottom: 18px;
+}
+
+.field label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 6px;
+}
+
+.field input,
+.field select {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--bg);
+  transition: border-color 0.2s;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.field select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238B6F5E' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  padding-right: 36px;
+  cursor: pointer;
+}
+
+.field input:focus,
+.field select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.field-row-3 {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 560px) {
+  .field-row,
+  .field-row-3 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Checkbox ── */
+.field-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.field-check input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.field-check label {
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text);
+  cursor: pointer;
+  margin-bottom: 0;
+}
+
+/* ── Cards de integrantes / relaciones ── */
+.card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 16px;
+  position: relative;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.card-num {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--accent-light);
+}
+
+.btn-remove {
+  background: none;
+  border: none;
+  color: var(--accent-light);
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  padding: 0 4px;
+  transition: color 0.2s;
+}
+
+.btn-remove:hover {
+  color: var(--error);
+}
+
+/* ── Botones ── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+}
+
+.btn-secondary {
+  background: var(--bg);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+}
+
+.btn-secondary:hover {
+  background: var(--accent);
+  color: var(--white);
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: var(--white);
+  padding: 14px 36px;
+  font-size: 14px;
+}
+
+.btn-primary:hover {
+  background: #7a5f4f;
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-add {
+  margin-top: 4px;
+}
+
+/* ── Mensajes ── */
+.msg {
+  padding: 14px 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  margin-bottom: 20px;
+  display: none;
+}
+
+.msg.show { display: block; }
+
+.msg-error {
+  background: #fdf0f0;
+  border: 1px solid #f5c6c6;
+  color: var(--error);
+}
+
+.msg-loading {
+  background: #fdf8f5;
+  border: 1px solid var(--border);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.submit-area {
+  text-align: center;
+  padding-top: 8px;
+}
+
+/* ── Vista de resultado ── */
+#resultado {
+  display: none;
+}
+
+.resultado-header {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 32px;
+  margin-bottom: 24px;
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+
+.resultado-header .checkmark {
+  width: 56px;
+  height: 56px;
+  background: #eaf3ec;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+  font-size: 26px;
+}
+
+.resultado-header h2 {
+  font-family: 'Lora', serif;
+  font-size: 22px;
+  font-weight: 400;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.resultado-header p {
+  font-size: 13px;
+  color: var(--accent);
+  line-height: 1.6;
+}
+
+/* ── Tabla de tokens ── */
+.tokens-section {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 32px;
+  box-shadow: var(--shadow);
+}
+
+.tokens-section .section-title {
+  margin-bottom: 24px;
+}
+
+.token-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+  margin-bottom: 16px;
+  background: var(--bg);
+}
+
+.token-card:last-child {
+  margin-bottom: 0;
+}
+
+.token-nombre {
+  font-family: 'Lora', serif;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 12px;
+}
+
+.token-code {
+  display: inline-block;
+  background: var(--text);
+  color: var(--white);
+  font-family: monospace;
+  font-size: 15px;
+  letter-spacing: 2px;
+  padding: 5px 12px;
+  border-radius: 6px;
+  margin-bottom: 14px;
+}
+
+.token-link {
+  font-size: 12px;
+  color: var(--accent);
+  word-break: break-all;
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+
+.token-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.btn-copy {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-copy:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.btn-copy.copied {
+  background: #eaf3ec;
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.btn-whatsapp {
+  background: #25d366;
+  color: var(--white);
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: background 0.2s;
+}
+
+.btn-whatsapp:hover {
+  background: #1ebe5d;
+}
+
+.nueva-familia {
+  text-align: center;
+  margin-top: 32px;
+}
+
+.nueva-familia a {
+  color: var(--accent);
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Libro de Memorias Familiar</h1>
+  <p>Panel de administración — Onboarding</p>
+</header>
+
+<div class="container">
+
+  <!-- ══════════════════════ FORMULARIO ══════════════════════ -->
+  <div id="formulario">
+
+    <!-- Datos de la familia -->
+    <div class="section">
+      <div class="section-title">Datos de la familia</div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="familia_id">ID de familia <span title="Identificador único sin espacios ni acentos">ⓘ</span></label>
+          <input type="text" id="familia_id" placeholder="ej: lopez-garcia" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="nombre_familia">Nombre de la familia</label>
+          <input type="text" id="nombre_familia" placeholder="ej: Familia López García">
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="email_comprador">Email del comprador</label>
+          <input type="email" id="email_comprador" placeholder="comprador@email.com">
+        </div>
+        <div class="field">
+          <label for="pais">País</label>
+          <select id="pais">
+            <option value="">— Seleccioná un país —</option>
+            <option value="argentina">Argentina</option>
+            <option value="uruguay">Uruguay</option>
+            <option value="chile">Chile</option>
+            <option value="colombia">Colombia</option>
+            <option value="mexico">México</option>
+            <option value="espana">España</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Integrantes -->
+    <div class="section">
+      <div class="section-title">Integrantes</div>
+
+      <div id="lista-integrantes"></div>
+
+      <button class="btn btn-secondary btn-add" onclick="agregarIntegrante()">
+        + Agregar integrante
+      </button>
+    </div>
+
+    <!-- Relaciones -->
+    <div class="section">
+      <div class="section-title">Relaciones familiares <span style="font-size:12px;font-weight:400;color:var(--accent-light)">(opcional)</span></div>
+
+      <div id="lista-relaciones"></div>
+
+      <button class="btn btn-secondary btn-add" onclick="agregarRelacion()">
+        + Agregar relación
+      </button>
+    </div>
+
+    <!-- Mensajes y submit -->
+    <div id="msg-error" class="msg msg-error"></div>
+    <div id="msg-loading" class="msg msg-loading" style="display:none">
+      <div class="spinner"></div>
+      <span>Creando familia y generando tokens de grabación&hellip;</span>
+    </div>
+
+    <div class="submit-area">
+      <button class="btn btn-primary" id="btn-submit" onclick="enviarOnboarding()">
+        Generar tokens de grabación
+      </button>
+    </div>
+
+  </div><!-- /#formulario -->
+
+  <!-- ══════════════════════ RESULTADO ══════════════════════ -->
+  <div id="resultado">
+
+    <div class="resultado-header">
+      <div class="checkmark">✓</div>
+      <h2 id="resultado-titulo">¡Familia creada!</h2>
+      <p id="resultado-subtitulo"></p>
+    </div>
+
+    <div class="tokens-section">
+      <div class="section-title">Links de grabación por integrante</div>
+      <div id="lista-tokens"></div>
+    </div>
+
+    <div class="nueva-familia">
+      <a onclick="reiniciar()">Crear otra familia</a>
+    </div>
+
+  </div><!-- /#resultado -->
+
+</div><!-- /.container -->
+
+<script>
+// ─────────────────────────────────────────────────────────────────────
+// Config
+// ─────────────────────────────────────────────────────────────────────
+
+const BASE_URL = 'https://familia-pipeline-776445604502.us-central1.run.app';
+const API_BASE = BASE_URL; // mismo origen; puede cambiarse a '' para URL relativa
+
+// ─────────────────────────────────────────────────────────────────────
+// Estado
+// ─────────────────────────────────────────────────────────────────────
+
+let contIntegrantes = 0;
+let contRelaciones  = 0;
+
+// ─────────────────────────────────────────────────────────────────────
+// Integrantes
+// ─────────────────────────────────────────────────────────────────────
+
+function agregarIntegrante() {
+  contIntegrantes++;
+  const idx = contIntegrantes;
+
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.id = `ing-${idx}`;
+  card.innerHTML = `
+    <div class="card-header">
+      <span class="card-num">Integrante ${idx}</span>
+      <button class="btn-remove" onclick="eliminar('ing-${idx}')" title="Eliminar">&times;</button>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Nombre completo</label>
+        <input type="text" class="ing-nombre" placeholder="ej: Juan López">
+      </div>
+      <div class="field">
+        <label>Email</label>
+        <input type="email" class="ing-email" placeholder="juan@email.com">
+      </div>
+    </div>
+    <div class="field-row-3">
+      <div class="field">
+        <label>Rol en la familia</label>
+        <select class="ing-rol">
+          <option value="">— Elegir —</option>
+          <option value="abuelo">Abuelo/a</option>
+          <option value="padre">Padre/Madre</option>
+          <option value="hijo">Hijo/a</option>
+          <option value="nieto">Nieto/a</option>
+          <option value="tio">Tío/a</option>
+          <option value="primo">Primo/a</option>
+          <option value="conyuge">Cónyuge</option>
+          <option value="otro">Otro</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Fecha de nac.</label>
+        <input type="date" class="ing-fecha_nac">
+      </div>
+      <div class="field" style="display:flex;align-items:flex-end;padding-bottom:2px">
+        <div class="field-check">
+          <input type="checkbox" class="ing-es_menor" id="menor-${idx}">
+          <label for="menor-${idx}">Es menor de edad</label>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('lista-integrantes').appendChild(card);
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Relaciones
+// ─────────────────────────────────────────────────────────────────────
+
+function agregarRelacion() {
+  contRelaciones++;
+  const idx = contRelaciones;
+
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.id = `rel-${idx}`;
+  card.innerHTML = `
+    <div class="card-header">
+      <span class="card-num">Relación ${idx}</span>
+      <button class="btn-remove" onclick="eliminar('rel-${idx}')" title="Eliminar">&times;</button>
+    </div>
+    <div class="field-row-3">
+      <div class="field">
+        <label>Persona A (nombre exacto)</label>
+        <input type="text" class="rel-persona_a" placeholder="ej: Juan López">
+      </div>
+      <div class="field">
+        <label>Relación</label>
+        <select class="rel-relacion">
+          <option value="">— Tipo —</option>
+          <option value="padre">padre / madre</option>
+          <option value="cónyuge">cónyuge</option>
+          <option value="hijo">hijo/a</option>
+          <option value="hermano">hermano/a</option>
+          <option value="abuelo">abuelo/a</option>
+          <option value="nieto">nieto/a</option>
+          <option value="tio">tío/a</option>
+          <option value="primo">primo/a</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Persona B (nombre exacto)</label>
+        <input type="text" class="rel-persona_b" placeholder="ej: María López">
+      </div>
+    </div>
+  `;
+
+  document.getElementById('lista-relaciones').appendChild(card);
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Utilidades
+// ─────────────────────────────────────────────────────────────────────
+
+function eliminar(id) {
+  const el = document.getElementById(id);
+  if (el) el.remove();
+}
+
+function mostrarError(msg) {
+  const el = document.getElementById('msg-error');
+  el.textContent = msg;
+  el.classList.add('show');
+}
+
+function ocultarError() {
+  const el = document.getElementById('msg-error');
+  el.textContent = '';
+  el.classList.remove('show');
+}
+
+function setLoading(on) {
+  document.getElementById('msg-loading').style.display = on ? 'flex' : 'none';
+  document.getElementById('btn-submit').disabled = on;
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Recolectar datos del formulario
+// ─────────────────────────────────────────────────────────────────────
+
+function recolectarDatos() {
+  const familiaId    = document.getElementById('familia_id').value.trim();
+  const nombreFam    = document.getElementById('nombre_familia').value.trim();
+  const emailComp    = document.getElementById('email_comprador').value.trim();
+  const pais         = document.getElementById('pais').value;
+
+  // Validaciones básicas
+  if (!familiaId)    return { error: 'El ID de familia es obligatorio.' };
+  if (!nombreFam)    return { error: 'El nombre de la familia es obligatorio.' };
+  if (!emailComp)    return { error: 'El email del comprador es obligatorio.' };
+  if (!pais)         return { error: 'Seleccioná un país.' };
+
+  // Integrantes
+  const ingCards = document.querySelectorAll('[id^="ing-"]');
+  if (ingCards.length === 0) return { error: 'Agregá al menos un integrante.' };
+
+  const integrantes = [];
+  for (const card of ingCards) {
+    const nombre = card.querySelector('.ing-nombre')?.value.trim() || '';
+    if (!nombre) return { error: 'Todos los integrantes deben tener nombre.' };
+    integrantes.push({
+      nombre,
+      email:     card.querySelector('.ing-email')?.value.trim()     || '',
+      rol:       card.querySelector('.ing-rol')?.value               || '',
+      fecha_nac: card.querySelector('.ing-fecha_nac')?.value         || '',
+      es_menor:  card.querySelector('.ing-es_menor')?.checked        || false,
+    });
+  }
+
+  // Relaciones
+  const relCards = document.querySelectorAll('[id^="rel-"]');
+  const relaciones = [];
+  for (const card of relCards) {
+    const pa  = card.querySelector('.rel-persona_a')?.value.trim() || '';
+    const rel = card.querySelector('.rel-relacion')?.value          || '';
+    const pb  = card.querySelector('.rel-persona_b')?.value.trim() || '';
+    if (pa || rel || pb) {
+      if (!pa || !rel || !pb) return { error: 'Completá todos los campos de cada relación o eliminá la vacía.' };
+      relaciones.push({ persona_a: pa, relacion: rel, persona_b: pb });
+    }
+  }
+
+  return {
+    payload: {
+      familia_id:      familiaId,
+      nombre_familia:  nombreFam,
+      email_comprador: emailComp,
+      pais,
+      integrantes,
+      relaciones,
+    }
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Enviar al endpoint
+// ─────────────────────────────────────────────────────────────────────
+
+async function enviarOnboarding() {
+  ocultarError();
+
+  const { error, payload } = recolectarDatos();
+  if (error) { mostrarError(error); return; }
+
+  setLoading(true);
+  try {
+    const resp = await fetch(`${API_BASE}/onboarding`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!resp.ok) {
+      let detail = `Error ${resp.status}`;
+      try {
+        const body = await resp.json();
+        detail = body.detail || detail;
+      } catch (_) {}
+      throw new Error(detail);
+    }
+
+    const data = await resp.json();
+    mostrarResultado(data, payload.nombre_familia);
+
+  } catch (err) {
+    mostrarError('No se pudo conectar con el servidor: ' + err.message);
+  } finally {
+    setLoading(false);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Mostrar resultado
+// ─────────────────────────────────────────────────────────────────────
+
+function mostrarResultado(data, nombreFamilia) {
+  document.getElementById('formulario').style.display = 'none';
+  document.getElementById('resultado').style.display  = 'block';
+
+  document.getElementById('resultado-titulo').textContent = `¡${nombreFamilia} lista!`;
+  document.getElementById('resultado-subtitulo').textContent =
+    `Se generaron ${data.tokens.length} link${data.tokens.length !== 1 ? 's' : ''} de grabación. ` +
+    'Compartí cada uno con su integrante para que empiece a grabar.';
+
+  const lista = document.getElementById('lista-tokens');
+  lista.innerHTML = '';
+
+  for (const t of data.tokens) {
+    const card = document.createElement('div');
+    card.className = 'token-card';
+
+    const link      = t.link;
+    const waText    = encodeURIComponent(
+      `¡Hola ${t.nombre}! Te comparto tu link personal para grabar tus memorias en el libro familiar:\n${link}`
+    );
+    const waUrl     = `https://wa.me/?text=${waText}`;
+
+    card.innerHTML = `
+      <div class="token-nombre">${escHtml(t.nombre)}</div>
+      <div class="token-code">${escHtml(t.token)}</div>
+      <div class="token-link">${escHtml(link)}</div>
+      <div class="token-actions">
+        <button class="btn-copy" onclick="copiarLink('${escAttr(link)}', this)">Copiar link</button>
+        <a class="btn-whatsapp" href="${escAttr(waUrl)}" target="_blank" rel="noopener">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+          WhatsApp
+        </a>
+      </div>
+    `;
+    lista.appendChild(card);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Copiar al portapapeles
+// ─────────────────────────────────────────────────────────────────────
+
+function copiarLink(texto, btn) {
+  navigator.clipboard.writeText(texto).then(() => {
+    btn.textContent = '¡Copiado!';
+    btn.classList.add('copied');
+    setTimeout(() => {
+      btn.textContent = 'Copiar link';
+      btn.classList.remove('copied');
+    }, 2000);
+  }).catch(() => {
+    // Fallback para navegadores sin clipboard API
+    const ta = document.createElement('textarea');
+    ta.value = texto;
+    ta.style.position = 'fixed';
+    ta.style.opacity  = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    btn.textContent = '¡Copiado!';
+    btn.classList.add('copied');
+    setTimeout(() => {
+      btn.textContent = 'Copiar link';
+      btn.classList.remove('copied');
+    }, 2000);
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Reiniciar
+// ─────────────────────────────────────────────────────────────────────
+
+function reiniciar() {
+  // Limpiar campos
+  ['familia_id','nombre_familia','email_comprador'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('pais').value = '';
+  document.getElementById('lista-integrantes').innerHTML = '';
+  document.getElementById('lista-relaciones').innerHTML  = '';
+  contIntegrantes = 0;
+  contRelaciones  = 0;
+
+  // Volver al formulario
+  document.getElementById('formulario').style.display = 'block';
+  document.getElementById('resultado').style.display  = 'none';
+  ocultarError();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Helpers de seguridad HTML
+// ─────────────────────────────────────────────────────────────────────
+
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function escAttr(str) {
+  return String(str).replace(/"/g, '&quot;');
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Inicializar con un integrante vacío
+// ─────────────────────────────────────────────────────────────────────
+agregarIntegrante();
+</script>
+
+</body>
+</html>

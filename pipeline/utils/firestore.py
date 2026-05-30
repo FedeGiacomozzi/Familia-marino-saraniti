@@ -3,14 +3,17 @@ Cliente Firestore para el pipeline familiar.
 Reemplaza la interface de sheets.py con persistencia en Firestore Native Mode.
 
 Estructura de colecciones:
-  familias/{familia_id}/respuestas/{doc_id}   — audios y transcripciones
-  familias/{familia_id}/perfiles/{nombre_key} — perfiles de voz y capítulos
+  familias/{familia_id}                         — documento de familia
   familias/{familia_id}/integrantes/{nombre_key}
   familias/{familia_id}/relaciones/{doc_id}
+  familias/{familia_id}/respuestas/{doc_id}     — audios y transcripciones
+  familias/{familia_id}/perfiles/{nombre_key}   — perfiles de voz y capítulos
+  familias/{familia_id}/tokens/{token}          — tokens de acceso por integrante
 """
 
 import json
 import os
+import secrets as _secrets
 from datetime import datetime
 from functools import lru_cache
 
@@ -43,16 +46,100 @@ def _db() -> firestore.Client:
     return firestore.Client(project=_PROJECT_ID)
 
 
-def _familia_ref():
-    return _db().collection("familias").document(FAMILIA_ID)
+def _familia_ref(familia_id: str | None = None):
+    fid = familia_id or FAMILIA_ID
+    return _db().collection("familias").document(fid)
+
+
+# ─── Familia ──────────────────────────────────────────────────────────────────
+
+def create_familia(familia_id: str, nombre_familia: str, email_comprador: str, pais: str) -> None:
+    """Crea o actualiza el documento raíz de una familia."""
+    _db().collection("familias").document(familia_id).set(
+        {
+            "nombre": nombre_familia,
+            "comprador": {"email": email_comprador},
+            "pais": pais,
+            "estado": "onboarding",
+            "fecha_creacion": datetime.utcnow().isoformat(),
+        },
+        merge=True,
+    )
+
+
+def get_familia(familia_id: str) -> dict | None:
+    """Retorna el documento raíz de una familia o None si no existe."""
+    doc = _db().collection("familias").document(familia_id).get()
+    if not doc.exists:
+        return None
+    return doc.to_dict() | {"_id": doc.id}
+
+
+def update_familia_estado(familia_id: str, estado: str) -> None:
+    """Actualiza solo el campo estado de una familia."""
+    _db().collection("familias").document(familia_id).update({"estado": estado})
+
+
+# ─── Tokens ───────────────────────────────────────────────────────────────────
+
+def _generar_token(nombre: str) -> str:
+    """Genera token con formato NOM-XXXXXX."""
+    prefijo = nombre.strip()[:3].upper()
+    sufijo = _secrets.token_urlsafe(6)[:6].upper()
+    return f"{prefijo}-{sufijo}"
+
+
+def create_token(familia_id: str, token: str, nombre: str, email: str) -> None:
+    """Guarda un token en la subcolección tokens de la familia."""
+    _db().collection("familias").document(familia_id).collection("tokens").document(token).set(
+        {
+            "token": token,
+            "nombre": nombre,
+            "email": email,
+            "familia_id": familia_id,
+            "usado": False,
+            "fecha_creacion": datetime.utcnow().isoformat(),
+        }
+    )
+
+
+def get_token(token: str) -> dict | None:
+    """
+    Busca un token en TODAS las familias usando collection group query.
+    Retorna el documento o None si no existe.
+    """
+    docs = list(
+        _db().collection_group("tokens").where("token", "==", token).limit(1).stream()
+    )
+    if not docs:
+        return None
+    return docs[0].to_dict() | {"_id": docs[0].id}
+
+
+def marcar_token_usado(familia_id: str, token: str) -> None:
+    """Marca un token como usado y registra la fecha de uso."""
+    _db().collection("familias").document(familia_id).collection("tokens").document(token).update(
+        {
+            "usado": True,
+            "fecha_uso": datetime.utcnow().isoformat(),
+        }
+    )
+
+
+def get_tokens_familia(familia_id: str) -> list[dict]:
+    """Retorna todos los tokens de una familia."""
+    docs = (
+        _db().collection("familias").document(familia_id).collection("tokens").stream()
+    )
+    return [d.to_dict() | {"_id": d.id} for d in docs]
 
 
 # ─── Respuestas ───────────────────────────────────────────────────────────────
 
-def get_respuestas(nombre: str) -> list[dict]:
+def get_respuestas(nombre: str, familia_id: str | None = None) -> list[dict]:
     """Devuelve lista de docs de respuesta para un nombre."""
     docs = (
-        _familia_ref()
+        _familia_ref(familia_id)
         .collection("respuestas")
         .where("nombre_key", "==", _nombre_key(nombre))
         .stream()
@@ -60,18 +147,18 @@ def get_respuestas(nombre: str) -> list[dict]:
     return [d.to_dict() | {"_id": d.id} for d in docs]
 
 
-def save_transcripcion(doc_id: str, transcripcion: str):
-    _familia_ref().collection("respuestas").document(doc_id).update(
+def save_transcripcion(doc_id: str, transcripcion: str, familia_id: str | None = None):
+    _familia_ref(familia_id).collection("respuestas").document(doc_id).update(
         {"transcripcion": transcripcion}
     )
 
 
-def get_transcripciones(nombre: str) -> list[dict]:
+def get_transcripciones(nombre: str, familia_id: str | None = None) -> list[dict]:
     """
     Retorna lista de {pregunta, transcripcion} con transcripcion no vacía.
     Compatible con la interface de sheets.get_transcripciones().
     """
-    docs = get_respuestas(nombre)
+    docs = get_respuestas(nombre, familia_id)
     result = []
     for d in docs:
         t = d.get("transcripcion", "").strip()
@@ -80,19 +167,19 @@ def get_transcripciones(nombre: str) -> list[dict]:
     return result
 
 
-def get_fecha_nac(nombre: str) -> str:
-    docs = get_respuestas(nombre)
+def get_fecha_nac(nombre: str, familia_id: str | None = None) -> str:
+    docs = get_respuestas(nombre, familia_id)
     for d in docs:
         fn = d.get("fecha_nac", "").strip()
         if fn:
             return fn
     # Fallback: integrante
-    integrante = get_integrante(nombre)
+    integrante = get_integrante(nombre, familia_id)
     return integrante.get("fecha_nac", "") if integrante else ""
 
 
-def get_foto_url(nombre: str) -> str | None:
-    docs = get_respuestas(nombre)
+def get_foto_url(nombre: str, familia_id: str | None = None) -> str | None:
+    docs = get_respuestas(nombre, familia_id)
     for d in docs:
         url = d.get("foto_url", "").strip()
         if url:
@@ -100,8 +187,8 @@ def get_foto_url(nombre: str) -> str | None:
     return None
 
 
-def get_all_nombres() -> list[str]:
-    docs = _familia_ref().collection("respuestas").stream()
+def get_all_nombres(familia_id: str | None = None) -> list[str]:
+    docs = _familia_ref(familia_id).collection("respuestas").stream()
     nombres = set()
     for d in docs:
         n = d.to_dict().get("nombre", "").strip()
@@ -110,15 +197,15 @@ def get_all_nombres() -> list[str]:
     return sorted(nombres)
 
 
-def get_all_respuestas() -> list[dict]:
+def get_all_respuestas(familia_id: str | None = None) -> list[dict]:
     """Todos los docs de respuestas de la familia (para transcriber)."""
-    docs = _familia_ref().collection("respuestas").stream()
+    docs = _familia_ref(familia_id).collection("respuestas").stream()
     return [d.to_dict() | {"_id": d.id} for d in docs]
 
 
-def get_respuestas_sin_transcripcion(nombre: str | None = None) -> list[dict]:
+def get_respuestas_sin_transcripcion(nombre: str | None = None, familia_id: str | None = None) -> list[dict]:
     """Docs que tienen link_audio pero transcripcion vacía."""
-    q = _familia_ref().collection("respuestas")
+    q = _familia_ref(familia_id).collection("respuestas")
     if nombre:
         q = q.where("nombre_key", "==", _nombre_key(nombre))
     return [
@@ -130,13 +217,13 @@ def get_respuestas_sin_transcripcion(nombre: str | None = None) -> list[dict]:
 
 # ─── Perfiles ─────────────────────────────────────────────────────────────────
 
-def save_profile(nombre: str, fecha_process: str, perfil_json: str, transcripcion_completa: str):
+def save_profile(nombre: str, fecha_process: str, perfil_json: str, transcripcion_completa: str, familia_id: str | None = None):
     key = _nombre_key(nombre)
     try:
         perfil_voz = json.loads(perfil_json) if isinstance(perfil_json, str) else perfil_json
     except (json.JSONDecodeError, ValueError):
         perfil_voz = {}
-    _familia_ref().collection("perfiles").document(key).set(
+    _familia_ref(familia_id).collection("perfiles").document(key).set(
         {
             "nombre": nombre,
             "nombre_key": key,
@@ -148,17 +235,17 @@ def save_profile(nombre: str, fecha_process: str, perfil_json: str, transcripcio
     )
 
 
-def save_chapter(nombre: str, capitulo: str, capitulo_revisado: str = ""):
+def save_chapter(nombre: str, capitulo: str, capitulo_revisado: str = "", familia_id: str | None = None):
     key = _nombre_key(nombre)
     data = {"capitulo": capitulo}
     if capitulo_revisado:
         data["capitulo_revisado"] = capitulo_revisado
-    _familia_ref().collection("perfiles").document(key).set(data, merge=True)
+    _familia_ref(familia_id).collection("perfiles").document(key).set(data, merge=True)
 
 
-def get_profile(nombre: str) -> dict | None:
+def get_profile(nombre: str, familia_id: str | None = None) -> dict | None:
     key = _nombre_key(nombre)
-    doc = _familia_ref().collection("perfiles").document(key).get()
+    doc = _familia_ref(familia_id).collection("perfiles").document(key).get()
     if not doc.exists:
         return None
     d = doc.to_dict()
@@ -174,8 +261,8 @@ def get_profile(nombre: str) -> dict | None:
 
 # ─── Familia: Integrantes + Relaciones ───────────────────────────────────────
 
-def get_familia_integrantes() -> list[dict]:
-    docs = _familia_ref().collection("integrantes").stream()
+def get_familia_integrantes(familia_id: str | None = None) -> list[dict]:
+    docs = _familia_ref(familia_id).collection("integrantes").stream()
     result = []
     for d in docs:
         data = d.to_dict()
@@ -191,13 +278,14 @@ def get_familia_integrantes() -> list[dict]:
                 "rol": data.get("rol", "").strip().lower(),
                 "es_menor": bool(data.get("es_menor", False)),
                 "vive": not bool(fecha_fallec),
+                "email": data.get("email", "").strip(),
             }
         )
     return result
 
 
-def get_familia_relaciones() -> list[dict]:
-    docs = _familia_ref().collection("relaciones").stream()
+def get_familia_relaciones(familia_id: str | None = None) -> list[dict]:
+    docs = _familia_ref(familia_id).collection("relaciones").stream()
     result = []
     for d in docs:
         data = d.to_dict()
@@ -209,8 +297,8 @@ def get_familia_relaciones() -> list[dict]:
     return result
 
 
-def get_integrante(nombre: str) -> dict | None:
-    integrantes = get_familia_integrantes()
+def get_integrante(nombre: str, familia_id: str | None = None) -> dict | None:
+    integrantes = get_familia_integrantes(familia_id)
     nombre_lower = nombre.strip().lower()
     for p in integrantes:
         if p["nombre"].lower() == nombre_lower:
@@ -275,10 +363,12 @@ def seed_integrante(
     fecha_fallec: str = "",
     rol: str = "",
     es_menor: bool = False,
+    email: str = "",
+    familia_id: str | None = None,
 ):
     """Upsert un integrante en Firestore."""
     key = _nombre_key(nombre)
-    _familia_ref().collection("integrantes").document(key).set(
+    _familia_ref(familia_id).collection("integrantes").document(key).set(
         {
             "nombre": nombre,
             "nombre_key": key,
@@ -286,14 +376,15 @@ def seed_integrante(
             "fecha_fallec": fecha_fallec,
             "rol": rol.lower(),
             "es_menor": es_menor,
+            "email": email,
         },
         merge=True,
     )
 
 
-def seed_relacion(persona_a: str, relacion: str, persona_b: str):
+def seed_relacion(persona_a: str, relacion: str, persona_b: str, familia_id: str | None = None):
     """Agrega una relación familiar (usa add para generar ID automático)."""
-    _familia_ref().collection("relaciones").add(
+    _familia_ref(familia_id).collection("relaciones").add(
         {
             "persona_a": persona_a,
             "relacion": relacion.lower(),
@@ -309,11 +400,12 @@ def seed_respuesta(
     foto_url: str = "",
     fecha_nac: str = "",
     transcripcion: str = "",
+    familia_id: str | None = None,
 ) -> str:
     """Upsert una respuesta. Retorna el doc_id."""
     key = _nombre_key(nombre)
     doc_key = f"{key}__{str(pregunta).zfill(3)}"
-    _familia_ref().collection("respuestas").document(doc_key).set(
+    _familia_ref(familia_id).collection("respuestas").document(doc_key).set(
         {
             "nombre": nombre,
             "nombre_key": key,
@@ -327,3 +419,10 @@ def seed_respuesta(
         merge=True,
     )
     return doc_key
+
+
+# ─── Helper para onboarding ──────────────────────────────────────────────────
+
+def generar_token(nombre: str) -> str:
+    """Genera token con formato NOM-XXXXXX (público para uso en endpoints)."""
+    return _generar_token(nombre)
