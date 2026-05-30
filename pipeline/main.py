@@ -6,7 +6,7 @@ All heavy work happens in the agent modules.
 import os
 from typing import Optional
 
-from fastapi import BackgroundTasks, FastAPI, Header, HTTPException
+from fastapi import BackgroundTasks, FastAPI, File, Header, HTTPException, UploadFile
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 
@@ -35,6 +35,7 @@ class Integrante(BaseModel):
     rol: str = ""
     fecha_nac: str = ""
     es_menor: bool = False
+    variante: str = ""  # Variante de idioma/acento para Whisper (ej: "es-AR")
 
 
 class Relacion(BaseModel):
@@ -110,6 +111,43 @@ def onboarding(req: OnboardingRequest):
         "estado": "onboarding",
         "tokens": tokens_result,
     }
+
+
+# ─── Foto de portada ──────────────────────────────────────────────────────────
+
+BUCKET_FOTOS = os.environ.get("GCS_BUCKET_FOTOS", "libro-familiar-fotos")
+
+
+@app.post("/familia/{familia_id}/foto-portada")
+async def subir_foto_portada(familia_id: str, file: UploadFile = File(...)):
+    """
+    Sube la foto de portada al bucket GCS y actualiza el campo foto_portada_url en Firestore.
+    Ruta GCS: {familia_id}/portada.jpg
+    """
+    familia = db.get_familia(familia_id)
+    if familia is None:
+        raise HTTPException(status_code=404, detail="Familia no encontrada")
+
+    try:
+        from google.cloud import storage as gcs_storage
+
+        content = await file.read()
+        gcs_path = f"{familia_id}/portada.jpg"
+        gcs_uri = f"gs://{BUCKET_FOTOS}/{gcs_path}"
+
+        client = gcs_storage.Client()
+        bucket = client.bucket(BUCKET_FOTOS)
+        blob = bucket.blob(gcs_path)
+        content_type = file.content_type or "image/jpeg"
+        blob.upload_from_string(content, content_type=content_type)
+
+        # Actualizar campo en Firestore
+        db.update_familia_campo(familia_id, "foto_portada_url", gcs_uri)
+
+        return {"url": gcs_uri}
+
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Error al subir foto: {exc}") from exc
 
 
 # ─── Redirección por token ─────────────────────────────────────────────────────

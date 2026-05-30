@@ -140,6 +140,90 @@ header p {
   }
 }
 
+/* ── Hint / nota debajo de campo ── */
+.field-hint {
+  font-size: 11px;
+  color: var(--accent);
+  font-style: italic;
+  margin-top: 5px;
+  line-height: 1.4;
+}
+
+/* ── Upload de foto de portada ── */
+.foto-upload-area {
+  border: 2px dashed var(--accent-light);
+  border-radius: 8px;
+  padding: 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  background: var(--bg);
+  position: relative;
+}
+
+.foto-upload-area:hover {
+  border-color: var(--accent);
+  background: #f5f0ed;
+}
+
+.foto-upload-area input[type="file"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+  font-size: 0;
+}
+
+.foto-upload-label {
+  font-size: 13px;
+  color: var(--accent);
+  font-weight: 500;
+  pointer-events: none;
+}
+
+.foto-upload-label span {
+  display: block;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--accent-light);
+  margin-top: 4px;
+}
+
+.foto-preview-wrap {
+  margin-top: 14px;
+  display: none;
+}
+
+.foto-preview-wrap img {
+  max-height: 180px;
+  width: 100%;
+  object-fit: cover;
+  border-radius: 8px;
+  display: block;
+}
+
+.btn-quitar-foto {
+  display: inline-block;
+  margin-top: 10px;
+  background: none;
+  border: 1px solid var(--accent-light);
+  color: var(--accent);
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 5px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-quitar-foto:hover {
+  border-color: var(--error);
+  color: var(--error);
+}
+
 /* ── Checkbox ── */
 .field-check {
   display: flex;
@@ -577,6 +661,29 @@ header p {
       </div>
     </div>
 
+    <!-- Foto de portada -->
+    <div class="section">
+      <div class="section-title">Foto de portada <span style="font-size:12px;font-weight:400;color:var(--accent-light)">(opcional)</span></div>
+
+      <div class="field">
+        <label>Foto del preámbulo (opcional)</label>
+        <p style="font-size:12px;color:var(--accent);font-style:italic;margin-bottom:12px;line-height:1.5;">
+          Una foto grupal de la familia para abrir el libro. Puede ser reciente o histórica — la que mejor los represente a todos.
+        </p>
+        <div class="foto-upload-area" id="foto-drop-area">
+          <input type="file" id="foto-portada-input" accept="image/*" onchange="onFotoSeleccionada(this)">
+          <div class="foto-upload-label">
+            Hacé clic o arrastrá una imagen aquí
+            <span>JPG, PNG, WEBP — máx. 10 MB</span>
+          </div>
+        </div>
+        <div class="foto-preview-wrap" id="foto-preview-wrap">
+          <img id="foto-preview-img" src="" alt="Preview foto portada">
+          <button class="btn-quitar-foto" onclick="quitarFoto()">Quitar foto</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Integrantes -->
     <div class="section">
       <div class="section-title">Integrantes</div>
@@ -703,6 +810,39 @@ function agregarIntegrante() {
         </div>
       </div>
     </div>
+    <div class="field">
+      <label>¿Cómo habla?</label>
+      <select class="ing-variante">
+        <option value="">— Variante del idioma —</option>
+        <optgroup label="Español">
+          <option value="es-AR">Español — Argentina</option>
+          <option value="es-UY">Español — Uruguay</option>
+          <option value="es-PY">Español — Paraguay</option>
+          <option value="es-BO">Español — Bolivia</option>
+          <option value="es-CL">Español — Chile</option>
+          <option value="es-PE">Español — Perú</option>
+          <option value="es-EC">Español — Ecuador</option>
+          <option value="es-CO">Español — Colombia</option>
+          <option value="es-VE">Español — Venezuela</option>
+          <option value="es-MX">Español — México</option>
+          <option value="es-419">Español — América Central / Caribe</option>
+          <option value="es-ES">Español — España</option>
+          <option value="es">Español — otro / mixto</option>
+        </optgroup>
+        <optgroup label="Portugués">
+          <option value="pt-BR">Portugués — Brasil</option>
+          <option value="pt-PT">Portugués — Portugal</option>
+        </optgroup>
+        <optgroup label="Otros">
+          <option value="it">Italiano</option>
+          <option value="fr">Francés</option>
+          <option value="de">Alemán</option>
+          <option value="en-US">Inglés — Estados Unidos</option>
+          <option value="en-GB">Inglés — Reino Unido / Australia</option>
+        </optgroup>
+      </select>
+      <p class="field-hint">Para transcribir mejor el audio. Elegí el acento o vocabulario que usa, no el país de nacimiento.</p>
+    </div>
   `;
 
   document.getElementById('lista-integrantes').appendChild(card);
@@ -809,6 +949,7 @@ function recolectarDatos() {
       rol:       card.querySelector('.ing-rol')?.value               || '',
       fecha_nac: card.querySelector('.ing-fecha_nac')?.value         || '',
       es_menor:  card.querySelector('.ing-es_menor')?.checked        || false,
+      variante:  card.querySelector('.ing-variante')?.value          || '',
     });
   }
 
@@ -865,6 +1006,23 @@ async function enviarOnboarding() {
     }
 
     const data = await resp.json();
+
+    // Si hay foto de portada seleccionada, subirla después del onboarding
+    const fotoInput = document.getElementById('foto-portada-input');
+    if (fotoInput && fotoInput.files && fotoInput.files.length > 0) {
+      try {
+        const formData = new FormData();
+        formData.append('file', fotoInput.files[0]);
+        await fetch(`${API_BASE}/familia/${data.familia_id}/foto-portada`, {
+          method: 'POST',
+          body: formData,
+        });
+      } catch (fotoErr) {
+        // Error no bloqueante — la foto es opcional
+        console.warn('No se pudo subir la foto de portada:', fotoErr.message);
+      }
+    }
+
     mostrarResultado(data, payload.nombre_familia);
 
   } catch (err) {
@@ -948,6 +1106,32 @@ function copiarLink(texto, btn) {
 }
 
 // ─────────────────────────────────────────────────────────────────────
+// Foto de portada
+// ─────────────────────────────────────────────────────────────────────
+
+function onFotoSeleccionada(input) {
+  if (!input.files || !input.files[0]) return;
+  const file = input.files[0];
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const wrap = document.getElementById('foto-preview-wrap');
+    const img  = document.getElementById('foto-preview-img');
+    img.src = e.target.result;
+    wrap.style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+}
+
+function quitarFoto() {
+  const input = document.getElementById('foto-portada-input');
+  const wrap  = document.getElementById('foto-preview-wrap');
+  const img   = document.getElementById('foto-preview-img');
+  input.value = '';
+  img.src = '';
+  wrap.style.display = 'none';
+}
+
+// ─────────────────────────────────────────────────────────────────────
 // Reiniciar
 // ─────────────────────────────────────────────────────────────────────
 
@@ -961,6 +1145,9 @@ function reiniciar() {
   document.getElementById('lista-relaciones').innerHTML  = '';
   contIntegrantes = 0;
   contRelaciones  = 0;
+
+  // Limpiar foto de portada
+  quitarFoto();
 
   // Volver al formulario
   document.getElementById('formulario').style.display = 'block';
