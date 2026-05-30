@@ -79,6 +79,11 @@ def update_familia_estado(familia_id: str, estado: str) -> None:
     _db().collection("familias").document(familia_id).update({"estado": estado})
 
 
+def update_familia_campo(familia_id: str, campo: str, valor) -> None:
+    """Actualiza un campo arbitrario en el documento de familia."""
+    _db().collection("familias").document(familia_id).update({campo: valor})
+
+
 # ─── Tokens ───────────────────────────────────────────────────────────────────
 
 def _generar_token(nombre: str) -> str:
