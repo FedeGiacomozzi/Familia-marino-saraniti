@@ -703,17 +703,6 @@ input#es_regalo:checked + .toggle-regalo-wrap .toggle-switch::after,
       </button>
     </div>
 
-    <!-- Relaciones -->
-    <div class="section">
-      <div class="section-title">Relaciones familiares <span style="font-size:12px;font-weight:400;color:var(--accent-light)">(opcional)</span></div>
-
-      <div id="lista-relaciones"></div>
-
-      <button class="btn btn-secondary btn-add" onclick="agregarRelacion()">
-        + Agregar relación
-      </button>
-    </div>
-
     <!-- Mensajes y submit -->
     <div id="msg-error" class="msg msg-error"></div>
     <div id="msg-loading" class="msg msg-loading" style="display:none">
@@ -764,7 +753,6 @@ const API_BASE = BASE_URL; // mismo origen; puede cambiarse a '' para URL relati
 // ─────────────────────────────────────────────────────────────────────
 
 let contIntegrantes = 0;
-let contRelaciones  = 0;
 let esRegalo        = false;  // toggle "Lo hago como regalo"
 
 // ─────────────────────────────────────────────────────────────────────
@@ -1043,51 +1031,6 @@ function agregarIntegrante() {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Relaciones
-// ─────────────────────────────────────────────────────────────────────
-
-function agregarRelacion() {
-  contRelaciones++;
-  const idx = contRelaciones;
-
-  const card = document.createElement('div');
-  card.className = 'card';
-  card.id = `rel-${idx}`;
-  card.innerHTML = `
-    <div class="card-header">
-      <span class="card-num">Relación ${idx}</span>
-      <button class="btn-remove" onclick="eliminar('rel-${idx}')" title="Eliminar">&times;</button>
-    </div>
-    <div class="field-row-3">
-      <div class="field">
-        <label>Persona A (nombre exacto)</label>
-        <input type="text" class="rel-persona_a" placeholder="ej: Juan López">
-      </div>
-      <div class="field">
-        <label>Relación</label>
-        <select class="rel-relacion">
-          <option value="">— Tipo —</option>
-          <option value="padre">padre / madre</option>
-          <option value="cónyuge">cónyuge</option>
-          <option value="hijo">hijo/a</option>
-          <option value="hermano">hermano/a</option>
-          <option value="abuelo">abuelo/a</option>
-          <option value="nieto">nieto/a</option>
-          <option value="tio">tío/a</option>
-          <option value="primo">primo/a</option>
-        </select>
-      </div>
-      <div class="field">
-        <label>Persona B (nombre exacto)</label>
-        <input type="text" class="rel-persona_b" placeholder="ej: María López">
-      </div>
-    </div>
-  `;
-
-  document.getElementById('lista-relaciones').appendChild(card);
-}
-
-// ─────────────────────────────────────────────────────────────────────
 // Utilidades
 // ─────────────────────────────────────────────────────────────────────
 
@@ -1147,26 +1090,13 @@ function recolectarDatos() {
     });
   }
 
-  // Relaciones
-  const relCards = document.querySelectorAll('[id^="rel-"]');
-  const relaciones = [];
-  for (const card of relCards) {
-    const pa  = card.querySelector('.rel-persona_a')?.value.trim() || '';
-    const rel = card.querySelector('.rel-relacion')?.value          || '';
-    const pb  = card.querySelector('.rel-persona_b')?.value.trim() || '';
-    if (pa || rel || pb) {
-      if (!pa || !rel || !pb) return { error: 'Completá todos los campos de cada relación o eliminá la vacía.' };
-      relaciones.push({ persona_a: pa, relacion: rel, persona_b: pb });
-    }
-  }
-
   return {
     payload: {
       familia_id:      familiaId,
       nombre_familia:  nombreFam,
       email_comprador: emailComp,
       integrantes,
-      relaciones,
+      relaciones: [],
     }
   };
 }
@@ -1339,9 +1269,7 @@ function reiniciar() {
     document.getElementById(id).value = '';
   });
   document.getElementById('lista-integrantes').innerHTML = '';
-  document.getElementById('lista-relaciones').innerHTML  = '';
   contIntegrantes = 0;
-  contRelaciones  = 0;
 
   // Resetear foto de portada
   quitarFoto();
