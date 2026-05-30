@@ -6,7 +6,7 @@ All heavy work happens in the agent modules.
 import os
 from typing import Optional
 
-from fastapi import BackgroundTasks, FastAPI, File, Form, Header, HTTPException, UploadFile
+from fastapi import BackgroundTasks, FastAPI, File, Form, Header, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -702,6 +702,604 @@ def _enviar_email_reminder(email: str, nombre: str, nombre_familia: str, link: s
         })
     except Exception:
         pass
+
+
+# ─── Mi Familia (comprador dashboard) ───────────────────────────────────────
+#
+# Flujo magic link:
+#   1. Comprador va a /mi-familia y escribe su email
+#   2. POST /auth/magic-link genera un token de 1 hora y manda email
+#   3. Email contiene link a /mi-familia?ml=TOKEN
+#   4. GET /auth/magic-link/{token}/familia verifica token y devuelve datos
+#   5. POST /auth/magic-link/{token}/reenviar-links reenvía links de grabación
+
+_MI_FAMILIA_HTML = os.path.join(os.path.dirname(__file__), "..", "mi-familia.html")
+
+import secrets as _secrets_mod
+from datetime import datetime, timedelta
+
+
+@app.get("/mi-familia", response_class=FileResponse)
+def mi_familia_ui():
+    return FileResponse(_MI_FAMILIA_HTML, media_type="text/html")
+
+
+class MagicLinkRequest(BaseModel):
+    email: str
+
+
+@app.post("/auth/magic-link")
+def solicitar_magic_link(req: MagicLinkRequest, background_tasks: BackgroundTasks):
+    email = req.email.strip().lower()
+    if not email or "@" not in email:
+        raise HTTPException(status_code=422, detail="Email inválido")
+
+    # Buscar familias con este email de comprador
+    familias = db.get_all_familias()
+    matching = [f for f in familias if f.get("comprador", {}).get("email", "").lower() == email]
+    if not matching:
+        # Responder igual para no revelar si el email existe
+        return {"ok": True}
+
+    # Generar magic token para cada familia (si hay múltiples, el último)
+    familia = matching[-1]
+    familia_id = familia["_id"]
+    ml_token = _secrets_mod.token_urlsafe(32)
+    expira = (datetime.utcnow() + timedelta(hours=1)).isoformat()
+
+    db.update_familia_campo(familia_id, "magic_link", {
+        "token": ml_token,
+        "expira": expira,
+        "email": email,
+    })
+
+    link = f"{BASE_URL}/mi-familia?ml={ml_token}"
+    nombre = familia.get("comprador", {}).get("nombre", "")
+    background_tasks.add_task(_enviar_magic_link, email, nombre, link, familia.get("nombre", ""))
+    return {"ok": True}
+
+
+def _enviar_magic_link(email: str, nombre: str, link: str, nombre_familia: str):
+    try:
+        import resend  # type: ignore
+        resend.api_key = os.environ.get("RESEND_API_KEY", "")
+        if not resend.api_key:
+            return
+        html = f"""
+        <div style="font-family:'Georgia',serif;max-width:480px;margin:0 auto;color:#3d2b0a;background:#fff;border:1px solid #e8d9b8;border-radius:12px;overflow:hidden">
+          <div style="background:#2C1A0E;padding:24px;text-align:center">
+            <p style="font-family:'Playfair Display',serif;font-size:13px;letter-spacing:0.18em;color:#C4956A;text-transform:uppercase;margin:0 0 4px">Raíces</p>
+            <h1 style="font-family:'Playfair Display',serif;font-size:20px;color:#F5EDD8;font-weight:400;margin:0">Tu acceso a {nombre_familia}</h1>
+          </div>
+          <div style="padding:28px">
+            <p>Hola{' ' + nombre if nombre else ''}. Hacé click en el botón para acceder al estado de tu libro:</p>
+            <div style="text-align:center;margin:24px 0">
+              <a href="{link}" style="background:#2C1A0E;color:#F5EDD8;padding:14px 32px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:700;letter-spacing:0.04em">Ver mi libro →</a>
+            </div>
+            <p style="font-size:12px;color:#9a7b5a">Este link es válido por 1 hora. Si no pediste este email, podés ignorarlo.</p>
+          </div>
+        </div>
+        """
+        resend.Emails.send({
+            "from": os.environ.get("RESEND_FROM", "Raíces <noreply@librofamiliar.com>"),
+            "to": email,
+            "subject": f"Tu acceso a {nombre_familia} — Raíces",
+            "html": html,
+        })
+    except Exception:
+        pass
+
+
+@app.get("/auth/magic-link/{ml_token}/familia")
+def get_familia_por_magic_link(ml_token: str):
+    familias = db.get_all_familias()
+    familia = None
+    for f in familias:
+        ml = f.get("magic_link", {})
+        if ml.get("token") == ml_token:
+            expira = ml.get("expira", "")
+            if expira and datetime.utcnow().isoformat() > expira:
+                raise HTTPException(status_code=401, detail="El link expiró. Solicitá uno nuevo en /mi-familia")
+            familia = f
+            break
+
+    if not familia:
+        raise HTTPException(status_code=404, detail="Link inválido o expirado")
+
+    familia_id = familia["_id"]
+    tokens = db.get_tokens_familia(familia_id)
+    pdf_url = familia.get("pdf_url_firmada") or familia.get("pdf_url")
+
+    return {
+        "familia_id": familia_id,
+        "nombre_familia": familia.get("nombre", ""),
+        "estado": familia.get("estado", ""),
+        "pdf_url": pdf_url,
+        "tokens": [
+            {
+                "nombre": t.get("nombre", ""),
+                "estado": t.get("estado", "pendiente"),
+                "link": f"{BASE_URL}/r/{t.get('token', '')}",
+                "email": t.get("email", ""),
+            }
+            for t in tokens
+        ],
+    }
+
+
+@app.post("/auth/magic-link/{ml_token}/reenviar-links")
+def reenviar_links_magic(ml_token: str, background_tasks: BackgroundTasks):
+    familias = db.get_all_familias()
+    familia = None
+    for f in familias:
+        ml = f.get("magic_link", {})
+        if ml.get("token") == ml_token:
+            if datetime.utcnow().isoformat() > ml.get("expira", ""):
+                raise HTTPException(status_code=401, detail="Link expirado")
+            familia = f
+            break
+
+    if not familia:
+        raise HTTPException(status_code=404, detail="Link inválido")
+
+    familia_id = familia["_id"]
+    nombre_familia = familia.get("nombre", "")
+    tokens = db.get_tokens_familia(familia_id)
+
+    for t in tokens:
+        if t.get("estado") != "completado" and t.get("email"):
+            link = f"{BASE_URL}/r/{t['token']}"
+            background_tasks.add_task(
+                _enviar_email_reminder,
+                t["email"], t["nombre"], nombre_familia, link
+            )
+    return {"ok": True}
+
+
+# ─── Mercado Pago webhook ────────────────────────────────────────────────────
+#
+# Flujo:
+#   1. Comprador paga en MP → MP llama a POST /pago/mp-webhook
+#   2. Verificamos el pago contra la API de MP
+#   3. Extraemos metadata (nombre_familia, email_comprador, integrantes)
+#   4. Creamos la familia en Firestore + generamos tokens
+#   5. Enviamos email de bienvenida con los links a cada integrante
+#
+# Variables de entorno requeridas:
+#   MP_ACCESS_TOKEN   — token de producción/sandbox de Mercado Pago
+#   MP_WEBHOOK_SECRET — secret para validar la firma X-Signature (opcional)
+
+import hashlib
+import hmac
+import urllib.request
+
+
+def _mp_get_payment(payment_id: str) -> dict | None:
+    token = os.environ.get("MP_ACCESS_TOKEN", "")
+    if not token:
+        return None
+    url = f"https://api.mercadopago.com/v1/payments/{payment_id}"
+    req = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}"})
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            import json as _json
+            return _json.loads(resp.read())
+    except Exception:
+        return None
+
+
+def _mp_verify_signature(request_body: bytes, x_signature: str, x_request_id: str) -> bool:
+    secret = os.environ.get("MP_WEBHOOK_SECRET", "")
+    if not secret:
+        return True  # sin secret configurado, aceptar todo (sandbox)
+    try:
+        parts = {p.split("=")[0]: p.split("=")[1] for p in x_signature.split(",")}
+        ts  = parts.get("ts", "")
+        v1  = parts.get("v1", "")
+        manifest = f"id:{x_request_id};request-id:{x_request_id};ts:{ts};"
+        digest = hmac.new(secret.encode(), manifest.encode(), hashlib.sha256).hexdigest()
+        return hmac.compare_digest(digest, v1)
+    except Exception:
+        return False
+
+
+def _procesar_pago_aprobado(payment_data: dict, background_tasks: BackgroundTasks):
+    """
+    Extrae datos del pago y crea la familia + tokens.
+    metadata esperada en el pago MP:
+      { nombre_familia, email_comprador, nombre_comprador,
+        integrantes: "[{nombre, email}, ...]"  (JSON string) }
+    """
+    import json as _json
+
+    status = payment_data.get("status", "")
+    if status != "approved":
+        return
+
+    metadata    = payment_data.get("metadata", {})
+    payment_id  = str(payment_data.get("id", ""))
+    orden_id    = str(payment_data.get("order", {}).get("id", payment_id))
+    nombre_fam  = metadata.get("nombre_familia", f"Familia {orden_id}")
+    email_comp  = (
+        metadata.get("email_comprador")
+        or payment_data.get("payer", {}).get("email", "")
+    )
+    nombre_comp = (
+        metadata.get("nombre_comprador")
+        or payment_data.get("payer", {}).get("first_name", "")
+    )
+    familia_id  = f"mp-{payment_id}"
+
+    # Integrantes: pueden venir como JSON string en metadata
+    raw_integ = metadata.get("integrantes", "[]")
+    try:
+        integrantes_raw = _json.loads(raw_integ) if isinstance(raw_integ, str) else raw_integ
+    except Exception:
+        integrantes_raw = []
+
+    if not integrantes_raw:
+        # Sin integrantes en metadata → solo registrar el comprador
+        integrantes_raw = [{"nombre": nombre_comp or "Comprador", "email": email_comp}]
+
+    # Crear familia
+    db.create_familia(
+        familia_id=familia_id,
+        nombre_familia=nombre_fam,
+        email_comprador=email_comp,
+    )
+    # Guardar nombre del comprador
+    db.update_familia_campo(familia_id, "comprador", {
+        "email": email_comp,
+        "nombre": nombre_comp,
+        "payment_id": payment_id,
+    })
+
+    # Crear tokens + enviar emails
+    tokens_result = []
+    for ing in integrantes_raw:
+        nombre_ing = ing.get("nombre", "").strip()
+        email_ing  = ing.get("email", "").strip()
+        if not nombre_ing:
+            continue
+        token = db.generar_token(nombre_ing)
+        db.create_token(
+            familia_id=familia_id,
+            token=token,
+            nombre=nombre_ing,
+            email=email_ing,
+        )
+        db.seed_integrante(nombre=nombre_ing, email=email_ing, familia_id=familia_id)
+        link = f"{BASE_URL}/r/{token}"
+        tokens_result.append({"nombre": nombre_ing, "token": token, "link": link, "email": email_ing})
+
+    # Enviar email de bienvenida al comprador + links a integrantes
+    background_tasks.add_task(
+        _enviar_email_bienvenida,
+        email_comp, nombre_comp, nombre_fam, tokens_result
+    )
+    for t in tokens_result:
+        if t["email"] and t["email"] != email_comp:
+            background_tasks.add_task(
+                _enviar_email_reminder,
+                t["email"], t["nombre"], nombre_fam, t["link"]
+            )
+
+
+def _enviar_email_bienvenida(email: str, nombre: str, nombre_familia: str, tokens: list):
+    try:
+        import resend  # type: ignore
+        resend.api_key = os.environ.get("RESEND_API_KEY", "")
+        if not resend.api_key:
+            return
+        links_html = "".join(
+            f"<li style='padding:6px 0'><strong>{t['nombre']}</strong> → "
+            f"<a href='{t['link']}' style='color:#8B5E3C'>{t['link']}</a></li>"
+            for t in tokens
+        )
+        html = f"""
+        <div style="font-family:'Georgia',serif;max-width:560px;margin:0 auto;color:#3d2b0a;background:#fff;border:1px solid #e8d9b8;border-radius:12px;overflow:hidden">
+          <div style="background:#2C1A0E;padding:32px;text-align:center">
+            <p style="font-family:'Playfair Display',serif;font-size:13px;letter-spacing:0.18em;color:#C4956A;text-transform:uppercase;margin:0 0 8px">Raíces</p>
+            <h1 style="font-family:'Playfair Display',serif;font-size:22px;color:#F5EDD8;font-weight:400;margin:0">Tu libro de familia<br><em>está en marcha</em></h1>
+          </div>
+          <div style="padding:32px">
+            <p>Hola, {nombre or 'te damos la bienvenida'}. Recibimos tu compra del libro de la <strong>{nombre_familia}</strong>.</p>
+            <p>Cada integrante tiene su link único de grabación. Podés compartirlos directamente:</p>
+            <ul style="list-style:none;padding:0;margin:16px 0;font-size:14px">{links_html}</ul>
+            <p style="font-size:14px;color:#9a7b5a">Cuando todos terminen de grabar, el libro se genera automáticamente y te avisamos por email.</p>
+          </div>
+          <div style="padding:16px 32px;border-top:1px solid #e8d9b8;font-size:12px;color:#9a7b5a">
+            Raíces · Libros biográficos
+          </div>
+        </div>
+        """
+        resend.Emails.send({
+            "from": os.environ.get("RESEND_FROM", "Raíces <noreply@librofamiliar.com>"),
+            "to": email,
+            "subject": f"¡Tu libro está en marcha! — {nombre_familia}",
+            "html": html,
+        })
+    except Exception:
+        pass
+
+
+@app.post("/pago/mp-webhook")
+async def mp_webhook(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    x_signature: str = Header(default=""),
+    x_request_id: str = Header(default=""),
+):
+    body = await request.body()
+
+    if x_signature and not _mp_verify_signature(body, x_signature, x_request_id):
+        raise HTTPException(status_code=401, detail="Firma inválida")
+
+    import json as _json
+    try:
+        data = _json.loads(body)
+    except Exception:
+        raise HTTPException(status_code=400, detail="JSON inválido")
+
+    action = data.get("action", "")
+    topic  = data.get("type", data.get("topic", ""))
+
+    if topic == "payment" and action in ("payment.created", "payment.updated"):
+        payment_id = str(data.get("data", {}).get("id", "") or data.get("id", ""))
+        if payment_id:
+            payment_data = _mp_get_payment(payment_id)
+            if payment_data:
+                background_tasks.add_task(_procesar_pago_aprobado, payment_data, background_tasks)
+
+    # MP espera 200 inmediato
+    return {"received": True}
+
+
+@app.get("/pago/mp-webhook")
+def mp_webhook_verify():
+    """MP verifica el endpoint con un GET antes de registrarlo."""
+    return {"status": "ok"}
+
+
+# ─── Stripe webhook ──────────────────────────────────────────────────────────
+#
+# Variables de entorno requeridas:
+#   STRIPE_SECRET_KEY        — sk_live_... o sk_test_...
+#   STRIPE_WEBHOOK_SECRET    — whsec_... (desde Stripe Dashboard > Webhooks)
+#
+# El checkout de Stripe lo maneja el front con Stripe Payment Links o Stripe.js.
+# Cuando el pago se completa, Stripe llama a POST /pago/stripe-webhook.
+# metadata del Payment Link debe incluir: nombre_familia, email_comprador,
+# nombre_comprador, integrantes (JSON string).
+
+@app.post("/pago/stripe-webhook")
+async def stripe_webhook(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    stripe_signature: str = Header(default="", alias="stripe-signature"),
+):
+    import json as _json
+
+    body = await request.body()
+    secret = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
+    stripe_key = os.environ.get("STRIPE_SECRET_KEY", "")
+
+    if not stripe_key:
+        raise HTTPException(status_code=503, detail="Stripe no configurado")
+
+    # Verificar firma de Stripe
+    if secret:
+        try:
+            import stripe as _stripe  # type: ignore
+            _stripe.api_key = stripe_key
+            event = _stripe.Webhook.construct_event(body, stripe_signature, secret)
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=f"Firma inválida: {exc}") from exc
+    else:
+        try:
+            event = _json.loads(body)
+        except Exception:
+            raise HTTPException(status_code=400, detail="JSON inválido")
+
+    event_type = event.get("type", "")
+
+    if event_type == "checkout.session.completed":
+        session = event.get("data", {}).get("object", {})
+        metadata = session.get("metadata", {})
+        email_comp  = session.get("customer_details", {}).get("email", metadata.get("email_comprador", ""))
+        nombre_comp = session.get("customer_details", {}).get("name", metadata.get("nombre_comprador", ""))
+        nombre_fam  = metadata.get("nombre_familia", "Familia")
+        payment_id  = session.get("payment_intent", session.get("id", ""))
+        familia_id  = f"stripe-{payment_id}"
+
+        raw_integ = metadata.get("integrantes", "[]")
+        try:
+            integrantes_raw = _json.loads(raw_integ) if isinstance(raw_integ, str) else raw_integ
+        except Exception:
+            integrantes_raw = [{"nombre": nombre_comp or "Comprador", "email": email_comp}]
+
+        db.create_familia(familia_id=familia_id, nombre_familia=nombre_fam, email_comprador=email_comp)
+        db.update_familia_campo(familia_id, "comprador", {
+            "email": email_comp, "nombre": nombre_comp, "payment_id": payment_id, "gateway": "stripe"
+        })
+
+        tokens_result = []
+        for ing in integrantes_raw:
+            nombre_ing = ing.get("nombre", "").strip()
+            email_ing  = ing.get("email", "").strip()
+            if not nombre_ing:
+                continue
+            token = db.generar_token(nombre_ing)
+            db.create_token(familia_id=familia_id, token=token, nombre=nombre_ing, email=email_ing)
+            db.seed_integrante(nombre=nombre_ing, email=email_ing, familia_id=familia_id)
+            tokens_result.append({"nombre": nombre_ing, "token": token,
+                                   "link": f"{BASE_URL}/r/{token}", "email": email_ing})
+
+        background_tasks.add_task(_enviar_email_bienvenida, email_comp, nombre_comp, nombre_fam, tokens_result)
+        for t in tokens_result:
+            if t["email"] and t["email"] != email_comp:
+                background_tasks.add_task(_enviar_email_reminder, t["email"], t["nombre"], nombre_fam, t["link"])
+
+    return {"received": True}
+
+
+@app.post("/pago/crear-stripe-checkout")
+def crear_stripe_checkout(req: CheckoutRequest):
+    """
+    Crea una Stripe Checkout Session y devuelve la URL de pago.
+    Requiere stripe>=7.0.0 en requirements.txt.
+    """
+    import json as _json
+    import stripe as _stripe  # type: ignore
+
+    stripe_key = os.environ.get("STRIPE_SECRET_KEY", "")
+    if not stripe_key:
+        raise HTTPException(status_code=503, detail="Stripe no configurado")
+
+    _stripe.api_key = stripe_key
+
+    PRECIOS_STRIPE = {
+        "base": 7900,       # centavos USD
+        "familiar": 9900,
+        "extendido": 14900,
+    }
+    precio = PRECIOS_STRIPE.get(req.pack, 7900)
+    integrantes_extra = max(0, len(req.integrantes) - 4)
+    precio += integrantes_extra * 800
+
+    try:
+        session = _stripe.checkout.Session.create(
+            payment_method_types=["card"],
+            line_items=[{
+                "price_data": {
+                    "currency": "usd",
+                    "product_data": {
+                        "name": f"Libro biográfico — {req.nombre_familia}",
+                        "description": f"{len(req.integrantes)} integrantes · Entrega digital PDF",
+                    },
+                    "unit_amount": precio,
+                },
+                "quantity": 1,
+            }],
+            mode="payment",
+            customer_email=req.email_comprador,
+            metadata={
+                "nombre_familia": req.nombre_familia,
+                "email_comprador": req.email_comprador,
+                "nombre_comprador": req.nombre_comprador,
+                "integrantes": _json.dumps(req.integrantes),
+            },
+            success_url=f"{BASE_URL}/pago/exito?session_id={{CHECKOUT_SESSION_ID}}",
+            cancel_url=f"{BASE_URL}/#precios",
+        )
+        return {"checkout_url": session.url, "session_id": session.id}
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Error Stripe: {exc}") from exc
+
+
+# ─── Crear checkout de Mercado Pago ──────────────────────────────────────────
+
+class CheckoutRequest(BaseModel):
+    nombre_familia: str
+    email_comprador: str
+    nombre_comprador: str
+    integrantes: list[dict]  # [{nombre, email}]
+    pack: str = "base"
+
+
+@app.post("/pago/crear-checkout")
+def crear_checkout(req: CheckoutRequest):
+    """
+    Crea una preferencia de pago en MP y devuelve el init_point (URL de pago).
+    El front hace POST acá, recibe la URL y redirige al usuario a MP.
+    """
+    import json as _json
+    token = os.environ.get("MP_ACCESS_TOKEN", "")
+    if not token:
+        raise HTTPException(status_code=503, detail="Pasarela de pago no configurada")
+
+    PRECIOS = {
+        "base": 79,       # USD 79 — hasta 4 integrantes
+        "familiar": 99,   # USD 99 — hasta 6 integrantes
+        "extendido": 149, # USD 149 — hasta 10 integrantes
+    }
+    precio = PRECIOS.get(req.pack, 79)
+    integrantes_extra = max(0, len(req.integrantes) - 4)
+    precio += integrantes_extra * 8
+
+    preference_payload = _json.dumps({
+        "items": [{
+            "title": f"Libro biográfico — {req.nombre_familia}",
+            "quantity": 1,
+            "unit_price": precio,
+            "currency_id": "USD",
+        }],
+        "payer": {
+            "email": req.email_comprador,
+            "name": req.nombre_comprador,
+        },
+        "metadata": {
+            "nombre_familia": req.nombre_familia,
+            "email_comprador": req.email_comprador,
+            "nombre_comprador": req.nombre_comprador,
+            "integrantes": _json.dumps(req.integrantes),
+        },
+        "back_urls": {
+            "success": f"{BASE_URL}/pago/exito",
+            "failure": f"{BASE_URL}/pago/error",
+            "pending": f"{BASE_URL}/pago/pendiente",
+        },
+        "auto_return": "approved",
+        "notification_url": f"{BASE_URL}/pago/mp-webhook",
+    }).encode()
+
+    mp_req = urllib.request.Request(
+        "https://api.mercadopago.com/checkout/preferences",
+        data=preference_payload,
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(mp_req, timeout=15) as resp:
+            result = _json.loads(resp.read())
+        return {
+            "init_point": result.get("init_point"),
+            "sandbox_init_point": result.get("sandbox_init_point"),
+            "preference_id": result.get("id"),
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Error MP: {exc}") from exc
+
+
+@app.get("/pago/exito")
+def pago_exito():
+    return FileResponse(
+        os.path.join(os.path.dirname(__file__), "..", "landing.html"),
+        media_type="text/html"
+    )
+
+
+@app.get("/pago/error")
+def pago_error():
+    return {"error": "El pago no fue procesado. Intentá de nuevo o contactanos."}
+
+
+@app.get("/pago/pendiente")
+def pago_pendiente():
+    return {"mensaje": "Tu pago está siendo procesado. Te avisamos cuando esté confirmado."}
+
+
+# ─── Landing ─────────────────────────────────────────────────────────────────
+
+_LANDING_HTML = os.path.join(os.path.dirname(__file__), "..", "landing.html")
+
+
+@app.get("/", response_class=FileResponse)
+def landing():
+    return FileResponse(_LANDING_HTML, media_type="text/html")
 
 
 # ─── Full pipeline ────────────────────────────────────────────────────────────

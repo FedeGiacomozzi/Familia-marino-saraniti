@@ -33,7 +33,7 @@ gcloud run deploy "${SERVICE}" \
   --timeout=900 \
   --service-account="familia-pipeline@${PROJECT}.iam.gserviceaccount.com" \
   --set-env-vars="GCP_PROJECT_ID=${PROJECT},FAMILIA_ID=marino-saraniti,AUDIO_BUCKET=libro-familiar-audios,PDF_BUCKET=libro-familiar-pdfs,FOTO_BUCKET=libro-familiar-fotos" \
-  --set-secrets="ANTHROPIC_API_KEY=ANTHROPIC_API_KEY:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,GCP_SA_KEY_JSON=GOOGLE_CREDENTIALS:latest,RESEND_API_KEY=RESEND_API_KEY:latest"
+  --set-secrets="ANTHROPIC_API_KEY=ANTHROPIC_API_KEY:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,GCP_SA_KEY_JSON=GOOGLE_CREDENTIALS:latest,RESEND_API_KEY=RESEND_API_KEY:latest,MP_ACCESS_TOKEN=MP_ACCESS_TOKEN:latest,STRIPE_SECRET_KEY=STRIPE_SECRET_KEY:latest,STRIPE_WEBHOOK_SECRET=STRIPE_WEBHOOK_SECRET:latest"
 
 echo ""
 echo "Deploy complete."

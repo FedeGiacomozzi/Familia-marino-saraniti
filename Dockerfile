@@ -22,6 +22,8 @@ COPY pipeline/ ./pipeline/
 COPY onboarding.html .
 COPY recording.html .
 COPY admin.html .
+COPY landing.html .
+COPY mi-familia.html .
 
 ENV PYTHONUNBUFFERED=1
 ENV PORT=8080
