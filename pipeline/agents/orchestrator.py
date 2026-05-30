@@ -68,6 +68,7 @@ def run(
     solo_desde: str | None = None,
     familia: str = "Familia Mariño · Saraniti",
     upload_to_gcs: bool = True,
+    familia_id: str | None = None,
 ) -> PipelineResult:
     """
     Corre el pipeline completo (o desde un paso específico).
@@ -82,8 +83,8 @@ def run(
 
     # ── Cargar datos de familia ───────────────────────────────────────────────
     try:
-        integrantes = db.get_familia_integrantes()
-        relaciones = db.get_familia_relaciones()
+        integrantes = db.get_familia_integrantes(familia_id)
+        relaciones = db.get_familia_relaciones(familia_id)
         fallecidos = db.get_fallecidos(integrantes)
     except Exception as e:
         print(f"[orchestrator] Advertencia: no se pudieron cargar datos de familia: {e}")
@@ -219,7 +220,7 @@ def run(
 
             if upload_to_gcs and pdf_path:
                 ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-                filename = f"libro_{db.FAMILIA_ID}_{ts}.pdf"
+                filename = f"libro_{familia_id or db.FAMILIA_ID}_{ts}.pdf"
                 gcs_url = storage.upload_pdf(pdf_path, filename)
                 print(f"  → Subido a GCS: {gcs_url}")
                 result.layout = gcs_url

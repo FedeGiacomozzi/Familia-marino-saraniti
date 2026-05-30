@@ -417,7 +417,7 @@ def admin_familias(x_admin_key: Optional[str] = Header(default=None)):
 def _run_pipeline_bg(familia_id: str, nombres: list[str], nombre_familia: str, pais: str):
     db.update_familia_estado(familia_id, "generando")
     try:
-        result = orchestrator.run(nombres=nombres, pais=pais, familia=nombre_familia)
+        result = orchestrator.run(nombres=nombres, pais=pais, familia=nombre_familia, familia_id=familia_id)
         db.update_familia_estado(familia_id, "entregado")
 
         # Guardar URL del PDF y enviar email de entrega
