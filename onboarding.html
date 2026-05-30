@@ -984,8 +984,9 @@ function agregarIntegrante() {
         <input type="text" class="ing-nombre" placeholder="ej: Juan López">
       </div>
       <div class="field">
-        <label>Email</label>
+        <label>Email <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px;color:var(--accent-light)">(opcional)</span></label>
         <input type="email" class="ing-email" placeholder="juan@email.com">
+        <p class="field-variante-hint">No es necesario para menores ni adultos mayores.</p>
       </div>
     </div>
     <div class="field-row">
@@ -1234,8 +1235,7 @@ function mostrarResultado(data, nombreFamilia) {
 
   document.getElementById('resultado-titulo').textContent = `¡${nombreFamilia} lista!`;
   document.getElementById('resultado-subtitulo').textContent =
-    `Se generaron ${data.tokens.length} link${data.tokens.length !== 1 ? 's' : ''} de grabación. ` +
-    'Compartí cada uno con su integrante para que empiece a grabar.';
+    'Compartí cada link con la persona correspondiente — por WhatsApp, en persona, como prefieras.';
 
   const lista = document.getElementById('lista-tokens');
   lista.innerHTML = '';
@@ -1246,7 +1246,7 @@ function mostrarResultado(data, nombreFamilia) {
 
     const link      = t.link;
     const waText    = encodeURIComponent(
-      `¡Hola ${t.nombre}! Te comparto tu link personal para grabar tus memorias en el libro familiar:\n${link}`
+      `Hola ${t.nombre}, te comparto el link para grabar tu historia para el libro familiar: ${link}`
     );
     const waUrl     = `https://wa.me/?text=${waText}`;
 
