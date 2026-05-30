@@ -3,16 +3,48 @@ FastAPI entrypoint for the pipeline.
 All heavy work happens in the agent modules.
 """
 
+import logging
 import os
+import sys
+import traceback
 from typing import Optional
 
-from fastapi import BackgroundTasks, FastAPI, File, Header, HTTPException, UploadFile
-from fastapi.responses import RedirectResponse
-from pydantic import BaseModel
+logging.basicConfig(stream=sys.stderr, level=logging.INFO)
+_log = logging.getLogger(__name__)
 
-from pipeline.agents import orchestrator, transcriber, voice_agent, chapter_agent, layout_agent
-from pipeline.utils import firestore as db
-from pipeline.utils import storage
+_log.info("main.py: starting imports…")
+
+try:
+    from fastapi import BackgroundTasks, FastAPI, File, Header, HTTPException, UploadFile
+    from fastapi.responses import RedirectResponse
+    from pydantic import BaseModel
+    _log.info("main.py: fastapi OK")
+except Exception:
+    _log.exception("main.py: fastapi import FAILED")
+    raise
+
+try:
+    from pipeline.agents import orchestrator, transcriber, voice_agent, chapter_agent, layout_agent
+    _log.info("main.py: agents OK")
+except Exception:
+    _log.exception("main.py: agents import FAILED")
+    raise
+
+try:
+    from pipeline.utils import firestore as db
+    _log.info("main.py: firestore OK")
+except Exception:
+    _log.exception("main.py: firestore import FAILED")
+    raise
+
+try:
+    from pipeline.utils import storage
+    _log.info("main.py: storage OK")
+except Exception:
+    _log.exception("main.py: storage import FAILED")
+    raise
+
+_log.info("main.py: all imports done")
 
 app = FastAPI(title="Familia Libro Pipeline", version="2.0")
 
