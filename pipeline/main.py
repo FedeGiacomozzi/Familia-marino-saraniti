@@ -184,6 +184,29 @@ def token_info(token: str):
     }
 
 
+# ─── Subir foto del integrante (desde recording page) ─────────────────────────
+
+@app.post("/token/{token}/foto")
+async def subir_foto_integrante(token: str, foto: UploadFile = File(...)):
+    doc = db.get_token(token)
+    if doc is None:
+        raise HTTPException(status_code=404, detail="Token no encontrado")
+
+    familia_id = doc["familia_id"]
+    nombre     = doc["nombre"]
+    content    = await foto.read()
+    ct         = foto.content_type or "image/jpeg"
+    ext        = ct.split("/")[-1].split(";")[0] or "jpg"
+    blob_name  = f"{familia_id}/{db._nombre_key(nombre)}/foto.{ext}"
+
+    try:
+        gcs_uri = storage.upload_audio_bytes(content, storage.FOTO_BUCKET, blob_name, ct)
+        db.seed_respuesta(nombre=nombre, pregunta="foto", link_audio="", foto_url=gcs_uri, familia_id=familia_id)
+        return {"ok": True, "url": gcs_uri}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
 # ─── Guardar respuesta de audio ────────────────────────────────────────────────
 
 @app.post("/token/{token}/respuesta")
