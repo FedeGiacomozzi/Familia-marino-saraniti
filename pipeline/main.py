@@ -7,7 +7,8 @@ import os
 from typing import Optional
 
 from fastapi import BackgroundTasks, FastAPI, File, Header, HTTPException, UploadFile
-from fastapi.responses import RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from pipeline.agents import orchestrator, transcriber, voice_agent, chapter_agent, layout_agent
@@ -19,12 +20,21 @@ app = FastAPI(title="Familia Libro Pipeline", version="2.0")
 BASE_URL = os.environ.get("SERVICE_URL", "https://familia-pipeline-776445604502.us-central1.run.app")
 ADMIN_KEY = "familia-admin-2026"
 
+_ONBOARDING_HTML = os.path.join(os.path.dirname(__file__), "..", "onboarding.html")
+
 
 # ─── Health ───────────────────────────────────────────────────────────────────
 
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+# ─── Onboarding UI ────────────────────────────────────────────────────────────
+
+@app.get("/onboarding", response_class=FileResponse)
+def onboarding_ui():
+    return FileResponse(_ONBOARDING_HTML, media_type="text/html")
 
 
 # ─── Onboarding ───────────────────────────────────────────────────────────────
