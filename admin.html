@@ -515,7 +515,7 @@ function renderTabla() {
               : ''}
             ${f.estado === 'entregado'
               ? `<button class="btn btn-secondary btn-sm" onclick="descargarPdf('${esc(f.familia_id)}', this)">↓ PDF</button>`
-              : ''}
+              : `<button class="btn btn-secondary btn-sm" onclick="enviarReminder('${esc(f.familia_id)}', this)" title="Envía email a quienes no grabaron aún">✉ Reminder</button>`}
             ${f.estado === 'error'
               ? `<button class="btn btn-danger btn-sm" onclick="triggerPipeline('${esc(f.familia_id)}', this)">↺ Reintentar</button>`
               : ''}
@@ -594,6 +594,26 @@ async function triggerPipeline(familiaId, btn) {
     btn.disabled = false;
     btn.textContent = '▶ Pipeline';
   }
+}
+
+// ─── Reminder ────────────────────────────────────────────────────────────────
+
+async function enviarReminder(familiaId, btn) {
+  btn.disabled = true;
+  btn.textContent = '⏳ Enviando…';
+  try {
+    const r = await fetch(`${API_BASE}/familia/${familiaId}/reminder`, {
+      method: 'POST',
+      headers: { 'X-Admin-Key': _adminKey }
+    });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const data = await r.json();
+    alert(`Reminders enviados: ${data.total}\n${data.enviados.map(e => `${e.nombre} → ${e.email}`).join('\n') || '(ninguno con email)'}`);
+  } catch(e) {
+    alert(`Error: ${e.message}`);
+  }
+  btn.disabled = false;
+  btn.textContent = '✉ Reminder';
 }
 
 // ─── Descargar PDF ────────────────────────────────────────────────────────────

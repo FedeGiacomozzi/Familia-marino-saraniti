@@ -444,6 +444,69 @@ def trigger_pipeline(
     return {"status": "iniciado", "familia_id": familia_id, "nombres": nombres}
 
 
+# ─── Reminder de grabación ────────────────────────────────────────────────────
+
+@app.post("/familia/{familia_id}/reminder")
+def enviar_reminder(
+    familia_id: str,
+    x_admin_key: Optional[str] = Header(default=None),
+):
+    """
+    Envía email de recordatorio a los integrantes con token no completado
+    que tengan email registrado.
+    """
+    if x_admin_key != ADMIN_KEY:
+        raise HTTPException(status_code=403, detail="Acceso denegado")
+
+    familia = db.get_familia(familia_id)
+    if familia is None:
+        raise HTTPException(status_code=404, detail="Familia no encontrada")
+
+    tokens = db.get_tokens_familia(familia_id)
+    nombre_familia = familia.get("nombre", familia_id)
+    enviados = []
+
+    for t in tokens:
+        if t.get("estado") == "completado":
+            continue
+        email = t.get("email", "").strip()
+        if not email:
+            continue
+        link = f"{BASE_URL}/r/{t['token']}"
+        _enviar_email_reminder(
+            email=email,
+            nombre=t.get("nombre", ""),
+            nombre_familia=nombre_familia,
+            link=link,
+        )
+        enviados.append({"nombre": t.get("nombre"), "email": email})
+
+    return {"enviados": enviados, "total": len(enviados)}
+
+
+def _enviar_email_reminder(email: str, nombre: str, nombre_familia: str, link: str):
+    try:
+        import resend  # type: ignore
+        resend.api_key = os.environ.get("RESEND_API_KEY", "")
+        if not resend.api_key:
+            return
+        resend.Emails.send({
+            "from": os.environ.get("RESEND_FROM", "Libro Familiar <noreply@librofamiliar.com>"),
+            "to": email,
+            "subject": f"Todavía falta tu historia, {nombre} — {nombre_familia}",
+            "html": (
+                f"<p>Hola {nombre},</p>"
+                f"<p>Te escribimos porque todavía no grabaste tu historia para el <strong>{nombre_familia}</strong>.</p>"
+                f"<p>Son 16 preguntas cortas — podés hacerlo en una sola sentada o de a poco. "
+                f"Tu historia queda guardada para siempre.</p>"
+                f"<p><a href='{link}' style='font-size:16px;font-weight:bold'>→ Empezar a grabar</a></p>"
+                f"<p style='font-size:12px;color:#888'>Si ya grabaste, ignorá este mensaje.</p>"
+            ),
+        })
+    except Exception:
+        pass
+
+
 # ─── Full pipeline ────────────────────────────────────────────────────────────
 
 class PipelineRequest(BaseModel):
