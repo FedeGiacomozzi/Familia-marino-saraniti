@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<link rel="stylesheet" href="estilos.css" />
+</head>
+<body>
+  <div class="page indice">
+    <div class="head">
+      <div class="kicker" style="color:var(--sage-deep)">{{ indice.kicker | default('Quiénes somos') }}</div>
+      <h2 class="ttl">{{ indice.titulo | default('Los protagonistas') }}</h2>
+      <div class="rule"></div>
+    </div>
+
+    <div class="list">
+      {%- for p in indice.personas %}
+      <div class="person">
+        <div class="kicker num">Capítulo {{ p.numero }}</div>
+        <div class="name">
+          {{ p.nombre }}{% if p.destacar %}<span class="mark"></span>{% endif %}
+        </div>
+        <div class="phrase">«{{ p.frase }}»</div>
+        {%- if not loop.last %}
+        <div class="div"><div class="line"></div><div class="dot"></div><div class="line"></div></div>
+        {%- endif %}
+      </div>
+      {%- endfor %}
+    </div>
+
+    <div class="folio">{{ indice.folio | default('') }}</div>
+  </div>
+</body>
+</html>
