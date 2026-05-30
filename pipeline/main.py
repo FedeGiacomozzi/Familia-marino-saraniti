@@ -314,6 +314,26 @@ def estado_familia(familia_id: str):
     }
 
 
+# ─── PDF entrega ─────────────────────────────────────────────────────────────
+
+@app.get("/familia/{familia_id}/pdf")
+def get_pdf_link(
+    familia_id: str,
+    x_admin_key: Optional[str] = Header(default=None),
+):
+    if x_admin_key != ADMIN_KEY:
+        raise HTTPException(status_code=403, detail="Acceso denegado")
+    familia = db.get_familia(familia_id)
+    if familia is None:
+        raise HTTPException(status_code=404, detail="Familia no encontrada")
+    pdf_uri = familia.get("pdf_url")
+    if not pdf_uri:
+        raise HTTPException(status_code=404, detail="PDF no disponible aún")
+    url_firmada = storage.generar_url_firmada(pdf_uri)
+    db.update_familia_campo(familia_id, "pdf_url_firmada", url_firmada)
+    return {"pdf_url": url_firmada, "expires_in_days": 30}
+
+
 # ─── Admin panel ─────────────────────────────────────────────────────────────
 
 @app.get("/admin", response_class=FileResponse)
@@ -350,11 +370,46 @@ def admin_familias(x_admin_key: Optional[str] = Header(default=None)):
 def _run_pipeline_bg(familia_id: str, nombres: list[str], nombre_familia: str, pais: str):
     db.update_familia_estado(familia_id, "generando")
     try:
-        orchestrator.run(nombres=nombres, pais=pais, familia=nombre_familia)
+        result = orchestrator.run(nombres=nombres, pais=pais, familia=nombre_familia)
         db.update_familia_estado(familia_id, "entregado")
+
+        # Guardar URL del PDF y enviar email de entrega
+        if result.layout:
+            try:
+                pdf_url_firmada = storage.generar_url_firmada(result.layout)
+                db.update_familia_campo(familia_id, "pdf_url", result.layout)
+                db.update_familia_campo(familia_id, "pdf_url_firmada", pdf_url_firmada)
+                familia = db.get_familia(familia_id)
+                email_comprador = (familia or {}).get("comprador", {}).get("email", "")
+                if email_comprador:
+                    _enviar_email_entrega(email_comprador, nombre_familia, pdf_url_firmada)
+            except Exception:
+                pass  # No fallar el pipeline por el mail
     except Exception:
         db.update_familia_estado(familia_id, "error")
         raise
+
+
+def _enviar_email_entrega(email_comprador: str, nombre_familia: str, pdf_url: str):
+    try:
+        import resend  # type: ignore
+        resend.api_key = os.environ.get("RESEND_API_KEY", "")
+        if not resend.api_key:
+            return
+        resend.Emails.send({
+            "from": os.environ.get("RESEND_FROM", "Libro Familiar <noreply@librofamiliar.com>"),
+            "to": email_comprador,
+            "subject": f"¡Tu libro está listo! — {nombre_familia}",
+            "html": (
+                f"<p>¡Hola!</p>"
+                f"<p>El <strong>{nombre_familia}</strong> ya está terminado. "
+                f"Podés descargarlo en el link de abajo — válido por 30 días.</p>"
+                f"<p><a href='{pdf_url}' style='font-size:16px;font-weight:bold'>→ Descargar el libro</a></p>"
+                f"<p style='font-size:12px;color:#888'>Si el link venció, contactanos y te generamos uno nuevo.</p>"
+            ),
+        })
+    except Exception:
+        pass
 
 
 @app.post("/familia/{familia_id}/trigger-pipeline")

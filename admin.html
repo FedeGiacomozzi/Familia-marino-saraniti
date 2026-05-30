@@ -513,6 +513,9 @@ function renderTabla() {
             ${f.completados > 0 && f.estado !== 'entregado' && f.estado !== 'generando'
               ? `<button class="btn btn-success btn-sm" onclick="triggerPipeline('${esc(f.familia_id)}', this)">▶ Pipeline</button>`
               : ''}
+            ${f.estado === 'entregado'
+              ? `<button class="btn btn-secondary btn-sm" onclick="descargarPdf('${esc(f.familia_id)}', this)">↓ PDF</button>`
+              : ''}
             ${f.estado === 'error'
               ? `<button class="btn btn-danger btn-sm" onclick="triggerPipeline('${esc(f.familia_id)}', this)">↺ Reintentar</button>`
               : ''}
@@ -591,6 +594,26 @@ async function triggerPipeline(familiaId, btn) {
     btn.disabled = false;
     btn.textContent = '▶ Pipeline';
   }
+}
+
+// ─── Descargar PDF ────────────────────────────────────────────────────────────
+
+async function descargarPdf(familiaId, btn) {
+  btn.disabled = true;
+  btn.textContent = '⏳ Generando…';
+  try {
+    const r = await fetch(`${API_BASE}/familia/${familiaId}/pdf`, {
+      headers: { 'X-Admin-Key': _adminKey }
+    });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const data = await r.json();
+    window.open(data.pdf_url, '_blank');
+    btn.textContent = '↓ PDF';
+  } catch(e) {
+    alert(`Error: ${e.message}`);
+    btn.textContent = '↓ PDF';
+  }
+  btn.disabled = false;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

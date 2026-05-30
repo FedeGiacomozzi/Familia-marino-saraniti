@@ -99,6 +99,23 @@ def upload_pdf(local_path: str, filename: str, public: bool = True) -> str:
     return f"gs://{PDF_BUCKET}/{filename}"
 
 
+def generar_url_firmada(gs_uri: str, expiration_days: int = 30) -> str:
+    """
+    Genera una URL firmada con validez de 30 días para cualquier objeto GCS.
+    gs_uri puede ser gs://bucket/path o solo el blob_name (usa PDF_BUCKET).
+    """
+    import datetime as _dt
+    bucket_name, blob_name = _gcs_path_from_url(gs_uri)
+    bucket = _client().bucket(bucket_name)
+    blob   = bucket.blob(blob_name)
+    url = blob.generate_signed_url(
+        expiration=_dt.timedelta(days=expiration_days),
+        method="GET",
+        version="v4",
+    )
+    return url
+
+
 def upload_audio_bytes(content: bytes, bucket_name: str, blob_name: str, content_type: str = "audio/webm") -> str:
     """Sube bytes de audio directamente a GCS. Retorna gs:// URI."""
     bucket = _client().bucket(bucket_name)
