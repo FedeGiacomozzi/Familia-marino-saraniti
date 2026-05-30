@@ -66,6 +66,12 @@ def create_familia(familia_id: str, nombre_familia: str, email_comprador: str) -
     )
 
 
+def get_all_familias() -> list[dict]:
+    """Retorna todos los documentos raíz de familias."""
+    docs = _db().collection("familias").stream()
+    return [d.to_dict() | {"_id": d.id} for d in docs]
+
+
 def get_familia(familia_id: str) -> dict | None:
     """Retorna el documento raíz de una familia o None si no existe."""
     doc = _db().collection("familias").document(familia_id).get()

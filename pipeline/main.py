@@ -22,6 +22,7 @@ ADMIN_KEY = "familia-admin-2026"
 
 _ONBOARDING_HTML  = os.path.join(os.path.dirname(__file__), "..", "onboarding.html")
 _RECORDING_HTML   = os.path.join(os.path.dirname(__file__), "..", "recording.html")
+_ADMIN_HTML       = os.path.join(os.path.dirname(__file__), "..", "admin.html")
 
 
 # ─── Health ───────────────────────────────────────────────────────────────────
@@ -311,6 +312,37 @@ def estado_familia(familia_id: str):
         "con_capitulo": con_capitulo,
         "integrantes": integrantes_detalle,
     }
+
+
+# ─── Admin panel ─────────────────────────────────────────────────────────────
+
+@app.get("/admin", response_class=FileResponse)
+def admin_ui():
+    return FileResponse(_ADMIN_HTML, media_type="text/html")
+
+
+@app.get("/admin/familias")
+def admin_familias(x_admin_key: Optional[str] = Header(default=None)):
+    if x_admin_key != ADMIN_KEY:
+        raise HTTPException(status_code=403, detail="Acceso denegado")
+    familias = db.get_all_familias()
+    result = []
+    for f in familias:
+        fid     = f["_id"]
+        tokens  = db.get_tokens_familia(fid)
+        total   = len(tokens)
+        completos = sum(1 for t in tokens if t.get("estado") == "completado")
+        result.append({
+            "familia_id":    fid,
+            "nombre":        f.get("nombre", fid),
+            "estado":        f.get("estado", ""),
+            "email_comprador": f.get("comprador", {}).get("email", ""),
+            "fecha_creacion": f.get("fecha_creacion", ""),
+            "total_tokens":  total,
+            "completados":   completos,
+        })
+    result.sort(key=lambda x: x.get("fecha_creacion", ""), reverse=True)
+    return {"familias": result}
 
 
 # ─── Trigger pipeline ─────────────────────────────────────────────────────────
