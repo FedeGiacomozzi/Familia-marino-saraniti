@@ -60,19 +60,28 @@ def _analyze_persona(client: anthropic.Anthropic, nombre: str) -> dict:
         for t in transcripciones
     )
 
-    message = client.messages.create(
-        model=MODEL,
-        max_tokens=4096,
-        system=_SYSTEM,
-        messages=[
-            {
-                "role": "user",
-                "content": _PROMPT_TEMPLATE.format(nombre=nombre, bloques=bloques),
-            }
-        ],
-    )
-
-    perfil = _parse_json_response(message.content[0].text)
+    perfil = None
+    last_err = None
+    for attempt in range(3):
+        message = client.messages.create(
+            model=MODEL,
+            max_tokens=8192,
+            system=_SYSTEM,
+            messages=[
+                {
+                    "role": "user",
+                    "content": _PROMPT_TEMPLATE.format(nombre=nombre, bloques=bloques),
+                }
+            ],
+        )
+        try:
+            perfil = _parse_json_response(message.content[0].text)
+            break
+        except json.JSONDecodeError as e:
+            last_err = e
+            print(f"[voice_agent] JSON inválido para {nombre} (intento {attempt+1}/3): {e}")
+    if perfil is None:
+        raise last_err
 
     transcripcion_completa = "\n\n".join(t["transcripcion"] for t in transcripciones)
     fecha_process = datetime.now().strftime("%d/%m/%Y %H:%M")
