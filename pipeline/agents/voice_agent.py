@@ -86,12 +86,21 @@ def run(nombres: list[str]) -> dict[str, dict]:
     Analyze each persona and return {nombre: perfil_dict}.
     Saves results to the Perfiles sheet.
     """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
     client = anthropic.Anthropic()
     results = {}
-    for nombre in nombres:
-        try:
-            results[nombre] = _analyze_persona(client, nombre)
-        except Exception as e:
-            print(f"[voice_agent] Error con {nombre}: {e}")
-            results[nombre] = {"error": str(e)}
+
+    def _tarea(nombre):
+        return nombre, _analyze_persona(client, nombre)
+
+    with ThreadPoolExecutor(max_workers=min(6, len(nombres))) as executor:
+        futures = {executor.submit(_tarea, n): n for n in nombres}
+        for future in as_completed(futures):
+            nombre = futures[future]
+            try:
+                nombre, perfil = future.result()
+                results[nombre] = perfil
+            except Exception as e:
+                print(f"[voice_agent] Error con {nombre}: {e}")
+                results[nombre] = {"error": str(e)}
     return results
