@@ -49,10 +49,9 @@ gcloud run deploy "${SERVICE}" \
   --memory=2Gi \
   --cpu=2 \
   --timeout=900 \
-  --service-account="familia-pipeline@familia-marino.iam.gserviceaccount.com" \
-  --clear-env-vars \
-  --set-secrets="ANTHROPIC_API_KEY=ANTHROPIC_API_KEY:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,GOOGLE_CREDENTIALS_JSON=GOOGLE_CREDENTIALS:latest" \
-  --update-env-vars="GCS_BUCKET=${GCS_BUCKET},FONTS_DIR=/app/fonts"
+  --service-account="familia-pipeline@${PROJECT}.iam.gserviceaccount.com" \
+  --set-env-vars="GCS_BUCKET=${GCS_BUCKET},FONTS_DIR=/app/fonts" \
+  --set-secrets="ANTHROPIC_API_KEY=ANTHROPIC_API_KEY:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,GOOGLE_CREDENTIALS_JSON=GOOGLE_CREDENTIALS:latest"
 
 echo ""
 echo "Deploy complete."
