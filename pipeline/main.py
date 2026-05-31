@@ -35,7 +35,7 @@ class PipelineRequest(BaseModel):
     pais: str = "argentina"
     solo_desde: str | None = None
     familia: str = "Familia Mariño · Saraniti"
-    upload_to_drive: bool = False
+    upload_to_gcs: bool = False
 
 
 @app.post("/run/pipeline")
@@ -45,7 +45,7 @@ def run_pipeline(req: PipelineRequest):
         pais=req.pais,
         solo_desde=req.solo_desde,
         familia=req.familia,
-        upload_to_drive=req.upload_to_drive,
+        upload_to_gcs=req.upload_to_gcs,
     )
     return {
         "ok": result.ok,
@@ -131,7 +131,7 @@ def run_editor(req: EditorRequest):
 class LayoutRequest(BaseModel):
     nombres: list[str]
     familia: str = "Familia Mariño · Saraniti"
-    upload_to_drive: bool = False
+    upload_to_gcs: bool = False
 
 
 @app.post("/run/layout")
@@ -160,9 +160,9 @@ def run_layout(req: LayoutRequest):
         nombre_familia=req.familia,
     )
 
-    if req.upload_to_drive:
+    if req.upload_to_gcs:
         import os
-        drive_url = sheets.upload_to_drive(pdf_path, os.path.basename(pdf_path), "application/pdf")
-        return {"pdf": drive_url, "uploaded": True}
+        gcs_url = sheets.upload_to_gcs(pdf_path, os.path.basename(pdf_path), "application/pdf")
+        return {"pdf": gcs_url, "uploaded": True}
 
     return {"pdf": pdf_path, "uploaded": False}

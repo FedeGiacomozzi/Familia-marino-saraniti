@@ -7,4 +7,5 @@ gspread>=6.1.0
 google-auth>=2.35.0
 google-api-python-client>=2.150.0
 google-auth-httplib2>=0.2.0
+google-cloud-storage>=2.18.0
 weasyprint>=62.0

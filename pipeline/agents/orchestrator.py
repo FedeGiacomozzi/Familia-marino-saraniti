@@ -78,7 +78,7 @@ def run(
     pais: str = "argentina",
     solo_desde: str | None = None,
     familia: str = "Familia Mariño · Saraniti",
-    upload_to_drive: bool = False,
+    upload_to_gcs: bool = False,
 ) -> PipelineResult:
     """
     Corre el pipeline completo (o desde un paso específico).
@@ -234,12 +234,12 @@ def run(
             result.layout = pdf_path
             print(f"  → PDF generado: {pdf_path}")
 
-            if upload_to_drive and pdf_path:
+            if upload_to_gcs and pdf_path:
                 import os
                 filename = os.path.basename(pdf_path)
-                drive_url = sheets.upload_to_drive(pdf_path, filename, "application/pdf")
-                print(f"  → Subido a Drive: {drive_url}")
-                result.layout = drive_url
+                gcs_url = sheets.upload_to_gcs(pdf_path, filename, "application/pdf")
+                print(f"  → Subido a GCS: {gcs_url}")
+                result.layout = gcs_url
 
         except Exception as e:
             result.errores.append(f"layout_agent: {e}")
