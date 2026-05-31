@@ -4,6 +4,7 @@ All heavy work happens in the agent modules.
 """
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from pipeline.agents import orchestrator, transcriber, voice_agent, chapter_agent, layout_agent
@@ -11,6 +12,13 @@ from pipeline.agents.editor_agent import BookManuscript
 from pipeline.utils import sheets
 
 app = FastAPI(title="Familia Libro Pipeline", version="1.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["https://fedegiacomozzi.github.io"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 # ─── Health ───────────────────────────────────────────────────────────────────

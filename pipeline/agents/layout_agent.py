@@ -9,7 +9,7 @@ import tempfile
 from datetime import datetime
 from pathlib import Path
 
-from weasyprint import HTML, CSS
+from weasyprint import HTML
 
 from pipeline.agents.editor_agent import BookManuscript
 from pipeline.utils import sheets
@@ -19,8 +19,53 @@ COLOR_FONDO = "#FAF8F5"
 COLOR_TEXTO = "#2C2C2C"
 COLOR_ACENTO = "#8B6F5E"
 
+_FONTS_DIR = os.environ.get("FONTS_DIR", "/app/fonts")
+_LOCAL_FONTS_AVAILABLE = os.path.exists(os.path.join(_FONTS_DIR, "Lora-Regular.ttf"))
+
+if _LOCAL_FONTS_AVAILABLE:
+    _FONT_CSS = f"""
+@font-face {{
+    font-family: 'Lora';
+    font-style: normal;
+    font-weight: 400;
+    src: url('file://{_FONTS_DIR}/Lora-Regular.ttf') format('truetype');
+}}
+@font-face {{
+    font-family: 'Lora';
+    font-style: italic;
+    font-weight: 400;
+    src: url('file://{_FONTS_DIR}/Lora-Italic.ttf') format('truetype');
+}}
+@font-face {{
+    font-family: 'Lora';
+    font-style: normal;
+    font-weight: 600;
+    src: url('file://{_FONTS_DIR}/Lora-SemiBold.ttf') format('truetype');
+}}
+@font-face {{
+    font-family: 'Montserrat';
+    font-style: normal;
+    font-weight: 300;
+    src: url('file://{_FONTS_DIR}/Montserrat-Light.ttf') format('truetype');
+}}
+@font-face {{
+    font-family: 'Montserrat';
+    font-style: normal;
+    font-weight: 400;
+    src: url('file://{_FONTS_DIR}/Montserrat-Regular.ttf') format('truetype');
+}}
+@font-face {{
+    font-family: 'Montserrat';
+    font-style: normal;
+    font-weight: 600;
+    src: url('file://{_FONTS_DIR}/Montserrat-SemiBold.ttf') format('truetype');
+}}
+"""
+else:
+    _FONT_CSS = "@import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=Montserrat:wght@300;400;600&display=swap');"
+
 CSS_BASE = f"""
-@import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=Montserrat:wght@300;400;600&display=swap');
+{_FONT_CSS}
 
 @page {{
   size: A5;
@@ -348,9 +393,6 @@ def run(
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         output_path = f"/tmp/libro_{ts}.pdf"
 
-    HTML(string=html_content).write_pdf(
-        output_path,
-        stylesheets=[CSS(string=CSS_BASE)],
-    )
+    HTML(string=html_content).write_pdf(output_path)
 
     return output_path

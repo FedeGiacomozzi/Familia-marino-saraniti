@@ -510,8 +510,11 @@ function enviarFoto() {
     xhr.open('POST', SCRIPT_URL, true);
     xhr.setRequestHeader('Content-Type', 'text/plain');
     xhr.timeout = 60000;
-    xhr.onload = xhr.onerror = () => {
+    xhr.onload = () => {
       document.getElementById('foto-status').textContent = '✓ Foto guardada';
+    };
+    xhr.onerror = () => {
+      document.getElementById('foto-status').textContent = '⚠ Error al guardar foto. Continuá igual.';
     };
     xhr.send(body);
   };
@@ -649,12 +652,10 @@ function enviarAudio(id) {
     };
 
     xhr.onerror = () => {
-      // Con no-cors el browser puede disparar onerror aunque el request llegó
-      st.textContent = '✓ Enviado (verificá en el Sheet)';
-      st.className   = 'status ok';
-      btnEnv.textContent = '✓ Listo';
-      enviados++;
-      actualizarProgreso();
+      st.textContent = '⚠ Error de red. Intentá de nuevo.';
+      st.className   = 'status error';
+      btnEnv.disabled = false;
+      btnGrb.disabled = false;
     };
 
     xhr.ontimeout = () => {
