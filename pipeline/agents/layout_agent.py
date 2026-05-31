@@ -31,7 +31,7 @@ COL_SAGE_DEEP = "#6C7A59"
 COL_TINT      = "#B69A72"
 
 # Caracteres por página interior (ajuste empírico para 6×9in, 11px Mulish)
-CHARS_PER_PAGE = 900
+CHARS_PER_PAGE = 1800
 
 
 # ── Árbol genealógico SVG ─────────────────────────────────────────────────────
@@ -275,6 +275,16 @@ def _md_a_html(texto: str) -> str:
     return re.sub(r"\*([^*]+)\*", r"<em>\1</em>", texto)
 
 
+def _strip_md_headers(texto: str) -> str:
+    """Elimina headers markdown (# Título, ## Subtítulo) del texto."""
+    lines = []
+    for line in texto.split("\n"):
+        if re.match(r"^#{1,6}\s+", line):
+            continue
+        lines.append(line)
+    return "\n".join(lines)
+
+
 def _texto_a_bloques(
     texto: str,
     foto_info: Optional[dict] = None,
@@ -283,6 +293,7 @@ def _texto_a_bloques(
     Convierte el texto de un capítulo en páginas de bloques.
     Cada página es una lista de dicts con .tipo = parrafo|separador|cita|foto.
     """
+    texto = _strip_md_headers(texto)
     raw = [p.strip() for p in texto.split("\n\n") if p.strip()]
 
     all_blocks: list[dict] = []
