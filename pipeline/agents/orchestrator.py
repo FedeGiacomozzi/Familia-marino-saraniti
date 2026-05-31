@@ -97,6 +97,9 @@ def run(
     """
     result = PipelineResult(personas=nombres)
 
+    # Forzar datos frescos de Sheets al inicio de cada pipeline
+    sheets.invalidate_cache()
+
     start_idx = 0
     if solo_desde and solo_desde in STEPS:
         start_idx = STEPS.index(solo_desde)
