@@ -31,7 +31,7 @@ COL_SAGE_DEEP = "#6C7A59"
 COL_TINT      = "#B69A72"
 
 # Caracteres por página interior (ajuste empírico para 6×9in, 11px Mulish)
-CHARS_PER_PAGE = 1400
+CHARS_PER_PAGE = 900
 
 
 # ── Árbol genealógico SVG ─────────────────────────────────────────────────────

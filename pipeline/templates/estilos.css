@@ -177,8 +177,9 @@ html,body{ margin:0; padding:0; background:var(--paper); }
 .ph span{ font-family:ui-monospace,Menlo,Consolas,monospace; font-size:9px;
   letter-spacing:.08em; color:#7c6f57; text-transform:lowercase;
   background:rgba(245,240,232,.72); padding:3px 8px; }
-/* foto real: usá <img class="ph-img"> con las mismas medidas que .ph */
-.ph-img{ display:block; width:100%; height:100%; object-fit:cover; }
+/* foto real: contenedor recorta, imagen llena el ancho */
+.ph-img-wrap{ width:100%; overflow:hidden; }
+.ph-img{ display:block; width:100%; height:auto; }
 
 /* ---------- polaroid ---------- */
 .polaroid{ position:relative; background:var(--cream); padding:9px 9px 34px 9px;
@@ -203,7 +204,7 @@ html,body{ margin:0; padding:0; background:var(--paper); }
 
 /* Citas directas de transcripción: cursiva serif en color marrón */
 .body em{ font-family:var(--serif); font-style:italic; font-weight:400;
-  color:var(--brown-deep); }
+  font-size:13px; color:var(--brown-deep); }
 
 /* ============================================================
    01 · PORTADA (keepsake)

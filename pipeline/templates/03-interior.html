@@ -29,7 +29,10 @@
       <div class="photo-center">
         <div class="frame">
           <div class="polaroid">
-            {% if b.img %}<img class="ph-img" style="height:168px" src="{{ b.img }}" alt="" />
+            {% if b.img %}
+            <div class="ph-img-wrap" style="height:168px">
+              <img class="ph-img" src="{{ b.img }}" alt="" />
+            </div>
             {% else %}<div class="ph" style="height:168px"><span>{{ b.alt_ph | default('foto') }}</span></div>{% endif %}
             <div class="cap">{{ b.caption | default('') }}</div>
           </div>

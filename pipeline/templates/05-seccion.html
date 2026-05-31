@@ -18,7 +18,7 @@
 
     {%- for b in pagina.bloques %}
       {%- if b.tipo == 'parrafo' %}
-      <p class="body serif{{ ' dropcap' if b.dropcap }}">{{ b.texto | safe }}</p>
+      <p class="body serif">{{ b.texto | safe }}</p>
       {%- elif b.tipo == 'separador' %}
       <div class="sep" style="margin:22px 0">
         <div class="line"></div><div class="dot"></div>
