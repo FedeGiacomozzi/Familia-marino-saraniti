@@ -316,3 +316,91 @@ def run_layout(req: LayoutRequest):
         return {"pdf": gcs_url, "uploaded": True}
 
     return {"pdf": pdf_path, "uploaded": False}
+
+
+# ─── Onboarding: Familias ─────────────────────────────────────────────────────
+
+class CompradorInfo(BaseModel):
+    email: str
+    nombre: str
+    es_tambien_retratado: bool = False
+
+
+class FamiliaRequest(BaseModel):
+    nombre: str
+    comprador: CompradorInfo
+    pack: str = "base"
+    pais: str = "argentina"
+
+
+class IntegranteRequest(BaseModel):
+    nombre: str
+    relacion_con_comprador: str
+    es_menor: bool = False
+    fecha_nac: str = ""
+
+
+@app.post("/familia", status_code=201)
+def crear_familia(req: FamiliaRequest):
+    from pipeline.utils import firestore as fs
+
+    familia_id = fs.create_familia(
+        nombre=req.nombre,
+        comprador=req.comprador.model_dump(),
+        pack=req.pack,
+        pais=req.pais,
+    )
+
+    token_comprador = None
+    if req.comprador.es_tambien_retratado:
+        _, token_comprador = fs.add_integrante(
+            familia_id=familia_id,
+            nombre=req.comprador.nombre,
+            relacion_con_comprador="comprador",
+            es_comprador=True,
+        )
+
+    return {"familia_id": familia_id, "token_comprador": token_comprador}
+
+
+@app.post("/familia/{familia_id}/integrantes", status_code=201)
+def agregar_integrante(familia_id: str, req: IntegranteRequest):
+    from pipeline.utils import firestore as fs
+
+    if not fs.get_familia(familia_id):
+        raise HTTPException(status_code=404, detail=f"Familia no encontrada: {familia_id}")
+
+    integrante_id, token = fs.add_integrante(
+        familia_id=familia_id,
+        nombre=req.nombre,
+        relacion_con_comprador=req.relacion_con_comprador,
+        es_menor=req.es_menor,
+        fecha_nac=req.fecha_nac,
+    )
+    return {"integrante_id": integrante_id, "token_unico": token}
+
+
+@app.get("/familia/{familia_id}")
+def get_familia_detail(familia_id: str):
+    from pipeline.utils import firestore as fs
+
+    familia = fs.get_familia(familia_id)
+    if not familia:
+        raise HTTPException(status_code=404, detail=f"Familia no encontrada: {familia_id}")
+
+    integrantes = fs.get_integrantes_para_pipeline(familia_id)
+    return {
+        **familia,
+        "integrantes": [
+            {
+                "id": p["id"],
+                "nombre": p["nombre"],
+                "relacion_con_comprador": p["relacion_con_comprador"],
+                "es_comprador": p["es_comprador"],
+                "es_menor": p["es_menor"],
+                "estado": "pendiente",
+                "porcentaje_avance": 0,
+            }
+            for p in integrantes
+        ],
+    }

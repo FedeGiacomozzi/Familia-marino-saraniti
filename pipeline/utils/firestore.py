@@ -1,5 +1,6 @@
 import os
 import json
+import uuid as _uuid
 
 from google.cloud import firestore
 
@@ -289,3 +290,47 @@ def get_relaciones(familia_id: str) -> list[dict]:
         })
 
     return result
+
+
+# ─── Onboarding: crear familia e integrantes ─────────────────────────────────
+
+def create_familia(nombre: str, comprador: dict, pack: str, pais: str = "argentina") -> str:
+    """Crea un doc de familia y retorna el familia_id (8 chars del UUID)."""
+    familia_id = _uuid.uuid4().hex[:8]
+    _db().collection("familias").document(familia_id).set({
+        "nombre": nombre,
+        "comprador": comprador,
+        "pack": pack,
+        "pais": pais,
+        "estado": "onboarding",
+        "integrantes_extra": 0,
+        "fecha_compra": firestore.SERVER_TIMESTAMP,
+        "fecha_entrega": None,
+    })
+    return familia_id
+
+
+def add_integrante(
+    familia_id: str,
+    nombre: str,
+    relacion_con_comprador: str,
+    es_menor: bool = False,
+    fecha_nac: str = "",
+    es_comprador: bool = False,
+) -> tuple[str, str]:
+    """Agrega un integrante a la familia. Retorna (integrante_id, token_unico)."""
+    integrante_id = _uuid.uuid4().hex[:8]
+    token = str(_uuid.uuid4())
+    _db().collection("familias").document(familia_id).collection("integrantes").document(integrante_id).set({
+        "nombre": nombre,
+        "relacion_con_comprador": relacion_con_comprador,
+        "token_unico": token,
+        "es_comprador": es_comprador,
+        "es_menor": es_menor,
+        "fecha_nac": fecha_nac,
+        "estado": "pendiente",
+        "foto_url": "",
+        "porcentaje_avance": 0,
+        "ultimo_acceso": None,
+    })
+    return integrante_id, token

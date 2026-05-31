@@ -148,11 +148,14 @@ def run(
     if start_idx <= 0:
         print("[orchestrator] Paso 1: transcripción de audios...")
         try:
-            row_indices = _get_row_indices(adultos)
-            if not row_indices:
-                result.errores.append("No se encontraron filas en el Sheet para los nombres dados")
-                return result
-            result.transcriber = transcriber.run(row_indices, pais)
+            if familia_id and _fs_integrantes:
+                result.transcriber = transcriber.run_from_firestore(familia_id, pais)
+            else:
+                row_indices = _get_row_indices(adultos)
+                if not row_indices:
+                    result.errores.append("No se encontraron filas en el Sheet para los nombres dados")
+                    return result
+                result.transcriber = transcriber.run(row_indices, pais)
             print(f"  → {result.transcriber}")
         except Exception as e:
             result.errores.append(f"transcriber: {e}")
