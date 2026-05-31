@@ -83,7 +83,6 @@ Solo JSON. Sin markdown.
     message = client.messages.create(
         model=MODEL,
         max_tokens=1024,
-        temperature=0,
         system=_SYSTEM_EDITOR,
         messages=[{"role": "user", "content": prompt}],
     )
@@ -134,7 +133,6 @@ Solo el texto de la transición. Sin títulos ni notas.
     message = client.messages.create(
         model=MODEL,
         max_tokens=512,
-        temperature=1.0,
         system=_SYSTEM_EDITOR,
         messages=[{"role": "user", "content": prompt}],
     )

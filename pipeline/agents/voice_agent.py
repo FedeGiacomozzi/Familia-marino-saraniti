@@ -26,7 +26,7 @@ Analizá las siguientes transcripciones orales de {nombre}.
 {bloques}
 </transcripciones>
 
-Devolvé EXCLUSIVAMENTE un JSON válido con estos 7 campos:
+Devolvé EXCLUSIVAMENTE un JSON válido con estos 6 campos:
 
 {{
   "muletillas": ["lista de muletillas y palabras de relleno que usa habitualmente"],
@@ -34,8 +34,7 @@ Devolvé EXCLUSIVAMENTE un JSON válido con estos 7 campos:
   "registro": "descripción del registro lingüístico: formal/informal/coloquial/técnico/mixto, con ejemplos",
   "detalles_sensoriales": ["imágenes, metáforas, referencias concretas al cuerpo, al espacio, a los sentidos"],
   "tono": "descripción del tono emocional predominante y sus variaciones",
-  "citas_directas": ["5 a 8 fragmentos literales especialmente expresivos o reveladores, mínimo 20 palabras cada uno"],
-  "texto_limpio": "toda la transcripción unificada, sin indicadores de pregunta, como un monólogo continuo"
+  "citas_directas": ["5 a 8 fragmentos literales especialmente expresivos o reveladores, mínimo 20 palabras cada uno"]
 }}
 
 Solo JSON. Sin explicaciones. Sin markdown.
