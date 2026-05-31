@@ -74,47 +74,49 @@ def run(row_indices: list[int], pais: str = "argentina") -> dict:
     Updates col F (Transcripción) in the Sheet for each row.
     Returns {"procesadas": N, "errores": M}.
     """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
     client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
     prompt = _get_prompt(pais)
-
     all_rows = sheets.get_all_rows()
+
+    def _transcribir_fila(row_idx: int) -> bool:
+        row = all_rows[row_idx - 1]
+        audio_url = row[sheets.COL_LINK_AUDIO - 1].strip() if len(row) >= sheets.COL_LINK_AUDIO else ""
+        if not audio_url:
+            return False
+
+        with tempfile.NamedTemporaryFile(suffix=".webm", delete=False) as tmp:
+            tmp_path = tmp.name
+        try:
+            sheets.download_drive_file(audio_url, tmp_path)
+            with open(tmp_path, "rb") as audio_file:
+                result = client.audio.transcriptions.create(
+                    model="whisper-1",
+                    file=audio_file,
+                    language="es",
+                    prompt=prompt,
+                )
+            sheets.save_transcription(row_idx, result.text.strip())
+            return True
+        finally:
+            if os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+
     procesadas = 0
     errores = 0
 
-    for row_idx in row_indices:
-        try:
-            # row_idx is 1-based; all_rows is 0-based
-            row = all_rows[row_idx - 1]
-            audio_url = row[sheets.COL_LINK_AUDIO - 1].strip() if len(row) >= sheets.COL_LINK_AUDIO else ""
-
-            if not audio_url:
-                errores += 1
-                continue
-
-            with tempfile.NamedTemporaryFile(suffix=".webm", delete=False) as tmp:
-                tmp_path = tmp.name
-
+    with ThreadPoolExecutor(max_workers=min(8, len(row_indices))) as executor:
+        futures = {executor.submit(_transcribir_fila, idx): idx for idx in row_indices}
+        for future in as_completed(futures):
+            row_idx = futures[future]
             try:
-                sheets.download_drive_file(audio_url, tmp_path)
-
-                with open(tmp_path, "rb") as audio_file:
-                    result = client.audio.transcriptions.create(
-                        model="whisper-1",
-                        file=audio_file,
-                        language="es",
-                        prompt=prompt,
-                    )
-
-                transcripcion = result.text.strip()
-                sheets.save_transcription(row_idx, transcripcion)
-                procesadas += 1
-
-            finally:
-                if os.path.exists(tmp_path):
-                    os.unlink(tmp_path)
-
-        except Exception as e:
-            print(f"[transcriber] Error en fila {row_idx}: {e}")
-            errores += 1
+                if future.result():
+                    procesadas += 1
+                else:
+                    errores += 1
+            except Exception as e:
+                print(f"[transcriber] Error en fila {row_idx}: {e}")
+                errores += 1
 
     return {"procesadas": procesadas, "errores": errores}
