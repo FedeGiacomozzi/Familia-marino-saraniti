@@ -30,8 +30,8 @@ COL_BROWN     = "#7B5E3A"
 COL_SAGE_DEEP = "#6C7A59"
 COL_TINT      = "#B69A72"
 
-# Párrafos por página interior (ajuste empírico para 6×9in)
-PARAS_PER_PAGE = 4
+# Caracteres por página interior (ajuste empírico para A5, 11px Mulish)
+CHARS_PER_PAGE = 2400
 
 
 # ── Árbol genealógico SVG ─────────────────────────────────────────────────────
@@ -78,7 +78,10 @@ def layout_family(root: dict) -> dict:
     vb_w    = SIDE_PAD * 2 + (leaves - 1) * SLOT
     gen_gap = (VB_HEIGHT - TOP_PAD - BOT_PAD) / max(1, max_gen)
     X = lambda u: SIDE_PAD + u["_x"] * SLOT
-    Y = lambda u: TOP_PAD  + (max_gen - u["_g"]) * gen_gap
+    if max_gen == 0:
+        Y = lambda u: int(VB_HEIGHT * 0.50)
+    else:
+        Y = lambda u: TOP_PAD + (max_gen - u["_g"]) * gen_gap
 
     ramas: list[dict] = []
     hojas: list[dict] = []
@@ -266,6 +269,21 @@ def _extraer_frase(texto: str) -> str:
     return m.group(1).rstrip() if m else primera[:80]
 
 
+def _md_a_html(texto: str) -> str:
+    """Convierte *texto* → <em>texto</em> para citas directas de transcripción."""
+    return re.sub(r"\*([^*]+)\*", r"<em>\1</em>", texto)
+
+
+def _strip_md_headers(texto: str) -> str:
+    """Elimina headers markdown (# Título, ## Subtítulo) del texto."""
+    lines = []
+    for line in texto.split("\n"):
+        if re.match(r"^#{1,6}\s+", line):
+            continue
+        lines.append(line)
+    return "\n".join(lines)
+
+
 def _texto_a_bloques(
     texto: str,
     foto_info: Optional[dict] = None,
@@ -274,18 +292,19 @@ def _texto_a_bloques(
     Convierte el texto de un capítulo en páginas de bloques.
     Cada página es una lista de dicts con .tipo = parrafo|separador|cita|foto.
     """
+    texto = _strip_md_headers(texto)
     raw = [p.strip() for p in texto.split("\n\n") if p.strip()]
 
     all_blocks: list[dict] = []
     for i, p in enumerate(raw):
         if p.startswith("—"):
             all_blocks.append({"tipo": "separador"})
-            all_blocks.append({"tipo": "cita", "texto": p.lstrip("—").strip()})
+            all_blocks.append({"tipo": "cita", "texto": _md_a_html(p.lstrip("—").strip())})
             all_blocks.append({"tipo": "separador"})
         else:
             all_blocks.append({
                 "tipo": "parrafo",
-                "texto": p,
+                "texto": _md_a_html(p),
                 "dropcap": (i == 0),
                 "serif": False,
             })
@@ -302,19 +321,28 @@ def _texto_a_bloques(
                     break
         all_blocks.insert(insert_idx, foto_info)
 
-    # Dividir en páginas de PARAS_PER_PAGE párrafos
+    # Dividir en páginas por presupuesto de caracteres
     pages: list[list[dict]] = []
     current_page: list[dict] = []
-    para_count = 0
+    char_count = 0
 
     for b in all_blocks:
-        current_page.append(b)
         if b["tipo"] == "parrafo":
-            para_count += 1
-            if para_count >= PARAS_PER_PAGE:
-                pages.append(current_page)
-                current_page = []
-                para_count = 0
+            cost = len(b["texto"])
+        elif b["tipo"] == "foto":
+            cost = CHARS_PER_PAGE // 2
+        elif b["tipo"] in ("separador", "cita"):
+            cost = 120
+        else:
+            cost = 0
+
+        if current_page and (char_count + cost) > CHARS_PER_PAGE:
+            pages.append(current_page)
+            current_page = []
+            char_count = 0
+
+        current_page.append(b)
+        char_count += cost
 
     if current_page:
         pages.append(current_page)
@@ -368,6 +396,9 @@ def _render_libro(
 
     partes: list[str] = []
 
+    tmpl_seccion    = env.get_template("05-seccion.html")
+    tmpl_transicion = env.get_template("06-transicion.html")
+
     # ── 01 · Portada ──
     tmpl_portada = env.get_template("01-portada.html")
     libro_ctx = {
@@ -384,6 +415,17 @@ def _render_libro(
         "portada_cap": "la familia, hoy",
     }
     partes.append(_extract_body(tmpl_portada.render(libro=libro_ctx)))
+
+    # ── Prólogo ──
+    if manuscript.prologo:
+        for i, pag_bloques in enumerate(_texto_a_bloques(manuscript.prologo)):
+            ctx = {
+                "tipo": "Prólogo",
+                "primer_pagina": (i == 0),
+                "folio": next_folio(),
+                "bloques": pag_bloques,
+            }
+            partes.append(_extract_body(tmpl_seccion.render(pagina=ctx)))
 
     # ── Capítulos ──
     for idx, nombre in enumerate(manuscript.orden, start=1):
@@ -426,6 +468,33 @@ def _render_libro(
                 "bloques": pagina_bloques,
             }
             partes.append(_extract_body(tmpl_interior.render(pagina=pagina_ctx)))
+
+        # 06 · Transición hacia el siguiente capítulo
+        if idx < len(manuscript.orden):
+            siguiente = manuscript.orden[idx]
+            key = f"{nombre}→{siguiente}"
+            trans_texto = manuscript.transiciones.get(key, "")
+            if trans_texto:
+                trans_html = _md_a_html(trans_texto)
+                trans_parrafos = "\n".join(
+                    f"<p>{p.strip()}</p>"
+                    for p in trans_html.split("\n\n") if p.strip()
+                )
+                partes.append(_extract_body(tmpl_transicion.render(transicion={
+                    "texto": trans_parrafos,
+                    "folio": next_folio(),
+                })))
+
+    # ── Epílogo ──
+    if manuscript.epilogo:
+        for i, pag_bloques in enumerate(_texto_a_bloques(manuscript.epilogo)):
+            ctx = {
+                "tipo": "Epílogo",
+                "primer_pagina": (i == 0),
+                "folio": next_folio(),
+                "bloques": pag_bloques,
+            }
+            partes.append(_extract_body(tmpl_seccion.render(pagina=ctx)))
 
     # ── 04 · Índice ──
     tmpl_indice = env.get_template("04-indice.html")
