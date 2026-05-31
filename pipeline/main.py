@@ -45,6 +45,7 @@ def _run_pipeline_job(job_id: str, req_dict: dict) -> None:
             solo_desde=req_dict["solo_desde"],
             familia=req_dict["familia"],
             upload_to_gcs=req_dict["upload_to_gcs"],
+            familia_id=req_dict.get("familia_id"),
         )
         payload = {
             "ok": result.ok,
@@ -143,6 +144,7 @@ class PipelineRequest(BaseModel):
     solo_desde: str | None = None
     familia: str = "Familia Mariño · Saraniti"
     upload_to_gcs: bool = False
+    familia_id: str | None = None
 
 
 @app.post("/run/pipeline")
@@ -153,6 +155,7 @@ def run_pipeline(req: PipelineRequest):
         solo_desde=req.solo_desde,
         familia=req.familia,
         upload_to_gcs=req.upload_to_gcs,
+        familia_id=req.familia_id,
     )
     return {
         "ok": result.ok,
