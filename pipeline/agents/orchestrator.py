@@ -224,6 +224,11 @@ def run(
                         fs_mod.save_capitulo(familia_id, fs_data["id"], cap)
                     except Exception as _e:
                         print(f"[orchestrator] No se pudo guardar capítulo en Firestore para {nombre}: {_e}")
+                elif cap and not familia_id:
+                    try:
+                        sheets.save_chapter(nombre, cap)
+                    except Exception as _e:
+                        print(f"[orchestrator] No se pudo guardar capítulo en Sheets para {nombre}: {_e}")
 
                 return nombre, cap, None
 
@@ -283,6 +288,39 @@ def run(
         print("[orchestrator] Paso 5: generación del PDF...")
         try:
             manuscript = result._manuscript or result.editor
+
+            # Fallback: si solo_desde=layout, cargar capítulos guardados y armar manuscrito mínimo
+            if manuscript is None:
+                print("[orchestrator] Manuscrito no disponible — cargando capítulos guardados...")
+                adultos_meta = [pm for pm in personas_meta if not pm.get("es_menor")]
+                for pm in adultos_meta:
+                    nombre = pm["nombre"]
+                    if nombre in result.chapters:
+                        continue
+                    if familia_id and _fs_integrantes:
+                        fs_data = next(
+                            (p for p in _fs_integrantes if p["nombre"].lower() == nombre.lower()), None
+                        )
+                        if fs_data and fs_data.get("capitulo"):
+                            result.chapters[nombre] = fs_data["capitulo"]
+                    if nombre not in result.chapters:
+                        p = sheets.get_profile(nombre)
+                        if p and p.get("capitulo"):
+                            result.chapters[nombre] = p["capitulo"]
+
+                if result.chapters:
+                    orden = [pm["nombre"] for pm in adultos_meta if pm["nombre"] in result.chapters]
+                    manuscript = BookManuscript(
+                        orden=orden,
+                        capitulos=result.chapters,
+                        prologo="",
+                        epilogo="",
+                        transiciones={},
+                    )
+                    result._manuscript = manuscript
+                else:
+                    raise ValueError("No hay capítulos guardados. Correr primero sin solo_desde o con solo_desde=editor.")
+
             if manuscript is None:
                 raise ValueError("No hay manuscrito disponible para el layout")
 
