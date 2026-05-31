@@ -364,3 +364,15 @@ def upload_to_drive(local_path: str, filename: str, mime_type: str = "applicatio
         body={"type": "anyone", "role": "reader"},
     ).execute()
     return f.get("webViewLink", "")
+
+
+def upload_pdf_to_gcs(local_path: str, filename: str) -> str:
+    """Upload PDF to GCS and return public URL. Bucket via GCS_PDF_BUCKET env var."""
+    from google.cloud import storage as gcs
+
+    bucket_name = os.environ.get("GCS_PDF_BUCKET", "familia-marino-pdfs")
+    client = gcs.Client(credentials=_get_creds())
+    blob = client.bucket(bucket_name).blob(f"pdfs/{filename}")
+    blob.upload_from_filename(local_path, content_type="application/pdf")
+    blob.make_public()
+    return blob.public_url

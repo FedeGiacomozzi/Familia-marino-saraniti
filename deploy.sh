@@ -36,6 +36,7 @@ gcloud run deploy "${SERVICE}" \
   --timeout=900 \
   --service-account="familia-pipeline@familia-marino.iam.gserviceaccount.com" \
   --clear-env-vars \
+  --set-env-vars="GCS_PDF_BUCKET=familia-marino-pdfs" \
   --set-secrets="ANTHROPIC_API_KEY=ANTHROPIC_API_KEY:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,GOOGLE_CREDENTIALS_JSON=GOOGLE_CREDENTIALS:latest"
 
 echo ""
