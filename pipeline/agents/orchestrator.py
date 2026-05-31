@@ -224,11 +224,6 @@ def run(
                         fs_mod.save_capitulo(familia_id, fs_data["id"], cap)
                     except Exception as _e:
                         print(f"[orchestrator] No se pudo guardar capítulo en Firestore para {nombre}: {_e}")
-                elif cap and not familia_id:
-                    try:
-                        sheets.save_chapter(nombre, cap)
-                    except Exception as _e:
-                        print(f"[orchestrator] No se pudo guardar capítulo en Sheets para {nombre}: {_e}")
 
                 return nombre, cap, None
 
