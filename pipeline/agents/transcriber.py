@@ -120,3 +120,69 @@ def run(row_indices: list[int], pais: str = "argentina") -> dict:
                 errores += 1
 
     return {"procesadas": procesadas, "errores": errores}
+
+
+def run_from_firestore(familia_id: str, pais: str = "argentina") -> dict:
+    """
+    Transcribe todos los audios pendientes de una familia desde Firestore/GCS.
+    Solo procesa respuestas donde audio_url está seteado y transcripcion está vacía.
+    """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    from pipeline.utils import firestore as fs, storage as gcs_storage
+
+    client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+    prompt = _get_prompt(pais)
+
+    # Recolectar tareas pendientes en todos los integrantes
+    integrantes = fs.get_integrantes(familia_id)
+    tasks = []  # [(integrante_id, pregunta_id, audio_url)]
+    for integrante in integrantes:
+        integrante_id = integrante["id"]
+        respuestas = fs.get_respuestas(familia_id, integrante_id)
+        for r in respuestas:
+            audio_url = r.get("audio_url", "").strip()
+            transcripcion = r.get("transcripcion", "").strip()
+            if audio_url and not transcripcion:
+                tasks.append((integrante_id, r["id"], audio_url))
+
+    if not tasks:
+        return {"procesadas": 0, "errores": 0}
+
+    def _transcribir(integrante_id: str, pregunta_id: str, audio_url: str) -> bool:
+        suffix = ".webm" if audio_url.endswith(".webm") else ".mp3"
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+            tmp_path = tmp.name
+        try:
+            gcs_storage.download_from_gcs(audio_url, tmp_path)
+            with open(tmp_path, "rb") as audio_file:
+                result = client.audio.transcriptions.create(
+                    model="whisper-1",
+                    file=audio_file,
+                    language="es",
+                    prompt=prompt,
+                )
+            fs.save_transcripcion(familia_id, integrante_id, pregunta_id, result.text.strip())
+            return True
+        finally:
+            if os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+
+    procesadas = 0
+    errores = 0
+    with ThreadPoolExecutor(max_workers=min(8, len(tasks))) as executor:
+        futures = {
+            executor.submit(_transcribir, iid, pid, url): (iid, pid)
+            for iid, pid, url in tasks
+        }
+        for future in as_completed(futures):
+            iid, pid = futures[future]
+            try:
+                if future.result():
+                    procesadas += 1
+                else:
+                    errores += 1
+            except Exception as e:
+                print(f"[transcriber] Error en {iid}/{pid}: {e}")
+                errores += 1
+
+    return {"procesadas": procesadas, "errores": errores}
