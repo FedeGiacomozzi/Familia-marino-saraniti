@@ -51,7 +51,24 @@ def run_pipeline(req: PipelineRequest):
     }
 
 
-# ─── Paso 1: Transcriber ──────────────────────────────────────────────────────
+# ─── Paso 1a: Transcriber — sistema nuevo (Firestore + GCS) ──────────────────
+
+class TranscribeGCSRequest(BaseModel):
+    pais: str = "argentina"
+
+
+@app.post("/run/transcribe-pending")
+def run_transcribe_pending(req: TranscribeGCSRequest):
+    """
+    Transcribe todos los audios pendientes desde Firestore + GCS.
+    Lee respuestas sin transcripción, descarga de GCS, llama a Whisper,
+    guarda de vuelta en Firestore. No requiere parámetros — detecta automáticamente.
+    """
+    result = transcriber.run_gcs(req.pais)
+    return result
+
+
+# ─── Paso 1b: Transcriber — sistema legado (Sheets + Drive) ──────────────────
 
 class TranscriberRequest(BaseModel):
     row_indices: list[int]
