@@ -27,7 +27,7 @@
 
       {%- elif b.tipo == 'foto' %}
       <div class="photo-center">
-        <div class="frame" style="transform:rotate({{ b.rot | default(-2.2) }}deg)">
+        <div class="frame">
           <div class="polaroid">
             {% if b.img %}<img class="ph-img" style="height:168px" src="{{ b.img }}" alt="" />
             {% else %}<div class="ph" style="height:168px"><span>{{ b.alt_ph | default('foto') }}</span></div>{% endif %}

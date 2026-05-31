@@ -206,7 +206,7 @@ html,body{ margin:0; padding:0; background:var(--paper); }
    ============================================================ */
 .cover .rail-v{ position:absolute; left:54px; top:70px; bottom:70px; width:2px; background:var(--sage); }
 .cover .year{ position:absolute; right:40px; top:0; bottom:0; display:flex; align-items:center; }
-.cover .year span{ writing-mode:vertical-rl; transform:rotate(180deg);
+.cover .year span{ writing-mode:vertical-lr;
   font-family:var(--sans); font-weight:600; font-size:12px; letter-spacing:.5em; color:var(--brown-tint); }
 .cover .block{ position:absolute; left:78px; top:150px; right:96px; }
 .cover .title{ margin:22px 0 0; font-weight:500; font-size:64px; line-height:.98; color:var(--ink); }
@@ -238,7 +238,7 @@ html,body{ margin:0; padding:0; background:var(--paper); }
 .interior .sep{ margin:26px 0; }
 .interior .quote{ margin:34px auto; font-size:25px; max-width:380px; }
 .photo-center{ display:flex; justify-content:center; margin:8px 0 4px; }
-.photo-center .frame{ width:250px; transform:rotate(-2.2deg); }
+.photo-center .frame{ width:250px; }
 .photo-center .frame .ph{ height:168px; }
 
 /* ============================================================

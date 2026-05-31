@@ -30,8 +30,8 @@ COL_BROWN     = "#7B5E3A"
 COL_SAGE_DEEP = "#6C7A59"
 COL_TINT      = "#B69A72"
 
-# Párrafos por página interior (ajuste empírico para 6×9in)
-PARAS_PER_PAGE = 4
+# Caracteres por página interior (ajuste empírico para 6×9in, 11px Mulish)
+CHARS_PER_PAGE = 1400
 
 
 # ── Árbol genealógico SVG ─────────────────────────────────────────────────────
@@ -78,7 +78,11 @@ def layout_family(root: dict) -> dict:
     vb_w    = SIDE_PAD * 2 + (leaves - 1) * SLOT
     gen_gap = (VB_HEIGHT - TOP_PAD - BOT_PAD) / max(1, max_gen)
     X = lambda u: SIDE_PAD + u["_x"] * SLOT
-    Y = lambda u: TOP_PAD  + (max_gen - u["_g"]) * gen_gap
+    if max_gen == 0:
+        # Nodo único: posicionarlo en el 50% del alto para que el tronco no sea exagerado
+        Y = lambda u: int(VB_HEIGHT * 0.50)
+    else:
+        Y = lambda u: TOP_PAD + (max_gen - u["_g"]) * gen_gap
 
     ramas: list[dict] = []
     hojas: list[dict] = []
@@ -302,19 +306,28 @@ def _texto_a_bloques(
                     break
         all_blocks.insert(insert_idx, foto_info)
 
-    # Dividir en páginas de PARAS_PER_PAGE párrafos
+    # Dividir en páginas por presupuesto de caracteres
     pages: list[list[dict]] = []
     current_page: list[dict] = []
-    para_count = 0
+    char_count = 0
 
     for b in all_blocks:
-        current_page.append(b)
         if b["tipo"] == "parrafo":
-            para_count += 1
-            if para_count >= PARAS_PER_PAGE:
-                pages.append(current_page)
-                current_page = []
-                para_count = 0
+            cost = len(b["texto"])
+        elif b["tipo"] == "foto":
+            cost = CHARS_PER_PAGE // 2  # foto ocupa ~media página
+        elif b["tipo"] in ("separador", "cita"):
+            cost = 120
+        else:
+            cost = 0
+
+        if current_page and (char_count + cost) > CHARS_PER_PAGE:
+            pages.append(current_page)
+            current_page = []
+            char_count = 0
+
+        current_page.append(b)
+        char_count += cost
 
     if current_page:
         pages.append(current_page)
