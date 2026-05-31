@@ -8,9 +8,9 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
 
-SHEET_ID = "1A1M79ITLeRVWkwct7pqjUTmLu9NWXn9uDLpKWMMomgM"   # Respuestas + Perfiles
-FAMILIA_SHEET_ID = "1iEpnly_f3OQL6nLH41XU76zg1iM2vHZQyQdF0RLVQFE"  # Integrantes + Relaciones
-FOLDER_ID = "1rZmvh5WC9KEPSQ99AtC3ZvJkJRKJp6L3"
+SHEET_ID = os.environ.get("SHEET_ID", "1A1M79ITLeRVWkwct7pqjUTmLu9NWXn9uDLpKWMMomgM")
+FAMILIA_SHEET_ID = os.environ.get("FAMILIA_SHEET_ID", "1iEpnly_f3OQL6nLH41XU76zg1iM2vHZQyQdF0RLVQFE")
+FOLDER_ID = os.environ.get("FOLDER_ID", "1rZmvh5WC9KEPSQ99AtC3ZvJkJRKJp6L3")
 
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
@@ -38,8 +38,14 @@ def _get_creds():
     return service_account.Credentials.from_service_account_info(info, scopes=SCOPES)
 
 
+_gc_client = None
+
+
 def _gc():
-    return gspread.authorize(_get_creds())
+    global _gc_client
+    if _gc_client is None:
+        _gc_client = gspread.authorize(_get_creds())
+    return _gc_client
 
 
 def _ss():

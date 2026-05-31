@@ -84,6 +84,10 @@ def generar_capitulo(client: anthropic.Anthropic, persona: dict) -> str:
 
     estado = "vive" if fctx.get("vive", True) else f"falleció el {fctx.get('fecha_fallec', 'fecha desconocida')}"
 
+    if len(transcripcion) > 12000:
+        print(f"[chapter_agent] Transcripción de {nombre} truncada: {len(transcripcion)} → 12000 chars")
+    transcripcion_input = transcripcion[:12000]
+
     prompt = _PROMPT_TEMPLATE.format(
         nombre=nombre,
         rol=fctx.get("rol", "no especificado"),
@@ -97,7 +101,7 @@ def generar_capitulo(client: anthropic.Anthropic, persona: dict) -> str:
         registro=perfil.get("registro", "no registrado"),
         detalles_sensoriales=", ".join(perfil.get("detalles_sensoriales", [])) or "no registrados",
         tono=perfil.get("tono", "no registrado"),
-        transcripcion=transcripcion[:12000],
+        transcripcion=transcripcion_input,
         frases_propias_lista=frases_propias_lista,
     )
 
@@ -118,16 +122,26 @@ def run(nombres: list[str]) -> dict[str, str]:
     client = anthropic.Anthropic()
     results = {}
 
+    try:
+        integrantes = sheets.get_familia_integrantes()
+        relaciones = sheets.get_familia_relaciones()
+    except Exception as e:
+        print(f"[chapter_agent] No se pudieron cargar datos de familia: {e}")
+        integrantes, relaciones = [], []
+
     for nombre in nombres:
         try:
             profile = sheets.get_profile(nombre)
             if not profile:
                 raise ValueError(f"No hay perfil guardado para {nombre}")
 
+            familia_ctx = sheets.build_family_context(nombre, integrantes, relaciones)
+
             persona = {
                 "nombre": nombre,
                 "perfil_voz": profile.get("perfil_voz", {}),
                 "transcripcion": profile.get("transcripcion", ""),
+                "familia_ctx": familia_ctx,
             }
 
             results[nombre] = generar_capitulo(client, persona)
