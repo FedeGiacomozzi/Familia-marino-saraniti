@@ -8,10 +8,25 @@ PROJECT="${1:-$(gcloud config get-value project)}"
 REGION="${2:-us-central1}"
 SERVICE="familia-pipeline"
 IMAGE="gcr.io/${PROJECT}/${SERVICE}"
+GCS_BUCKET="${GCS_BUCKET:-familia-marino-pdfs}"
+SA="familia-pipeline@${PROJECT}.iam.gserviceaccount.com"
 
 echo "Project : ${PROJECT}"
 echo "Region  : ${REGION}"
 echo "Image   : ${IMAGE}"
+echo "Bucket  : ${GCS_BUCKET}"
+echo ""
+
+# ── GCS bucket para PDFs ────────────────────────────────────────────────────
+if ! gsutil ls -b "gs://${GCS_BUCKET}" &>/dev/null; then
+  echo "Creando bucket gs://${GCS_BUCKET}..."
+  gsutil mb -p "${PROJECT}" -l "${REGION}" "gs://${GCS_BUCKET}"
+  gsutil iam ch allUsers:objectViewer "gs://${GCS_BUCKET}"
+  gsutil iam ch "serviceAccount:${SA}:objectAdmin" "gs://${GCS_BUCKET}"
+  echo "Bucket creado y permisos configurados."
+else
+  echo "Bucket gs://${GCS_BUCKET} ya existe."
+fi
 echo ""
 
 # Build and push via Cloud Build
@@ -36,6 +51,7 @@ gcloud run deploy "${SERVICE}" \
   --timeout=900 \
   --service-account="familia-pipeline@familia-marino.iam.gserviceaccount.com" \
   --clear-env-vars \
+  --set-env-vars="GCS_BUCKET=${GCS_BUCKET}" \
   --set-secrets="ANTHROPIC_API_KEY=ANTHROPIC_API_KEY:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,GOOGLE_CREDENTIALS_JSON=GOOGLE_CREDENTIALS:latest"
 
 echo ""

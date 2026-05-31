@@ -11,6 +11,7 @@ from googleapiclient.http import MediaIoBaseDownload
 SHEET_ID = os.environ.get("SHEET_ID", "1A1M79ITLeRVWkwct7pqjUTmLu9NWXn9uDLpKWMMomgM")
 FAMILIA_SHEET_ID = os.environ.get("FAMILIA_SHEET_ID", "1iEpnly_f3OQL6nLH41XU76zg1iM2vHZQyQdF0RLVQFE")
 FOLDER_ID = os.environ.get("FOLDER_ID", "1rZmvh5WC9KEPSQ99AtC3ZvJkJRKJp6L3")
+GCS_BUCKET = os.environ.get("GCS_BUCKET", "familia-marino-pdfs")
 
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
@@ -344,17 +345,13 @@ def download_drive_file(url: str, dest_path: str):
             _, done = dl.next_chunk()
 
 
-def upload_to_drive(local_path: str, filename: str, mime_type: str = "application/pdf") -> str:
-    """Upload a file to the Drive folder and return its shareable URL."""
-    from googleapiclient.http import MediaFileUpload
+def upload_to_gcs(local_path: str, filename: str, mime_type: str = "application/pdf") -> str:
+    """Upload a file to GCS and return its public URL."""
+    from google.cloud import storage as gcs
 
-    creds = _get_creds()
-    service = build("drive", "v3", credentials=creds)
-    meta = {"name": filename, "parents": [FOLDER_ID]}
-    media = MediaFileUpload(local_path, mimetype=mime_type)
-    f = service.files().create(body=meta, media_body=media, fields="id,webViewLink").execute()
-    service.permissions().create(
-        fileId=f["id"],
-        body={"type": "anyone", "role": "reader"},
-    ).execute()
-    return f.get("webViewLink", "")
+    client = gcs.Client()
+    bucket = client.bucket(GCS_BUCKET)
+    blob = bucket.blob(f"pdfs/{filename}")
+    blob.upload_from_filename(local_path, content_type=mime_type)
+    blob.make_public()
+    return blob.public_url
