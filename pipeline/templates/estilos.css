@@ -198,8 +198,8 @@ html,body{ margin:0; padding:0; background:var(--paper); }
 .sep .dot{ width:5px; height:5px; border-radius:50%; background:var(--sage); }
 .sep .dot.brown{ background:var(--brown-tint); }
 
-.dropcap::first-letter{ font-family:var(--serif); font-weight:500; font-size:46px;
-  line-height:.82; float:left; padding:6px 8px 0 0; color:var(--brown); }
+.dropcap::first-letter{ font-family:var(--serif); font-weight:500;
+  initial-letter:2; color:var(--brown); margin-right:6px; }
 
 /* ============================================================
    01 · PORTADA (keepsake)
