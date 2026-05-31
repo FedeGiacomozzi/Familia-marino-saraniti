@@ -351,19 +351,8 @@ def download_drive_file(url: str, dest_path: str):
 
 
 def upload_to_drive(local_path: str, filename: str, mime_type: str = "application/pdf") -> str:
-    """Upload a file to the Drive folder and return its shareable URL."""
-    from googleapiclient.http import MediaFileUpload
-
-    creds = _get_creds()
-    service = build("drive", "v3", credentials=creds)
-    meta = {"name": filename, "parents": [FOLDER_ID]}
-    media = MediaFileUpload(local_path, mimetype=mime_type)
-    f = service.files().create(body=meta, media_body=media, fields="id,webViewLink").execute()
-    service.permissions().create(
-        fileId=f["id"],
-        body={"type": "anyone", "role": "reader"},
-    ).execute()
-    return f.get("webViewLink", "")
+    """Upload PDF to GCS (Drive no soporta service accounts sin cuota)."""
+    return upload_pdf_to_gcs(local_path, filename)
 
 
 def upload_pdf_to_gcs(local_path: str, filename: str) -> str:
