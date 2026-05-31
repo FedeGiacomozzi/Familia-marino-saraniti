@@ -27,6 +27,7 @@ def _run_pipeline_job(job_id: str, req_dict: dict) -> None:
             familia=req_dict["familia"],
             upload_to_gcs=req_dict["upload_to_gcs"],
             familia_id=req_dict.get("familia_id"),
+            from_job_id=req_dict.get("from_job_id"),
         )
         payload = {
             "ok": result.ok,
@@ -34,7 +35,11 @@ def _run_pipeline_job(job_id: str, req_dict: dict) -> None:
             "transcriber": result.transcriber,
             "voice": {k: v for k, v in result.voice.items()},
             "chapters_generados": list(result.chapters.keys()),
+            "chapters": result.chapters,
             "orden": result.editor.orden if result.editor else [],
+            "prologo": result.editor.prologo if result.editor else "",
+            "epilogo": result.editor.epilogo if result.editor else "",
+            "transiciones": result.editor.transiciones if result.editor else {},
             "layout": result.layout,
             "errores": result.errores,
         }
@@ -122,6 +127,7 @@ class PipelineRequest(BaseModel):
     familia: str = "Familia Mariño · Saraniti"
     upload_to_gcs: bool = False
     familia_id: str | None = None
+    from_job_id: str | None = None  # reutilizar capítulos de un job anterior
 
 
 @app.post("/run/pipeline")

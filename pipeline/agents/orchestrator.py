@@ -90,10 +90,12 @@ def run(
     familia: str = "Familia Mariño · Saraniti",
     upload_to_gcs: bool = False,
     familia_id: str | None = None,
+    from_job_id: str | None = None,
 ) -> PipelineResult:
     """
     Corre el pipeline completo (o desde un paso específico).
     solo_desde: uno de "transcriber", "voice", "chapters", "editor", "layout"
+    from_job_id: job anterior del que reutilizar capítulos (evita volver a llamar a Claude)
     """
     result = PipelineResult(personas=nombres)
 
@@ -178,6 +180,19 @@ def run(
         except Exception as e:
             result.errores.append(f"voice_agent: {e}")
             return result
+
+    # ── Cargar capítulos de job anterior (from_job_id) ───────────────────────
+    if from_job_id and not result.chapters:
+        try:
+            from pipeline.utils import firestore as fs_mod
+            prev_job = fs_mod.get_job(from_job_id)
+            if prev_job and prev_job.get("result", {}).get("chapters"):
+                result.chapters = prev_job["result"]["chapters"]
+                print(f"[orchestrator] Capítulos cargados desde job {from_job_id}: {list(result.chapters.keys())}")
+            else:
+                print(f"[orchestrator] Advertencia: job {from_job_id} no tiene capítulos guardados")
+        except Exception as e:
+            print(f"[orchestrator] No se pudieron cargar capítulos de job anterior: {e}")
 
     # ── Paso 3: Chapter agent ─────────────────────────────────────────────────
     if start_idx <= 2:
