@@ -270,6 +270,11 @@ def _extraer_frase(texto: str) -> str:
     return m.group(1).rstrip() if m else primera[:80]
 
 
+def _md_a_html(texto: str) -> str:
+    """Convierte *texto* → <em>texto</em> para citas directas de transcripción."""
+    return re.sub(r"\*([^*]+)\*", r"<em>\1</em>", texto)
+
+
 def _texto_a_bloques(
     texto: str,
     foto_info: Optional[dict] = None,
@@ -284,12 +289,12 @@ def _texto_a_bloques(
     for i, p in enumerate(raw):
         if p.startswith("—"):
             all_blocks.append({"tipo": "separador"})
-            all_blocks.append({"tipo": "cita", "texto": p.lstrip("—").strip()})
+            all_blocks.append({"tipo": "cita", "texto": _md_a_html(p.lstrip("—").strip())})
             all_blocks.append({"tipo": "separador"})
         else:
             all_blocks.append({
                 "tipo": "parrafo",
-                "texto": p,
+                "texto": _md_a_html(p),
                 "dropcap": (i == 0),
                 "serif": False,
             })

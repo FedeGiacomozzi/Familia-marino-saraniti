@@ -13,7 +13,7 @@
 
     {%- for b in pagina.bloques %}
       {%- if b.tipo == 'parrafo' %}
-      <p class="body{{ ' serif' if b.serif }}{{ ' dropcap' if b.dropcap }}">{{ b.texto }}</p>
+      <p class="body{{ ' serif' if b.serif }}{{ ' dropcap' if b.dropcap }}">{{ b.texto | safe }}</p>
 
       {%- elif b.tipo == 'separador' %}
       <div class="sep">
@@ -23,7 +23,7 @@
       </div>
 
       {%- elif b.tipo == 'cita' %}
-      <blockquote class="pull center quote">«{{ b.texto }}»</blockquote>
+      <blockquote class="pull center quote">«{{ b.texto | safe }}»</blockquote>
 
       {%- elif b.tipo == 'foto' %}
       <div class="photo-center">
