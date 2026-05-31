@@ -5,6 +5,7 @@ y construye un perfil de voz JSON de 7 campos.
 
 import json
 import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 
 import anthropic
@@ -82,15 +83,20 @@ def _analyze_persona(client: anthropic.Anthropic, nombre: str) -> dict:
 
 def run(nombres: list[str]) -> dict[str, dict]:
     """
-    Analyze each persona and return {nombre: perfil_dict}.
-    Saves results to the Perfiles sheet.
+    Analiza cada persona en paralelo y devuelve {nombre: perfil_dict}.
+    Guarda resultados en la hoja Perfiles.
     """
     client = anthropic.Anthropic()
     results = {}
-    for nombre in nombres:
-        try:
-            results[nombre] = _analyze_persona(client, nombre)
-        except Exception as e:
-            print(f"[voice_agent] Error con {nombre}: {e}")
-            results[nombre] = {"error": str(e)}
+
+    with ThreadPoolExecutor(max_workers=min(len(nombres), 6)) as executor:
+        futures = {executor.submit(_analyze_persona, client, nombre): nombre for nombre in nombres}
+        for future in as_completed(futures):
+            nombre = futures[future]
+            try:
+                results[nombre] = future.result()
+            except Exception as e:
+                print(f"[voice_agent] Error con {nombre}: {e}")
+                results[nombre] = {"error": str(e)}
+
     return results

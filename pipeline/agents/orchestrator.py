@@ -134,35 +134,44 @@ def run(
             result.errores.append(f"voice_agent: {e}")
             return result
 
-    # ── Paso 3: Chapter agent ─────────────────────────────────────────────────
+    # ── Paso 3: Chapter agent (paralelo por persona) ──────────────────────────
     if start_idx <= 2:
-        print("[orchestrator] Paso 3: generación de capítulos...")
+        print("[orchestrator] Paso 3: generación de capítulos (paralelo)...")
         try:
             import anthropic as _anthropic
+            from concurrent.futures import ThreadPoolExecutor, as_completed
+
             client = _anthropic.Anthropic()
 
+            # Menores: marcar sin procesar
             for pm in personas_meta:
-                nombre = pm["nombre"]
                 if pm.get("es_menor"):
-                    result.chapters[nombre] = f"[MENOR: {nombre} — capítulo a escribir por padres/tutores]"
-                    continue
+                    result.chapters[pm["nombre"]] = f"[MENOR: {pm['nombre']} — capítulo a escribir por padres/tutores]"
 
+            adultos_meta = [pm for pm in personas_meta if not pm.get("es_menor")]
+
+            def _generar(pm):
+                nombre = pm["nombre"]
                 p = sheets.get_profile(nombre)
                 if not p:
-                    result.errores.append(f"chapter_agent/{nombre}: perfil no encontrado")
-                    continue
-
+                    raise ValueError(f"perfil no encontrado")
                 persona = {
                     "nombre": nombre,
                     "perfil_voz": p.get("perfil_voz", {}),
                     "transcripcion": p.get("transcripcion", ""),
                     "familia_ctx": pm.get("familia_ctx", {}),
                 }
-                try:
-                    cap = chapter_agent.generar_capitulo(client, persona)
-                    result.chapters[nombre] = cap
-                except Exception as e:
-                    result.errores.append(f"chapter_agent/{nombre}: {e}")
+                return nombre, chapter_agent.generar_capitulo(client, persona)
+
+            with ThreadPoolExecutor(max_workers=min(len(adultos_meta), 6)) as executor:
+                futures = {executor.submit(_generar, pm): pm["nombre"] for pm in adultos_meta}
+                for future in as_completed(futures):
+                    nombre = futures[future]
+                    try:
+                        _, cap = future.result()
+                        result.chapters[nombre] = cap
+                    except Exception as e:
+                        result.errores.append(f"chapter_agent/{nombre}: {e}")
 
         except Exception as e:
             result.errores.append(f"chapter_agent: {e}")
