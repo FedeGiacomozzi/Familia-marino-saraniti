@@ -27,7 +27,7 @@ class PipelineRequest(BaseModel):
     pais: str = "argentina"
     solo_desde: str | None = None
     familia: str = "Familia Mariño · Saraniti"
-    upload_to_drive: bool = False
+    upload_to_drive: bool = True
 
 
 @app.post("/run/pipeline")
@@ -140,7 +140,7 @@ def run_editor(req: EditorRequest):
 class LayoutRequest(BaseModel):
     nombres: list[str]
     familia: str = "Familia Mariño · Saraniti"
-    upload_to_drive: bool = False
+    upload_to_drive: bool = True
 
 
 @app.post("/run/layout")
