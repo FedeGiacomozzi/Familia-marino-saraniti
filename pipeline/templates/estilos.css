@@ -163,7 +163,7 @@ html,body{ margin:0; padding:0; background:var(--paper); }
   letter-spacing:.32em; text-transform:uppercase; color:var(--brown-tint); }
 .serif{ font-family:var(--serif); }
 .center{ text-align:center; }
-.folio{ position:absolute; bottom:34px; left:0; right:0; text-align:center;
+.folio{ position:absolute; bottom:34px; right:58px; text-align:right;
   font-family:var(--sans); font-size:10px; font-weight:400;
   letter-spacing:.18em; color:var(--brown-tint); }
 
@@ -229,7 +229,7 @@ html,body{ margin:0; padding:0; background:var(--paper); }
 .opener .ch-name{ margin:18px 0 0; font-weight:500; font-size:62px; line-height:1.05; color:var(--ink); font-family:var(--serif); }
 .opener .ch-epi{ margin:16px auto 0; font-style:italic; font-size:20px; color:var(--brown);
   max-width:460px; font-family:var(--serif); }
-.opener .tree{ position:absolute; bottom:0; left:0; right:0; height:580px; padding:0 80px; }
+.opener .tree{ position:absolute; bottom:0; left:0; right:0; height:580px; padding:0 80px 56px; overflow:hidden; }
 .opener .tree svg{ display:block; width:100%; height:100%; }
 
 /* ============================================================
