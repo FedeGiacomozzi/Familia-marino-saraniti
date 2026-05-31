@@ -14,6 +14,12 @@ echo "Region  : ${REGION}"
 echo "Image   : ${IMAGE}"
 echo ""
 
+# Siempre pull antes de buildear para asegurar código actualizado
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
+echo "Pulling latest from origin/${BRANCH}..."
+git pull origin "${BRANCH}"
+echo ""
+
 # Build and push via Cloud Build
 gcloud builds submit \
   --project="${PROJECT}" \
