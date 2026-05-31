@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<link rel="stylesheet" href="estilos.css" />
+</head>
+<body>
+  <div class="page seccion">
+    {%- if pagina.primer_pagina %}
+    <div class="seccion-head">
+      <div class="kicker seccion-kicker">{{ pagina.tipo }}</div>
+    </div>
+    {%- else %}
+    <div class="seccion-cont-head">
+      <span class="kicker" style="font-size:9px;color:var(--brown-tint)">{{ pagina.tipo }}</span>
+    </div>
+    {%- endif %}
+
+    {%- for b in pagina.bloques %}
+      {%- if b.tipo == 'parrafo' %}
+      <p class="body serif">{{ b.texto | safe }}</p>
+      {%- elif b.tipo == 'separador' %}
+      <div class="sep" style="margin:22px 0">
+        <div class="line"></div><div class="dot"></div>
+        <div class="dot brown"></div><div class="dot"></div>
+        <div class="line"></div>
+      </div>
+      {%- elif b.tipo == 'cita' %}
+      <blockquote class="pull center quote">«{{ b.texto | safe }}»</blockquote>
+      {%- endif %}
+    {%- endfor %}
+
+    <div class="folio">{{ pagina.folio }}</div>
+  </div>
+</body>
+</html>

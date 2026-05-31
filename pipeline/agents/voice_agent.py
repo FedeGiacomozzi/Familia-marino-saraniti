@@ -50,8 +50,11 @@ def _parse_json_response(text: str) -> dict:
     return json.loads(text)
 
 
-def _analyze_persona(client: anthropic.Anthropic, nombre: str) -> dict:
-    transcripciones = sheets.get_transcripciones(nombre)
+def _build_perfil(client: anthropic.Anthropic, nombre: str, transcripciones: list[dict]) -> tuple[dict, str]:
+    """
+    Core logic: recibe transcripciones [{pregunta, transcripcion}],
+    llama a Claude y retorna (perfil_dict, transcripcion_completa).
+    """
     if not transcripciones:
         raise ValueError(f"No hay transcripciones para {nombre}")
 
@@ -64,34 +67,83 @@ def _analyze_persona(client: anthropic.Anthropic, nombre: str) -> dict:
         model=MODEL,
         max_tokens=8192,
         system=_SYSTEM,
-        messages=[
-            {
-                "role": "user",
-                "content": _PROMPT_TEMPLATE.format(nombre=nombre, bloques=bloques),
-            }
-        ],
+        messages=[{"role": "user", "content": _PROMPT_TEMPLATE.format(nombre=nombre, bloques=bloques)}],
     )
 
     perfil = _parse_json_response(message.content[0].text)
-
     transcripcion_completa = "\n\n".join(t["transcripcion"] for t in transcripciones)
+    return perfil, transcripcion_completa
+
+
+def _analyze_persona(client: anthropic.Anthropic, nombre: str) -> dict:
+    transcripciones = sheets.get_transcripciones(nombre)
+    perfil, transcripcion_completa = _build_perfil(client, nombre, transcripciones)
     fecha_process = datetime.now().strftime("%d/%m/%Y %H:%M")
     sheets.save_profile(nombre, fecha_process, json.dumps(perfil, ensure_ascii=False), transcripcion_completa)
-
     return perfil
 
 
 def run(nombres: list[str]) -> dict[str, dict]:
-    """
-    Analyze each persona and return {nombre: perfil_dict}.
-    Saves results to the Perfiles sheet.
-    """
+    """Analyze each persona and return {nombre: perfil_dict}. Saves to Sheets."""
+    from concurrent.futures import ThreadPoolExecutor, as_completed
     client = anthropic.Anthropic()
     results = {}
-    for nombre in nombres:
-        try:
-            results[nombre] = _analyze_persona(client, nombre)
-        except Exception as e:
-            print(f"[voice_agent] Error con {nombre}: {e}")
-            results[nombre] = {"error": str(e)}
+
+    def _tarea(nombre):
+        return nombre, _analyze_persona(client, nombre)
+
+    with ThreadPoolExecutor(max_workers=min(6, len(nombres))) as executor:
+        futures = {executor.submit(_tarea, n): n for n in nombres}
+        for future in as_completed(futures):
+            nombre = futures[future]
+            try:
+                nombre, perfil = future.result()
+                results[nombre] = perfil
+            except Exception as e:
+                print(f"[voice_agent] Error con {nombre}: {e}")
+                results[nombre] = {"error": str(e)}
+    return results
+
+
+def run_from_firestore(familia_id: str, nombres: list[str]) -> dict[str, dict]:
+    """
+    Variante Firestore: lee transcripciones de Firestore, genera perfil de voz,
+    guarda resultado en Firestore. Retorna {nombre: perfil_dict}.
+    """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    from pipeline.utils import firestore as fs
+
+    client = anthropic.Anthropic()
+    integrantes = fs.get_integrantes(familia_id)
+    integrante_by_nombre = {p["nombre"].lower(): p for p in integrantes}
+    results = {}
+
+    def _tarea(nombre: str):
+        integrante = integrante_by_nombre.get(nombre.lower())
+        if not integrante:
+            raise ValueError(f"Integrante no encontrado en Firestore: {nombre}")
+
+        integrante_id = integrante["id"]
+        transcripciones = fs.get_transcripciones_integrante(familia_id, integrante_id)
+
+        # Fallback: si no hay transcripciones en Firestore, intentar Sheets
+        if not transcripciones:
+            transcripciones = sheets.get_transcripciones(nombre)
+            if not transcripciones:
+                raise ValueError(f"Sin transcripciones para {nombre} (ni Firestore ni Sheets)")
+
+        perfil, transcripcion_completa = _build_perfil(client, nombre, transcripciones)
+        fs.save_perfil_voz(familia_id, integrante_id, perfil, transcripcion_completa)
+        return nombre, perfil
+
+    with ThreadPoolExecutor(max_workers=min(6, len(nombres))) as executor:
+        futures = {executor.submit(_tarea, n): n for n in nombres}
+        for future in as_completed(futures):
+            nombre = futures[future]
+            try:
+                nombre, perfil = future.result()
+                results[nombre] = perfil
+            except Exception as e:
+                print(f"[voice_agent] Error con {nombre}: {e}")
+                results[nombre] = {"error": str(e)}
     return results

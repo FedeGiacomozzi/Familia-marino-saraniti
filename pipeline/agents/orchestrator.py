@@ -17,6 +17,16 @@ from pipeline.utils import sheets
 STEPS = ["transcriber", "voice", "chapters", "editor", "layout"]
 
 
+def _try_firestore_integrantes(familia_id: str) -> list[dict]:
+    from pipeline.utils import firestore as fs
+    return fs.get_integrantes_para_pipeline(familia_id)
+
+
+def _try_firestore_relaciones(familia_id: str) -> list[dict]:
+    from pipeline.utils import firestore as fs
+    return fs.get_relaciones(familia_id)
+
+
 @dataclass
 class PipelineResult:
     personas: list[str] = field(default_factory=list)
@@ -79,6 +89,7 @@ def run(
     solo_desde: str | None = None,
     familia: str = "Familia Mariño · Saraniti",
     upload_to_gcs: bool = False,
+    familia_id: str | None = None,
 ) -> PipelineResult:
     """
     Corre el pipeline completo (o desde un paso específico).
@@ -86,18 +97,46 @@ def run(
     """
     result = PipelineResult(personas=nombres)
 
+    # Forzar datos frescos de Sheets al inicio de cada pipeline
+    sheets.invalidate_cache()
+
     start_idx = 0
     if solo_desde and solo_desde in STEPS:
         start_idx = STEPS.index(solo_desde)
 
-    # ── Cargar datos de familia ───────────────────────────────────────────────
-    try:
-        integrantes = sheets.get_familia_integrantes()
-        relaciones = sheets.get_familia_relaciones()
-        fallecidos = sheets.get_fallecidos(integrantes)
-    except Exception as e:
-        print(f"[orchestrator] Advertencia: no se pudieron cargar datos de familia: {e}")
-        integrantes, relaciones, fallecidos = [], [], []
+    # ── Cargar datos de familia (Firestore primero, Sheets como fallback) ────────
+    integrantes, relaciones, fallecidos = [], [], []
+    _fs_integrantes: list[dict] = []
+    if familia_id:
+        try:
+            _fs_integrantes = _try_firestore_integrantes(familia_id)
+            relaciones = _try_firestore_relaciones(familia_id)
+            # Convert Firestore format to Sheets format for compatibility
+            integrantes = [
+                {
+                    "nombre": p["nombre"],
+                    "fecha_nac": p["fecha_nac"],
+                    "fecha_fallec": p["fecha_fallec"],
+                    "rol": p["rol"],
+                    "es_menor": p["es_menor"],
+                    "vive": p["vive"],
+                }
+                for p in _fs_integrantes
+            ]
+            fallecidos = sheets.get_fallecidos(integrantes)
+            print(f"[orchestrator] Datos de familia cargados desde Firestore: {len(integrantes)} integrantes")
+        except Exception as e:
+            print(f"[orchestrator] Firestore no disponible, usando Sheets: {e}")
+            _fs_integrantes = []
+
+    if not integrantes:
+        try:
+            integrantes = sheets.get_familia_integrantes()
+            relaciones = sheets.get_familia_relaciones()
+            fallecidos = sheets.get_fallecidos(integrantes)
+        except Exception as e:
+            print(f"[orchestrator] Advertencia: no se pudieron cargar datos de familia: {e}")
+            integrantes, relaciones, fallecidos = [], [], []
 
     personas_meta = _build_personas_meta(nombres, integrantes, relaciones)
 
@@ -112,11 +151,14 @@ def run(
     if start_idx <= 0:
         print("[orchestrator] Paso 1: transcripción de audios...")
         try:
-            row_indices = _get_row_indices(adultos)
-            if not row_indices:
-                result.errores.append("No se encontraron filas en el Sheet para los nombres dados")
-                return result
-            result.transcriber = transcriber.run(row_indices, pais)
+            if familia_id and _fs_integrantes:
+                result.transcriber = transcriber.run_from_firestore(familia_id, pais)
+            else:
+                row_indices = _get_row_indices(adultos)
+                if not row_indices:
+                    result.errores.append("No se encontraron filas en el Sheet para los nombres dados")
+                    return result
+                result.transcriber = transcriber.run(row_indices, pais)
             print(f"  → {result.transcriber}")
         except Exception as e:
             result.errores.append(f"transcriber: {e}")
@@ -126,7 +168,10 @@ def run(
     if start_idx <= 1:
         print("[orchestrator] Paso 2: análisis de voz...")
         try:
-            result.voice = voice_agent.run(adultos)
+            if familia_id and _fs_integrantes:
+                result.voice = voice_agent.run_from_firestore(familia_id, adultos)
+            else:
+                result.voice = voice_agent.run(adultos)
             errores_voz = [n for n, v in result.voice.items() if "error" in v]
             if errores_voz:
                 result.errores.append(f"voice_agent falló para: {errores_voz}")
@@ -136,33 +181,64 @@ def run(
 
     # ── Paso 3: Chapter agent ─────────────────────────────────────────────────
     if start_idx <= 2:
-        print("[orchestrator] Paso 3: generación de capítulos...")
+        print("[orchestrator] Paso 3: generación de capítulos (paralelo)...")
         try:
+            from concurrent.futures import ThreadPoolExecutor, as_completed
             import anthropic as _anthropic
             client = _anthropic.Anthropic()
 
+            adultos_meta = [pm for pm in personas_meta if not pm.get("es_menor")]
             for pm in personas_meta:
-                nombre = pm["nombre"]
                 if pm.get("es_menor"):
-                    result.chapters[nombre] = f"[MENOR: {nombre} — capítulo a escribir por padres/tutores]"
-                    continue
+                    result.chapters[pm["nombre"]] = f"[MENOR: {pm['nombre']} — capítulo a escribir por padres/tutores]"
 
-                p = sheets.get_profile(nombre)
-                if not p:
-                    result.errores.append(f"chapter_agent/{nombre}: perfil no encontrado")
-                    continue
+            def _generar(pm):
+                nombre = pm["nombre"]
+                # Try Firestore profile first (has transcripcion + perfil_voz from pipeline)
+                fs_data = next(
+                    (p for p in _fs_integrantes if p["nombre"].lower() == nombre.lower()), None
+                ) if _fs_integrantes else None
+
+                if fs_data and (fs_data.get("transcripcion") or fs_data.get("perfil_voz")):
+                    perfil_voz = fs_data.get("perfil_voz", {})
+                    transcripcion = fs_data.get("transcripcion", "")
+                else:
+                    p = sheets.get_profile(nombre)
+                    if not p:
+                        return nombre, None, f"chapter_agent/{nombre}: perfil no encontrado"
+                    perfil_voz = p.get("perfil_voz", {})
+                    transcripcion = p.get("transcripcion", "")
 
                 persona = {
                     "nombre": nombre,
-                    "perfil_voz": p.get("perfil_voz", {}),
-                    "transcripcion": p.get("transcripcion", ""),
+                    "perfil_voz": perfil_voz,
+                    "transcripcion": transcripcion,
                     "familia_ctx": pm.get("familia_ctx", {}),
                 }
-                try:
-                    cap = chapter_agent.generar_capitulo(client, persona)
-                    result.chapters[nombre] = cap
-                except Exception as e:
-                    result.errores.append(f"chapter_agent/{nombre}: {e}")
+                cap = chapter_agent.generar_capitulo(client, persona)
+
+                # Save to Firestore if familia_id is set
+                if familia_id and cap and fs_data:
+                    try:
+                        from pipeline.utils import firestore as fs_mod
+                        fs_mod.save_capitulo(familia_id, fs_data["id"], cap)
+                    except Exception as _e:
+                        print(f"[orchestrator] No se pudo guardar capítulo en Firestore para {nombre}: {_e}")
+
+                return nombre, cap, None
+
+            with ThreadPoolExecutor(max_workers=min(6, len(adultos_meta))) as executor:
+                futures = {executor.submit(_generar, pm): pm for pm in adultos_meta}
+                for future in as_completed(futures):
+                    try:
+                        nombre, cap, err = future.result()
+                        if err:
+                            result.errores.append(err)
+                        else:
+                            result.chapters[nombre] = cap
+                    except Exception as e:
+                        pm = futures[future]
+                        result.errores.append(f"chapter_agent/{pm['nombre']}: {e}")
 
         except Exception as e:
             result.errores.append(f"chapter_agent: {e}")
@@ -240,6 +316,15 @@ def run(
                 gcs_url = sheets.upload_to_gcs(pdf_path, filename, "application/pdf")
                 print(f"  → Subido a GCS: {gcs_url}")
                 result.layout = gcs_url
+
+                if familia_id:
+                    try:
+                        from pipeline.utils import firestore as fs_mod
+                        fs_mod.save_libro_url(familia_id, gcs_url)
+                        fs_mod.update_familia_estado(familia_id, "entregado")
+                        print(f"  → URL y estado guardados en Firestore para familia {familia_id}")
+                    except Exception as _e:
+                        print(f"[orchestrator] No se pudo guardar en Firestore: {_e}")
 
         except Exception as e:
             result.errores.append(f"layout_agent: {e}")

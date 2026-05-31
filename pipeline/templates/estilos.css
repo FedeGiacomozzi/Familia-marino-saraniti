@@ -177,8 +177,9 @@ html,body{ margin:0; padding:0; background:var(--paper); }
 .ph span{ font-family:ui-monospace,Menlo,Consolas,monospace; font-size:9px;
   letter-spacing:.08em; color:#7c6f57; text-transform:lowercase;
   background:rgba(245,240,232,.72); padding:3px 8px; }
-/* foto real: usá <img class="ph-img"> con las mismas medidas que .ph */
-.ph-img{ display:block; width:100%; height:100%; object-fit:cover; }
+/* foto real: contenedor recorta, imagen llena el ancho */
+.ph-img-wrap{ width:100%; overflow:hidden; }
+.ph-img{ display:block; width:100%; height:auto; }
 
 /* ---------- polaroid ---------- */
 .polaroid{ position:relative; background:var(--cream); padding:9px 9px 34px 9px;
@@ -198,15 +199,19 @@ html,body{ margin:0; padding:0; background:var(--paper); }
 .sep .dot{ width:5px; height:5px; border-radius:50%; background:var(--sage); }
 .sep .dot.brown{ background:var(--brown-tint); }
 
-.dropcap::first-letter{ font-family:var(--serif); font-weight:500;
-  initial-letter:2; color:var(--brown); margin-right:6px; }
+/* dropcap deshabilitado: initial-letter no es confiable en WeasyPrint */
+.dropcap::first-letter{ }
+
+/* Citas directas de transcripción: cursiva serif en color marrón */
+.body em{ font-family:var(--serif); font-style:italic; font-weight:400;
+  font-size:13px; color:var(--brown-deep); }
 
 /* ============================================================
    01 · PORTADA (keepsake)
    ============================================================ */
 .cover .rail-v{ position:absolute; left:54px; top:70px; bottom:70px; width:2px; background:var(--sage); }
 .cover .year{ position:absolute; right:40px; top:0; bottom:0; display:flex; align-items:center; }
-.cover .year span{ writing-mode:vertical-rl; transform:rotate(180deg);
+.cover .year span{ writing-mode:vertical-lr;
   font-family:var(--sans); font-weight:600; font-size:12px; letter-spacing:.5em; color:var(--brown-tint); }
 .cover .block{ position:absolute; left:78px; top:150px; right:96px; }
 .cover .title{ margin:22px 0 0; font-weight:500; font-size:64px; line-height:.98; color:var(--ink); }
@@ -238,8 +243,33 @@ html,body{ margin:0; padding:0; background:var(--paper); }
 .interior .sep{ margin:26px 0; }
 .interior .quote{ margin:34px auto; font-size:25px; max-width:380px; }
 .photo-center{ display:flex; justify-content:center; margin:8px 0 4px; }
-.photo-center .frame{ width:250px; transform:rotate(-2.2deg); }
+.photo-center .frame{ width:250px; }
 .photo-center .frame .ph{ height:168px; }
+
+/* ============================================================
+   05 · PRÓLOGO / EPÍLOGO (secciones de texto)
+   ============================================================ */
+.seccion{ padding:56px 58px 56px; }
+.seccion-head{ text-align:center; margin-bottom:32px; padding-bottom:18px;
+  border-bottom:1px solid var(--rule); }
+.seccion-kicker{ font-size:12px; letter-spacing:.4em; }
+.seccion-cont-head{ margin-bottom:20px; padding-bottom:10px;
+  border-bottom:1px solid var(--rule-soft); }
+.seccion .body.serif{ font-size:12.5px; line-height:1.72; }
+
+/* ============================================================
+   06 · TRANSICIÓN ENTRE CAPÍTULOS
+   ============================================================ */
+.transicion-page{ display:flex; flex-direction:column; align-items:center;
+  justify-content:center; padding:0 72px; }
+.transicion-sep{ display:flex; align-items:center; gap:14px; width:100%; }
+.transicion-sep .line{ flex:1; height:1px; background:var(--rule); }
+.transicion-sep .dot{ width:5px; height:5px; border-radius:50%; }
+.transicion-sep .dot.brown{ background:var(--brown-tint); }
+.transicion-inner{ padding:36px 0; text-align:center; }
+.transicion-inner p{ font-family:var(--serif); font-style:italic; font-size:13px;
+  line-height:1.72; color:var(--ink-soft); text-align:center; margin-bottom:1em; }
+.transicion-inner p:last-child{ margin-bottom:0; }
 
 /* ============================================================
    04 · ÍNDICE DE LA FAMILIA ("Los protagonistas")

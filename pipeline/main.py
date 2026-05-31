@@ -3,6 +3,9 @@ FastAPI entrypoint for the pipeline.
 All heavy work happens in the agent modules.
 """
 
+import threading
+import uuid
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -10,6 +13,34 @@ from pydantic import BaseModel
 from pipeline.agents import orchestrator, transcriber, voice_agent, chapter_agent, layout_agent
 from pipeline.agents.editor_agent import BookManuscript
 from pipeline.utils import sheets
+
+# ─── Async job store (Firestore) ─────────────────────────────────────────────
+
+def _run_pipeline_job(job_id: str, req_dict: dict) -> None:
+    from pipeline.utils import firestore as fs
+    fs.update_job_status(job_id, "running")
+    try:
+        result = orchestrator.run(
+            nombres=req_dict["nombres"],
+            pais=req_dict["pais"],
+            solo_desde=req_dict["solo_desde"],
+            familia=req_dict["familia"],
+            upload_to_gcs=req_dict["upload_to_gcs"],
+            familia_id=req_dict.get("familia_id"),
+        )
+        payload = {
+            "ok": result.ok,
+            "personas": result.personas,
+            "transcriber": result.transcriber,
+            "voice": {k: v for k, v in result.voice.items()},
+            "chapters_generados": list(result.chapters.keys()),
+            "orden": result.editor.orden if result.editor else [],
+            "layout": result.layout,
+            "errores": result.errores,
+        }
+        fs.update_job_done(job_id, payload)
+    except Exception as exc:  # noqa: BLE001
+        fs.update_job_error(job_id, str(exc))
 
 app = FastAPI(title="Familia Libro Pipeline", version="1.0")
 
@@ -28,6 +59,60 @@ def health():
     return {"status": "ok"}
 
 
+@app.get("/health/deep")
+def health_deep():
+    import os
+    import time as _time
+
+    checks: dict[str, dict] = {}
+
+    # 1. Sheets (gspread): read first row
+    t0 = _time.monotonic()
+    try:
+        sheets.get_all_nombres()  # lightweight read; raises on auth/network errors
+        checks["sheets"] = {"ok": True, "latency_ms": int((_time.monotonic() - t0) * 1000), "error": None}
+    except Exception as exc:  # noqa: BLE001
+        checks["sheets"] = {"ok": False, "latency_ms": int((_time.monotonic() - t0) * 1000), "error": str(exc)}
+
+    # 2. Anthropic: minimal message
+    t0 = _time.monotonic()
+    try:
+        import anthropic as _anthropic
+        _client = _anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+        _client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=1,
+            messages=[{"role": "user", "content": "ping"}],
+        )
+        checks["anthropic"] = {"ok": True, "latency_ms": int((_time.monotonic() - t0) * 1000), "error": None}
+    except Exception as exc:  # noqa: BLE001
+        checks["anthropic"] = {"ok": False, "latency_ms": int((_time.monotonic() - t0) * 1000), "error": str(exc)}
+
+    # 3. GCS: list bucket familia-marino-pdfs
+    t0 = _time.monotonic()
+    try:
+        from google.cloud import storage as _gcs
+        _gcs_client = _gcs.Client()
+        _bucket = _gcs_client.get_bucket("familia-marino-pdfs")
+        _ = _bucket.name  # forces the API call
+        checks["gcs"] = {"ok": True, "latency_ms": int((_time.monotonic() - t0) * 1000), "error": None}
+    except Exception as exc:  # noqa: BLE001
+        checks["gcs"] = {"ok": False, "latency_ms": int((_time.monotonic() - t0) * 1000), "error": str(exc)}
+
+    # 4. OpenAI: list models
+    t0 = _time.monotonic()
+    try:
+        import openai as _openai
+        _openai_client = _openai.OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+        _openai_client.models.list()
+        checks["openai"] = {"ok": True, "latency_ms": int((_time.monotonic() - t0) * 1000), "error": None}
+    except Exception as exc:  # noqa: BLE001
+        checks["openai"] = {"ok": False, "latency_ms": int((_time.monotonic() - t0) * 1000), "error": str(exc)}
+
+    overall_ok = all(v["ok"] for v in checks.values())
+    return {"ok": overall_ok, "checks": checks}
+
+
 # ─── Full pipeline ────────────────────────────────────────────────────────────
 
 class PipelineRequest(BaseModel):
@@ -36,6 +121,7 @@ class PipelineRequest(BaseModel):
     solo_desde: str | None = None
     familia: str = "Familia Mariño · Saraniti"
     upload_to_gcs: bool = False
+    familia_id: str | None = None
 
 
 @app.post("/run/pipeline")
@@ -46,6 +132,7 @@ def run_pipeline(req: PipelineRequest):
         solo_desde=req.solo_desde,
         familia=req.familia,
         upload_to_gcs=req.upload_to_gcs,
+        familia_id=req.familia_id,
     )
     return {
         "ok": result.ok,
@@ -57,6 +144,38 @@ def run_pipeline(req: PipelineRequest):
         "layout": result.layout,
         "errores": result.errores,
     }
+
+
+@app.post("/run/pipeline/async")
+def run_pipeline_async(req: PipelineRequest):
+    from pipeline.utils import firestore as fs
+    job_id = str(uuid.uuid4())
+    fs.create_job(job_id)
+    t = threading.Thread(
+        target=_run_pipeline_job,
+        args=(job_id, req.model_dump()),
+        daemon=True,
+    )
+    t.start()
+    return {"job_id": job_id, "status": "queued"}
+
+
+@app.get("/job/{job_id}")
+def get_job_status(job_id: str):
+    from pipeline.utils import firestore as fs
+    job = fs.get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail=f"Job not found: {job_id}")
+    response: dict = {
+        "job_id": job_id,
+        "status": job["status"],
+        "created_at": job.get("created_at", ""),
+    }
+    if job["status"] == "done":
+        response["result"] = job.get("result")
+    elif job["status"] == "error":
+        response["error"] = job.get("error")
+    return response
 
 
 # ─── Paso 1: Transcriber ──────────────────────────────────────────────────────
@@ -166,3 +285,91 @@ def run_layout(req: LayoutRequest):
         return {"pdf": gcs_url, "uploaded": True}
 
     return {"pdf": pdf_path, "uploaded": False}
+
+
+# ─── Onboarding: Familias ─────────────────────────────────────────────────────
+
+class CompradorInfo(BaseModel):
+    email: str
+    nombre: str
+    es_tambien_retratado: bool = False
+
+
+class FamiliaRequest(BaseModel):
+    nombre: str
+    comprador: CompradorInfo
+    pack: str = "base"
+    pais: str = "argentina"
+
+
+class IntegranteRequest(BaseModel):
+    nombre: str
+    relacion_con_comprador: str
+    es_menor: bool = False
+    fecha_nac: str = ""
+
+
+@app.post("/familia", status_code=201)
+def crear_familia(req: FamiliaRequest):
+    from pipeline.utils import firestore as fs
+
+    familia_id = fs.create_familia(
+        nombre=req.nombre,
+        comprador=req.comprador.model_dump(),
+        pack=req.pack,
+        pais=req.pais,
+    )
+
+    token_comprador = None
+    if req.comprador.es_tambien_retratado:
+        _, token_comprador = fs.add_integrante(
+            familia_id=familia_id,
+            nombre=req.comprador.nombre,
+            relacion_con_comprador="comprador",
+            es_comprador=True,
+        )
+
+    return {"familia_id": familia_id, "token_comprador": token_comprador}
+
+
+@app.post("/familia/{familia_id}/integrantes", status_code=201)
+def agregar_integrante(familia_id: str, req: IntegranteRequest):
+    from pipeline.utils import firestore as fs
+
+    if not fs.get_familia(familia_id):
+        raise HTTPException(status_code=404, detail=f"Familia no encontrada: {familia_id}")
+
+    integrante_id, token = fs.add_integrante(
+        familia_id=familia_id,
+        nombre=req.nombre,
+        relacion_con_comprador=req.relacion_con_comprador,
+        es_menor=req.es_menor,
+        fecha_nac=req.fecha_nac,
+    )
+    return {"integrante_id": integrante_id, "token_unico": token}
+
+
+@app.get("/familia/{familia_id}")
+def get_familia_detail(familia_id: str):
+    from pipeline.utils import firestore as fs
+
+    familia = fs.get_familia(familia_id)
+    if not familia:
+        raise HTTPException(status_code=404, detail=f"Familia no encontrada: {familia_id}")
+
+    integrantes = fs.get_integrantes_para_pipeline(familia_id)
+    return {
+        **familia,
+        "integrantes": [
+            {
+                "id": p["id"],
+                "nombre": p["nombre"],
+                "relacion_con_comprador": p["relacion_con_comprador"],
+                "es_comprador": p["es_comprador"],
+                "es_menor": p["es_menor"],
+                "estado": "pendiente",
+                "porcentaje_avance": 0,
+            }
+            for p in integrantes
+        ],
+    }

@@ -2,11 +2,36 @@ import os
 import json
 import re
 import tempfile
+import threading
+import time
 
 import gspread
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
+
+# Cache de lecturas para evitar rate limit 429 cuando múltiples threads leen en paralelo
+_cache: dict = {}
+_cache_lock = threading.Lock()
+_CACHE_TTL = 300  # 5 minutos
+
+
+def _cached(key: str, fetcher):
+    """Retorna valor cacheado o llama fetcher() y lo guarda."""
+    with _cache_lock:
+        entry = _cache.get(key)
+        if entry and (time.time() - entry["ts"]) < _CACHE_TTL:
+            return entry["data"]
+    data = fetcher()
+    with _cache_lock:
+        _cache[key] = {"data": data, "ts": time.time()}
+    return data
+
+
+def invalidate_cache():
+    """Llama al inicio del pipeline para forzar datos frescos."""
+    with _cache_lock:
+        _cache.clear()
 
 SHEET_ID = os.environ.get("SHEET_ID", "1A1M79ITLeRVWkwct7pqjUTmLu9NWXn9uDLpKWMMomgM")
 FAMILIA_SHEET_ID = os.environ.get("FAMILIA_SHEET_ID", "1iEpnly_f3OQL6nLH41XU76zg1iM2vHZQyQdF0RLVQFE")
@@ -105,8 +130,7 @@ def relaciones_sheet():
 # ─── Respuestas ───────────────────────────────────────────────────────────────
 
 def get_all_rows() -> list[list[str]]:
-    ws = respuestas_sheet()
-    return ws.get_all_values()
+    return _cached("all_rows", lambda: respuestas_sheet().get_all_values())
 
 
 def get_rows_for_name(nombre: str) -> list[tuple[int, list[str]]]:
@@ -194,7 +218,7 @@ def save_chapter(nombre: str, capitulo: str, capitulo_revisado: str = ""):
 
 def get_profile(nombre: str) -> dict | None:
     ws = perfiles_sheet()
-    all_rows = ws.get_all_values()
+    all_rows = _cached("perfiles_rows", lambda: ws.get_all_values())
     for row in all_rows[1:]:
         if row and row[0].strip().lower() == nombre.strip().lower():
             perfil_str = row[2] if len(row) > 2 else ""
@@ -221,7 +245,7 @@ def get_familia_integrantes() -> list[dict]:
       nombre, fecha_nac, fecha_fallec, rol, es_menor, vive
     """
     ws = integrantes_sheet()
-    rows = ws.get_all_values()
+    rows = _cached("integrantes_rows", lambda: ws.get_all_values())
     if len(rows) < 2:
         return []
     result = []
@@ -249,7 +273,7 @@ def get_familia_relaciones() -> list[dict]:
     relacion is one of: padre, madre, cónyuge
     """
     ws = relaciones_sheet()
-    rows = ws.get_all_values()
+    rows = _cached("relaciones_rows", lambda: ws.get_all_values())
     if len(rows) < 2:
         return []
     result = []
