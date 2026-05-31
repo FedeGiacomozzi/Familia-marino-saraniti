@@ -246,6 +246,31 @@ html,body{ margin:0; padding:0; background:var(--paper); }
 .photo-center .frame .ph{ height:168px; }
 
 /* ============================================================
+   05 · PRÓLOGO / EPÍLOGO (secciones de texto)
+   ============================================================ */
+.seccion{ padding:56px 58px 56px; }
+.seccion-head{ text-align:center; margin-bottom:32px; padding-bottom:18px;
+  border-bottom:1px solid var(--rule); }
+.seccion-kicker{ font-size:12px; letter-spacing:.4em; }
+.seccion-cont-head{ margin-bottom:20px; padding-bottom:10px;
+  border-bottom:1px solid var(--rule-soft); }
+.seccion .body.serif{ font-size:12.5px; line-height:1.72; }
+
+/* ============================================================
+   06 · TRANSICIÓN ENTRE CAPÍTULOS
+   ============================================================ */
+.transicion-page{ display:flex; flex-direction:column; align-items:center;
+  justify-content:center; padding:0 72px; }
+.transicion-sep{ display:flex; align-items:center; gap:14px; width:100%; }
+.transicion-sep .line{ flex:1; height:1px; background:var(--rule); }
+.transicion-sep .dot{ width:5px; height:5px; border-radius:50%; }
+.transicion-sep .dot.brown{ background:var(--brown-tint); }
+.transicion-inner{ padding:36px 0; text-align:center; }
+.transicion-inner p{ font-family:var(--serif); font-style:italic; font-size:13px;
+  line-height:1.72; color:var(--ink-soft); text-align:center; margin-bottom:1em; }
+.transicion-inner p:last-child{ margin-bottom:0; }
+
+/* ============================================================
    04 · ÍNDICE DE LA FAMILIA ("Los protagonistas")
    ============================================================ */
 .indice{ padding:70px 60px 56px; }

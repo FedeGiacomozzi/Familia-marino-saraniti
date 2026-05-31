@@ -386,6 +386,9 @@ def _render_libro(
 
     partes: list[str] = []
 
+    tmpl_seccion  = env.get_template("05-seccion.html")
+    tmpl_transicion = env.get_template("06-transicion.html")
+
     # ── 01 · Portada ──
     tmpl_portada = env.get_template("01-portada.html")
     libro_ctx = {
@@ -402,6 +405,17 @@ def _render_libro(
         "portada_cap": "la familia, hoy",
     }
     partes.append(_extract_body(tmpl_portada.render(libro=libro_ctx)))
+
+    # ── Prólogo ──
+    if manuscript.prologo:
+        for i, pag_bloques in enumerate(_texto_a_bloques(manuscript.prologo)):
+            ctx = {
+                "tipo": "Prólogo",
+                "primer_pagina": (i == 0),
+                "folio": next_folio(),
+                "bloques": pag_bloques,
+            }
+            partes.append(_extract_body(tmpl_seccion.render(pagina=ctx)))
 
     # ── Capítulos ──
     for idx, nombre in enumerate(manuscript.orden, start=1):
@@ -444,6 +458,33 @@ def _render_libro(
                 "bloques": pagina_bloques,
             }
             partes.append(_extract_body(tmpl_interior.render(pagina=pagina_ctx)))
+
+        # 06 · Transición hacia el siguiente capítulo
+        if idx < len(manuscript.orden):
+            siguiente = manuscript.orden[idx]  # idx ya apunta al siguiente (enumerate start=1)
+            key = f"{nombre}→{siguiente}"
+            trans_texto = manuscript.transiciones.get(key, "")
+            if trans_texto:
+                trans_html = _md_a_html(trans_texto)
+                trans_parrafos = "\n".join(
+                    f"<p>{p.strip()}</p>"
+                    for p in trans_html.split("\n\n") if p.strip()
+                )
+                partes.append(_extract_body(tmpl_transicion.render(transicion={
+                    "texto": trans_parrafos,
+                    "folio": next_folio(),
+                })))
+
+    # ── Epílogo ──
+    if manuscript.epilogo:
+        for i, pag_bloques in enumerate(_texto_a_bloques(manuscript.epilogo)):
+            ctx = {
+                "tipo": "Epílogo",
+                "primer_pagina": (i == 0),
+                "folio": next_folio(),
+                "bloques": pag_bloques,
+            }
+            partes.append(_extract_body(tmpl_seccion.render(pagina=ctx)))
 
     # ── 04 · Índice ──
     tmpl_indice = env.get_template("04-indice.html")
