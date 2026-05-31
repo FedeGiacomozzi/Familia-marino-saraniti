@@ -165,7 +165,10 @@ def run(
     if start_idx <= 1:
         print("[orchestrator] Paso 2: análisis de voz...")
         try:
-            result.voice = voice_agent.run(adultos)
+            if familia_id and _fs_integrantes:
+                result.voice = voice_agent.run_from_firestore(familia_id, adultos)
+            else:
+                result.voice = voice_agent.run(adultos)
             errores_voz = [n for n, v in result.voice.items() if "error" in v]
             if errores_voz:
                 result.errores.append(f"voice_agent falló para: {errores_voz}")
