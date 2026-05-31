@@ -28,14 +28,26 @@ COL_FOTO = 7
 
 
 def _get_creds():
+    # 1. Env var (Cloud Run via Secret Manager)
     creds_json = os.environ.get("GOOGLE_CREDENTIALS_JSON")
     if creds_json:
-        info = json.loads(creds_json)
-    else:
-        path = os.environ.get("GOOGLE_CREDENTIALS_FILE", "/secrets/credentials.json")
-        with open(path) as f:
+        try:
+            info = json.loads(creds_json)
+            return service_account.Credentials.from_service_account_info(info, scopes=SCOPES)
+        except Exception:
+            pass  # JSON inválido → intentar siguientes métodos
+
+    # 2. Archivo en disco (dev local)
+    creds_file = os.environ.get("GOOGLE_CREDENTIALS_FILE", "/secrets/credentials.json")
+    if os.path.exists(creds_file):
+        with open(creds_file) as f:
             info = json.load(f)
-    return service_account.Credentials.from_service_account_info(info, scopes=SCOPES)
+        return service_account.Credentials.from_service_account_info(info, scopes=SCOPES)
+
+    # 3. ADC — Cloud Shell / gcloud auth application-default login
+    import google.auth
+    creds, _ = google.auth.default(scopes=SCOPES)
+    return creds
 
 
 def _gc():
