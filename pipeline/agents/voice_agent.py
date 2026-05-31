@@ -62,7 +62,7 @@ def _analyze_persona(client: anthropic.Anthropic, nombre: str) -> dict:
 
     message = client.messages.create(
         model=MODEL,
-        max_tokens=4096,
+        max_tokens=8192,
         system=_SYSTEM,
         messages=[
             {
