@@ -334,3 +334,46 @@ def add_integrante(
         "ultimo_acceso": None,
     })
     return integrante_id, token
+
+
+# ─── Jobs (pipeline async) ────────────────────────────────────────────────────
+
+def create_job(job_id: str) -> None:
+    from datetime import datetime, timezone
+    _db().collection("jobs").document(job_id).set({
+        "status": "queued",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "result": None,
+        "error": None,
+    })
+
+
+def update_job_status(job_id: str, status: str) -> None:
+    _db().collection("jobs").document(job_id).update({"status": status})
+
+
+def update_job_done(job_id: str, result: dict) -> None:
+    _db().collection("jobs").document(job_id).update({
+        "status": "done",
+        "result": json.dumps(result, ensure_ascii=False),
+    })
+
+
+def update_job_error(job_id: str, error: str) -> None:
+    _db().collection("jobs").document(job_id).update({
+        "status": "error",
+        "error": error,
+    })
+
+
+def get_job(job_id: str) -> dict | None:
+    doc = _db().collection("jobs").document(job_id).get()
+    if not doc.exists:
+        return None
+    data = doc.to_dict()
+    if data.get("result") and isinstance(data["result"], str):
+        try:
+            data["result"] = json.loads(data["result"])
+        except (json.JSONDecodeError, TypeError):
+            pass
+    return data

@@ -4,9 +4,7 @@ All heavy work happens in the agent modules.
 """
 
 import threading
-import time
 import uuid
-from datetime import datetime, timezone
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -16,28 +14,11 @@ from pipeline.agents import orchestrator, transcriber, voice_agent, chapter_agen
 from pipeline.agents.editor_agent import BookManuscript
 from pipeline.utils import sheets
 
-# ─── Async job store ──────────────────────────────────────────────────────────
-
-_jobs: dict[str, dict] = {}
-_jobs_lock = threading.Lock()
-
-
-def _cleanup_old_jobs() -> None:
-    """Remove jobs older than 2 hours."""
-    cutoff = time.time() - 7200
-    with _jobs_lock:
-        to_delete = [
-            jid for jid, job in _jobs.items()
-            if datetime.fromisoformat(job["created_at"]).timestamp() < cutoff
-        ]
-        for jid in to_delete:
-            del _jobs[jid]
-
+# ─── Async job store (Firestore) ─────────────────────────────────────────────
 
 def _run_pipeline_job(job_id: str, req_dict: dict) -> None:
-    _cleanup_old_jobs()
-    with _jobs_lock:
-        _jobs[job_id]["status"] = "running"
+    from pipeline.utils import firestore as fs
+    fs.update_job_status(job_id, "running")
     try:
         result = orchestrator.run(
             nombres=req_dict["nombres"],
@@ -57,13 +38,9 @@ def _run_pipeline_job(job_id: str, req_dict: dict) -> None:
             "layout": result.layout,
             "errores": result.errores,
         }
-        with _jobs_lock:
-            _jobs[job_id]["status"] = "done"
-            _jobs[job_id]["result"] = payload
+        fs.update_job_done(job_id, payload)
     except Exception as exc:  # noqa: BLE001
-        with _jobs_lock:
-            _jobs[job_id]["status"] = "error"
-            _jobs[job_id]["error"] = str(exc)
+        fs.update_job_error(job_id, str(exc))
 
 app = FastAPI(title="Familia Libro Pipeline", version="1.0")
 
@@ -171,41 +148,33 @@ def run_pipeline(req: PipelineRequest):
 
 @app.post("/run/pipeline/async")
 def run_pipeline_async(req: PipelineRequest):
+    from pipeline.utils import firestore as fs
     job_id = str(uuid.uuid4())
-    job: dict = {
-        "status": "queued",
-        "created_at": datetime.now(timezone.utc).isoformat(),
-        "result": None,
-        "error": None,
-    }
-    with _jobs_lock:
-        _jobs[job_id] = job
-
+    fs.create_job(job_id)
     t = threading.Thread(
         target=_run_pipeline_job,
         args=(job_id, req.model_dump()),
         daemon=True,
     )
     t.start()
-
     return {"job_id": job_id, "status": "queued"}
 
 
 @app.get("/job/{job_id}")
-def get_job(job_id: str):
-    with _jobs_lock:
-        job = _jobs.get(job_id)
+def get_job_status(job_id: str):
+    from pipeline.utils import firestore as fs
+    job = fs.get_job(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail=f"Job not found: {job_id}")
     response: dict = {
         "job_id": job_id,
         "status": job["status"],
-        "created_at": job["created_at"],
+        "created_at": job.get("created_at", ""),
     }
     if job["status"] == "done":
-        response["result"] = job["result"]
+        response["result"] = job.get("result")
     elif job["status"] == "error":
-        response["error"] = job["error"]
+        response["error"] = job.get("error")
     return response
 
 
