@@ -114,7 +114,7 @@ def health_deep():
 Run before each deploy to verify all dependencies are accessible:
 
 ```bash
-curl https://familia-pipeline-rxvtynuftq-uc.a.run.app/health/deep | jq
+curl https://familia-pipeline-776445604502.us-central1.run.app/health/deep | jq
 ```
 
 The `drive_folder` check specifically validates that the Service Account
