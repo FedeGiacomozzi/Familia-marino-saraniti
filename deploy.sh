@@ -50,9 +50,9 @@ gcloud run deploy "${SERVICE}" \
   --cpu=2 \
   --timeout=3600 \
   --no-cpu-throttling \
-  --service-account="familia-pipeline@${PROJECT}.iam.gserviceaccount.com" \
+  --service-account="${SA}" \
   --set-env-vars="GCS_BUCKET=${GCS_BUCKET},FONTS_DIR=/app/fonts,FIRESTORE_PROJECT_ID=${PROJECT}" \
-  --set-secrets="ANTHROPIC_API_KEY=ANTHROPIC_API_KEY:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,GOOGLE_CREDENTIALS_JSON=GOOGLE_CREDENTIALS:latest"
+  --set-secrets="ANTHROPIC_API_KEY=ANTHROPIC_API_KEY:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,GCP_SA_KEY_JSON=GOOGLE_CREDENTIALS:latest"
 
 echo ""
 echo "Deploy complete."

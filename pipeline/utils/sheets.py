@@ -54,7 +54,7 @@ COL_FOTO = 7
 
 
 def _get_creds():
-    creds_json = os.environ.get("GOOGLE_CREDENTIALS_JSON")
+    creds_json = os.environ.get("GCP_SA_KEY_JSON")
     if creds_json:
         info = json.loads(creds_json)
     else:
