@@ -3,6 +3,11 @@ FastAPI entrypoint for the pipeline.
 All heavy work happens in the agent modules.
 """
 
+import json
+import logging
+from datetime import datetime, timezone
+from uuid import uuid4
+
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
@@ -10,7 +15,29 @@ from pipeline.agents import orchestrator, transcriber, voice_agent, chapter_agen
 from pipeline.agents.editor_agent import BookManuscript
 from pipeline.utils import sheets
 
+logger = logging.getLogger(__name__)
+
 app = FastAPI(title="Familia Libro Pipeline", version="1.0")
+
+RECORDING_BASE_URL = "https://fedegiacomozzi.github.io/familia-marino/recording.html"
+
+
+def _get_firestore():
+    import firebase_admin
+    from firebase_admin import credentials, firestore
+    from pipeline.utils.secrets import get_secret
+
+    if not firebase_admin._apps:
+        cred_raw = get_secret("GOOGLE_CREDENTIALS_JSON")
+        try:
+            info = json.loads(cred_raw)
+        except (json.JSONDecodeError, ValueError):
+            with open(cred_raw) as f:
+                info = json.load(f)
+        cred = credentials.Certificate(info)
+        firebase_admin.initialize_app(cred)
+
+    return firestore.client()
 
 
 # ─── Health ───────────────────────────────────────────────────────────────────
@@ -158,3 +185,52 @@ def run_layout(req: LayoutRequest):
         return {"pdf": drive_url, "uploaded": True}
 
     return {"pdf": pdf_path, "uploaded": False}
+
+
+# ─── Onboarding: crear familia y tokens ──────────────────────────────────────
+
+class IntegranteIn(BaseModel):
+    nombre: str
+    relacion: str
+
+
+class FamiliaRequest(BaseModel):
+    nombre_familia: str
+    email_comprador: str
+    pais: str = "argentina"
+    integrantes: list[IntegranteIn]
+
+
+@app.post("/familia")
+def crear_familia(req: FamiliaRequest):
+    if not req.integrantes:
+        raise HTTPException(status_code=400, detail="Debe haber al menos un integrante.")
+
+    db = _get_firestore()
+
+    familia_id = str(uuid4())
+    db.collection("familias").document(familia_id).set({
+        "nombre_familia":  req.nombre_familia,
+        "email_comprador": req.email_comprador,
+        "pais":            req.pais,
+        "created_at":      datetime.now(timezone.utc).isoformat(),
+    })
+
+    tokens_result = []
+    for integrante in req.integrantes:
+        token = str(uuid4())[:8]
+        link  = f"{RECORDING_BASE_URL}?token={token}"
+        db.collection("tokens").document(token).set({
+            "nombre":     integrante.nombre,
+            "relacion":   integrante.relacion,
+            "familia_id": familia_id,
+            "completado": False,
+        })
+        tokens_result.append({
+            "nombre":   integrante.nombre,
+            "relacion": integrante.relacion,
+            "token":    token,
+            "link":     link,
+        })
+
+    return {"familia_id": familia_id, "tokens": tokens_result}
