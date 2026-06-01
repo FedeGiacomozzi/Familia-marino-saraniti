@@ -3,8 +3,12 @@ FastAPI entrypoint for the pipeline.
 All heavy work happens in the agent modules.
 """
 
+import base64
+import os
+import tempfile
 import threading
 import uuid
+from datetime import datetime, timezone
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -379,3 +383,79 @@ def get_familia_detail(familia_id: str):
             for p in integrantes
         ],
     }
+
+
+# ─── Recepción de audio (recording.html / app móvil) ─────────────────────────
+
+class AudioRequest(BaseModel):
+    audio_base64: str
+    mime_type: str = "audio/webm"
+
+
+def _check_y_trigger(familia_id: str) -> None:
+    """Auto-trigger del pipeline cuando todos los integrantes grabaron."""
+    from pipeline.utils import firestore as fs
+
+    integrantes = fs.get_integrantes(familia_id)
+    pendientes = [i for i in integrantes if i.get("estado") != "completo"]
+    if pendientes:
+        return
+
+    familia = fs.get_familia(familia_id) or {}
+    nombres = [
+        i.get("nombre", "")
+        for i in integrantes
+        if i.get("nombre") and not i.get("es_menor")
+    ]
+    job_id = str(uuid.uuid4())
+    fs.create_job(job_id)
+    t = threading.Thread(
+        target=_run_pipeline_job,
+        args=(job_id, {
+            "nombres": nombres,
+            "pais": familia.get("pais", "argentina"),
+            "solo_desde": None,
+            "familia": familia.get("nombre", "Familia Mariño · Saraniti"),
+            "upload_to_gcs": True,
+            "familia_id": familia_id,
+            "from_job_id": None,
+        }),
+        daemon=True,
+    )
+    t.start()
+    print(f"[auto-trigger] familia {familia_id} completa → job {job_id}")
+
+
+@app.post("/audio/{token}")
+def recibir_audio(token: str, req: AudioRequest):
+    """
+    Recibe el audio de un integrante (base64), lo sube a GCS,
+    marca el integrante como completo y dispara el pipeline si todos grabaron.
+    """
+    from pipeline.utils import firestore as fs, storage as st
+
+    match = fs.get_integrante_by_token(token)
+    if match is None:
+        raise HTTPException(status_code=404, detail="Token inválido o no encontrado")
+
+    familia_id, integrante_id, _ = match
+
+    audio_bytes = base64.b64decode(req.audio_base64)
+    ext = req.mime_type.split("/")[-1].split(";")[0]
+    blob_name = (
+        f"{familia_id}/{integrante_id}_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}.{ext}"
+    )
+
+    with tempfile.NamedTemporaryFile(suffix=f".{ext}", delete=False) as tmp:
+        tmp.write(audio_bytes)
+        tmp_path = tmp.name
+
+    try:
+        gcs_uri = st.upload_to_gcs(tmp_path, st.GCS_BUCKET_AUDIOS, blob_name, req.mime_type)
+    finally:
+        os.unlink(tmp_path)
+
+    fs.update_integrante_estado(familia_id, integrante_id, "completo")
+    _check_y_trigger(familia_id)
+
+    return {"ok": True, "audio_url": gcs_uri}
