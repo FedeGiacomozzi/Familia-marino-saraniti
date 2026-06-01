@@ -234,3 +234,77 @@ def crear_familia(req: FamiliaRequest):
         })
 
     return {"familia_id": familia_id, "tokens": tokens_result}
+
+
+# ─── Token: validar y recibir audios ─────────────────────────────────────────
+
+TOTAL_PREGUNTAS = 16
+
+
+@app.get("/token/{token}")
+def get_token(token: str):
+    db = _get_firestore()
+    doc = db.collection("tokens").document(token).get()
+    if not doc.exists:
+        raise HTTPException(status_code=404, detail="Token no válido.")
+    data = doc.to_dict()
+    return {
+        "nombre":     data["nombre"],
+        "relacion":   data["relacion"],
+        "familia_id": data["familia_id"],
+        "completado": data.get("completado", False),
+    }
+
+
+class AudioRequest(BaseModel):
+    pregunta: int
+    audio: str      # base64
+    mime_type: str = "audio/webm"
+
+
+@app.post("/audio/{token}")
+def guardar_audio(token: str, req: AudioRequest):
+    import base64
+    import tempfile
+    import os
+
+    db = _get_firestore()
+    token_doc = db.collection("tokens").document(token).get()
+    if not token_doc.exists:
+        raise HTTPException(status_code=404, detail="Token no válido.")
+
+    token_data = token_doc.to_dict()
+    nombre     = token_data["nombre"]
+    familia_id = token_data["familia_id"]
+
+    # Decodificar y subir a Drive
+    ext = "webm" if "webm" in req.mime_type else "ogg" if "ogg" in req.mime_type else "audio"
+    filename = f"{familia_id}/{nombre}_p{req.pregunta:02d}.{ext}"
+
+    audio_bytes = base64.b64decode(req.audio)
+    with tempfile.NamedTemporaryFile(suffix=f".{ext}", delete=False) as tmp:
+        tmp.write(audio_bytes)
+        tmp_path = tmp.name
+
+    try:
+        drive_url = sheets.upload_to_drive(tmp_path, filename, req.mime_type)
+    finally:
+        os.unlink(tmp_path)
+
+    # Registrar en Firestore
+    db.collection("tokens").document(token).collection("audios").document(
+        f"p{req.pregunta:02d}"
+    ).set({
+        "pregunta":   req.pregunta,
+        "drive_url":  drive_url,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+
+    # Marcar completado si llegaron las 16 preguntas
+    audios_count = len(
+        db.collection("tokens").document(token).collection("audios").get()
+    )
+    if audios_count >= TOTAL_PREGUNTAS:
+        db.collection("tokens").document(token).update({"completado": True})
+
+    return {"ok": True, "pregunta": req.pregunta, "drive_url": drive_url}
