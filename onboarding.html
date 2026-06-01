@@ -81,6 +81,7 @@ label:first-of-type { margin-top: 0; }
 
 input[type="text"],
 input[type="email"],
+input[type="date"],
 select {
   width: 100%;
   padding: 12px 16px;
@@ -97,6 +98,7 @@ select {
 
 input[type="text"]:focus,
 input[type="email"]:focus,
+input[type="date"]:focus,
 select:focus { border-color: #c8a96e; }
 
 .select-wrap {
@@ -112,6 +114,28 @@ select:focus { border-color: #c8a96e; }
   color: #c8a96e;
   pointer-events: none;
   font-size: 14px;
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.checkbox-row input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #3d2b0a;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.checkbox-row span {
+  font-size: 14px;
+  color: #3d2b0a;
 }
 
 .integrante-card {
@@ -159,6 +183,26 @@ select:focus { border-color: #c8a96e; }
 
 .btn-quitar:hover { color: #c8522a; }
 
+.menor-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  cursor: pointer;
+}
+
+.menor-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: #3d2b0a;
+  cursor: pointer;
+}
+
+.menor-row span {
+  font-size: 13px;
+  color: #8b6914;
+}
+
 .btn-agregar {
   display: flex;
   align-items: center;
@@ -203,7 +247,7 @@ select:focus { border-color: #c8a96e; }
   min-height: 18px;
 }
 
-/* Pantalla de confirmación */
+/* Confirmación */
 .confirmacion {
   position: fixed;
   inset: 0;
@@ -278,7 +322,7 @@ select:focus { border-color: #c8a96e; }
   font-size: 14px;
   color: #3d2b0a;
   font-weight: 400;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
 .link-relacion {
@@ -299,7 +343,10 @@ select:focus { border-color: #c8a96e; }
   padding: 8px 12px;
   font-family: monospace;
   display: block;
+  text-decoration: none;
 }
+
+.link-url:hover { border-color: #c8a96e; }
 
 .conf-firma {
   font-family: 'Playfair Display', serif;
@@ -307,7 +354,6 @@ select:focus { border-color: #c8a96e; }
   font-style: italic;
   color: #c8a96e;
   margin-top: 40px;
-  margin-bottom: 8px;
   text-align: center;
 }
 </style>
@@ -321,15 +367,30 @@ select:focus { border-color: #c8a96e; }
 
 <div class="container" id="formulario">
 
+  <!-- Sección 1: datos de quien compra -->
+  <div class="seccion">
+    <h2>¿Quién organiza el libro?</h2>
+    <p class="seccion-sub">Datos del comprador</p>
+
+    <label for="comp-nombre">Tu nombre</label>
+    <input type="text" id="comp-nombre" placeholder="Nombre y apellido" />
+
+    <label for="comp-email">Tu email</label>
+    <input type="email" id="comp-email" placeholder="Para recibir el libro cuando esté listo" />
+
+    <label class="checkbox-row" style="margin-top:16px; text-transform:none; letter-spacing:0; font-size:14px; color:#3d2b0a;">
+      <input type="checkbox" id="comp-es-retratado" />
+      <span>Yo también quiero ser entrevistado/a</span>
+    </label>
+  </div>
+
+  <!-- Sección 2: datos de la familia -->
   <div class="seccion">
     <h2>¿De qué familia se trata?</h2>
     <p class="seccion-sub">Datos generales</p>
 
     <label for="nombre-familia">Nombre de la familia</label>
     <input type="text" id="nombre-familia" placeholder="ej: Familia Rodríguez" />
-
-    <label for="email-comprador">Tu email</label>
-    <input type="email" id="email-comprador" placeholder="Para recibir el libro cuando esté listo" />
 
     <label for="pais">País</label>
     <div class="select-wrap">
@@ -358,9 +419,10 @@ select:focus { border-color: #c8a96e; }
     </div>
   </div>
 
+  <!-- Sección 3: integrantes -->
   <div class="seccion">
     <h2>¿Quiénes participan?</h2>
-    <p class="seccion-sub">Agregá a cada integrante</p>
+    <p class="seccion-sub">Personas a entrevistar</p>
 
     <div id="integrantes-container"></div>
 
@@ -376,10 +438,11 @@ select:focus { border-color: #c8a96e; }
 
 </div>
 
+<!-- Pantalla de confirmación -->
 <div class="confirmacion" id="confirmacion">
   <div class="conf-linea"></div>
-  <div class="conf-titulo">¡Listo! Enviamos los links a cada persona.</div>
-  <div class="conf-sub">Cada uno recibirá su link para grabar</div>
+  <div class="conf-titulo">¡Listo! Estos son los links de cada persona.</div>
+  <div class="conf-sub">Compartí cada link con quien corresponde</div>
   <div class="conf-links">
     <div class="conf-links-titulo" id="conf-familia-nombre"></div>
     <div id="conf-links-lista"></div>
@@ -388,7 +451,8 @@ select:focus { border-color: #c8a96e; }
 </div>
 
 <script>
-const API_URL = 'https://familia-pipeline-776445604502.us-central1.run.app/familia';
+const API_URL = 'https://familia-pipeline-776445604502.us-central1.run.app';
+const RECORDING_BASE = 'https://fedegiacomozzi.github.io/familia-marino/recording.html';
 
 const RELACIONES = [
   { value: 'padre',    label: 'Padre' },
@@ -405,109 +469,135 @@ const RELACIONES = [
   { value: 'otro',     label: 'Otro' },
 ];
 
-let contadorIntegrantes = 0;
+let counter = 0;
 
-function opcionesRelacion(seleccionado) {
-  return RELACIONES.map(r =>
-    `<option value="${r.value}"${r.value === seleccionado ? ' selected' : ''}>${r.label}</option>`
-  ).join('');
+function opcionesRelacion() {
+  return RELACIONES.map(r => `<option value="${r.value}">${r.label}</option>`).join('');
 }
 
-function agregarIntegrante(nombre = '', relacion = '') {
-  contadorIntegrantes++;
-  const id = contadorIntegrantes;
-  const container = document.getElementById('integrantes-container');
-
+function agregarIntegrante() {
+  counter++;
+  const id = counter;
   const div = document.createElement('div');
   div.className = 'integrante-card';
-  div.id = 'integrante-' + id;
+  div.id = 'int-' + id;
   div.innerHTML = `
     <div class="num">Persona ${id}</div>
     <button class="btn-quitar" onclick="quitarIntegrante(${id})" title="Quitar">×</button>
     <label>Nombre completo</label>
-    <input type="text" id="nombre-int-${id}" placeholder="Nombre y apellido" value="${nombre}" />
-    <label>Relación con vos</label>
+    <input type="text" id="int-nombre-${id}" placeholder="Nombre y apellido" />
+    <label>Relación con el organizador</label>
     <div class="select-wrap">
-      <select id="relacion-int-${id}">
-        ${opcionesRelacion(relacion)}
-      </select>
+      <select id="int-relacion-${id}">${opcionesRelacion()}</select>
     </div>
+    <label class="menor-row" style="text-transform:none;letter-spacing:0;font-size:13px;color:#8b6914;margin-top:12px;">
+      <input type="checkbox" id="int-menor-${id}" />
+      <span>Es menor de edad</span>
+    </label>
   `;
-  container.appendChild(div);
+  document.getElementById('integrantes-container').appendChild(div);
   actualizarBotones();
 }
 
 function quitarIntegrante(id) {
-  const total = document.querySelectorAll('.integrante-card').length;
-  if (total <= 1) return;
-  const card = document.getElementById('integrante-' + id);
-  if (card) card.remove();
+  if (document.querySelectorAll('.integrante-card').length <= 1) return;
+  document.getElementById('int-' + id)?.remove();
   actualizarBotones();
 }
 
 function actualizarBotones() {
   const cards = document.querySelectorAll('.integrante-card');
-  cards.forEach(card => {
-    const btn = card.querySelector('.btn-quitar');
+  cards.forEach(c => {
+    const btn = c.querySelector('.btn-quitar');
     if (btn) btn.style.display = cards.length <= 1 ? 'none' : '';
   });
 }
 
 function getIntegrantes() {
-  const cards = document.querySelectorAll('.integrante-card');
-  return Array.from(cards).map(card => {
-    const idMatch = card.id.match(/integrante-(\d+)/);
-    const id = idMatch ? idMatch[1] : null;
+  return Array.from(document.querySelectorAll('.integrante-card')).map(c => {
+    const m = c.id.match(/int-(\d+)/);
+    const id = m ? m[1] : null;
     return {
-      nombre:   document.getElementById('nombre-int-' + id)?.value.trim() || '',
-      relacion: document.getElementById('relacion-int-' + id)?.value || '',
+      nombre:                document.getElementById('int-nombre-' + id)?.value.trim() || '',
+      relacion_con_comprador: document.getElementById('int-relacion-' + id)?.value || '',
+      es_menor:              document.getElementById('int-menor-' + id)?.checked || false,
     };
   });
 }
 
 async function enviar() {
-  const nombreFamilia   = document.getElementById('nombre-familia').value.trim();
-  const emailComprador  = document.getElementById('email-comprador').value.trim();
-  const pais            = document.getElementById('pais').value;
-  const integrantes     = getIntegrantes();
-  const errorEl         = document.getElementById('error-msg');
+  const compNombre    = document.getElementById('comp-nombre').value.trim();
+  const compEmail     = document.getElementById('comp-email').value.trim();
+  const esRetratado   = document.getElementById('comp-es-retratado').checked;
+  const nombreFamilia = document.getElementById('nombre-familia').value.trim();
+  const pais          = document.getElementById('pais').value;
+  const integrantes   = getIntegrantes();
+  const errorEl       = document.getElementById('error-msg');
 
   errorEl.textContent = '';
 
-  if (!nombreFamilia) { errorEl.textContent = 'Escribí el nombre de la familia.'; return; }
-  if (!emailComprador || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailComprador)) {
-    errorEl.textContent = 'Ingresá un email válido.';
-    return;
+  if (!compNombre)   { errorEl.textContent = 'Escribí tu nombre.'; return; }
+  if (!compEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(compEmail)) {
+    errorEl.textContent = 'Ingresá un email válido.'; return;
   }
-  const sinNombre = integrantes.find(i => !i.nombre);
-  if (sinNombre) { errorEl.textContent = 'Completá el nombre de todos los integrantes.'; return; }
+  if (!nombreFamilia) { errorEl.textContent = 'Escribí el nombre de la familia.'; return; }
+  if (integrantes.some(i => !i.nombre)) {
+    errorEl.textContent = 'Completá el nombre de todos los integrantes.'; return;
+  }
 
   const btn = document.getElementById('btn-submit');
   btn.disabled = true;
-  btn.textContent = 'Enviando...';
+  btn.textContent = 'Creando familia…';
 
   try {
-    const res = await fetch(API_URL, {
+    // Paso 1: crear la familia
+    const res1 = await fetch(API_URL + '/familia', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        nombre_familia:  nombreFamilia,
-        email_comprador: emailComprador,
-        pais:            pais,
-        integrantes:     integrantes,
+        nombre: nombreFamilia,
+        comprador: { nombre: compNombre, email: compEmail, es_tambien_retratado: esRetratado },
+        pack: 'base',
+        pais,
       }),
     });
+    if (!res1.ok) {
+      const d = await res1.json().catch(() => ({}));
+      throw new Error(d.detail || `Error ${res1.status}`);
+    }
+    const { familia_id, token_comprador } = await res1.json();
 
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      throw new Error(data.detail || `Error ${res.status}`);
+    btn.textContent = 'Agregando integrantes…';
+
+    // Paso 2: agregar cada integrante
+    const tokens = [];
+
+    if (token_comprador) {
+      tokens.push({ nombre: compNombre, relacion: 'comprador', token: token_comprador });
     }
 
-    const data = await res.json();
-    mostrarConfirmacion(nombreFamilia, data.tokens);
+    for (const int of integrantes) {
+      const res2 = await fetch(`${API_URL}/familia/${familia_id}/integrantes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nombre: int.nombre,
+          relacion_con_comprador: int.relacion_con_comprador,
+          es_menor: int.es_menor,
+        }),
+      });
+      if (!res2.ok) {
+        const d = await res2.json().catch(() => ({}));
+        throw new Error(`${int.nombre}: ${d.detail || res2.status}`);
+      }
+      const { token_unico } = await res2.json();
+      tokens.push({ nombre: int.nombre, relacion: int.relacion_con_comprador, token: token_unico });
+    }
+
+    mostrarConfirmacion(nombreFamilia, tokens);
 
   } catch (e) {
-    errorEl.textContent = 'Error al enviar: ' + e.message;
+    errorEl.textContent = 'Error: ' + e.message;
     btn.disabled = false;
     btn.textContent = 'Confirmar y generar links →';
   }
@@ -515,16 +605,15 @@ async function enviar() {
 
 function mostrarConfirmacion(nombreFamilia, tokens) {
   document.getElementById('conf-familia-nombre').textContent = nombreFamilia;
-
-  const lista = document.getElementById('conf-links-lista');
-  lista.innerHTML = tokens.map(t => `
-    <div class="link-card">
-      <div class="link-nombre">${t.nombre}</div>
-      <div class="link-relacion">${t.relacion}</div>
-      <a class="link-url" href="${t.link}" target="_blank">${t.link}</a>
-    </div>
-  `).join('');
-
+  document.getElementById('conf-links-lista').innerHTML = tokens.map(t => {
+    const link = `${RECORDING_BASE}?token=${t.token}`;
+    return `
+      <div class="link-card">
+        <div class="link-nombre">${t.nombre}</div>
+        <div class="link-relacion">${t.relacion}</div>
+        <a class="link-url" href="${link}" target="_blank">${link}</a>
+      </div>`;
+  }).join('');
   document.getElementById('confirmacion').classList.add('visible');
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
