@@ -4,15 +4,17 @@ All heavy work happens in the agent modules.
 """
 
 import base64
+import logging
 import os
 import tempfile
-import threading
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import FastAPI, HTTPException
+from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+
+logger = logging.getLogger(__name__)
 
 from pipeline.agents import orchestrator, transcriber, voice_agent, chapter_agent, layout_agent
 from pipeline.agents.editor_agent import BookManuscript
@@ -97,12 +99,13 @@ def health_deep():
     except Exception as exc:  # noqa: BLE001
         checks["anthropic"] = {"ok": False, "latency_ms": int((_time.monotonic() - t0) * 1000), "error": str(exc)}
 
-    # 3. GCS: list bucket familia-marino-pdfs
+    # 3. GCS: verificar bucket de libros
     t0 = _time.monotonic()
     try:
         from google.cloud import storage as _gcs
+        from pipeline.utils.storage import GCS_BUCKET_LIBROS
         _gcs_client = _gcs.Client()
-        _bucket = _gcs_client.get_bucket("familia-marino-pdfs")
+        _bucket = _gcs_client.get_bucket(GCS_BUCKET_LIBROS)
         _ = _bucket.name  # forces the API call
         checks["gcs"] = {"ok": True, "latency_ms": int((_time.monotonic() - t0) * 1000), "error": None}
     except Exception as exc:  # noqa: BLE001
@@ -157,22 +160,17 @@ def run_pipeline(req: PipelineRequest):
 
 
 @app.post("/run/pipeline/async")
-def run_pipeline_async(req: PipelineRequest):
+def run_pipeline_async(req: PipelineRequest, background_tasks: BackgroundTasks):
     from pipeline.utils import firestore as fs
     job_id = str(uuid.uuid4())
-    fs.create_job(job_id)
-    t = threading.Thread(
-        target=_run_pipeline_job,
-        args=(job_id, req.model_dump()),
-        daemon=True,
-    )
-    t.start()
-    return {"job_id": job_id, "status": "queued"}
+    fs.create_job(job_id, familia_id=req.familia_id)
+    background_tasks.add_task(_run_pipeline_job, job_id, req.model_dump())
+    return {"job_id": job_id, "status": "pending"}
 
 
 @app.get("/job/{job_id}")
 def get_job_status(job_id: str):
-    from pipeline.utils import firestore as fs
+    from pipeline.utils import firestore as fs, storage as st
     job = fs.get_job(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail=f"Job not found: {job_id}")
@@ -180,9 +178,20 @@ def get_job_status(job_id: str):
         "job_id": job_id,
         "status": job["status"],
         "created_at": job.get("created_at", ""),
+        "familia_id": job.get("familia_id"),
     }
     if job["status"] == "done":
-        response["result"] = job.get("result")
+        result = job.get("result") or {}
+        gs_url = result.get("layout", "")
+        pdf_url = None
+        if gs_url and gs_url.startswith("gs://"):
+            try:
+                pdf_url = st.get_signed_url(gs_url, expiration_hours=168)  # 7 días
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("No se pudo generar signed URL para %s: %s", gs_url, exc)
+                pdf_url = gs_url
+        response["pdf_url"] = pdf_url
+        response["result"] = result
     elif job["status"] == "error":
         response["error"] = job.get("error")
     return response
@@ -392,7 +401,26 @@ class AudioRequest(BaseModel):
     mime_type: str = "audio/webm"
 
 
-def _check_y_trigger(familia_id: str) -> None:
+def _enviar_email_generando(familia_id: str, job_id: str) -> None:
+    """Stub: notifica al comprador que el libro está siendo generado."""
+    from pipeline.utils import firestore as fs
+    familia = fs.get_familia(familia_id) or {}
+    comprador = familia.get("comprador", {})
+    comprador_email = comprador.get("email", "")
+    comprador_nombre = comprador.get("nombre", "")
+    logger.info(
+        "[email-generando] familia_id=%s job_id=%s email=%s nombre=%s",
+        familia_id, job_id, comprador_email, comprador_nombre,
+    )
+    # TODO: integrar proveedor de email (SendGrid / Resend)
+    # Asunto: "¡Todos grabaron! Tu libro está siendo creado."
+    # Cuerpo:
+    #   - ¡Todos los integrantes grabaron! Tu libro familiar está siendo creado.
+    #   - Seguí el progreso en: /mi-familia?id={familia_id}
+    #   - Tiempo estimado: ~40 minutos
+
+
+def _check_y_trigger(familia_id: str, background_tasks: BackgroundTasks) -> None:
     """Auto-trigger del pipeline cuando todos los integrantes grabaron."""
     from pipeline.utils import firestore as fs
 
@@ -408,10 +436,11 @@ def _check_y_trigger(familia_id: str) -> None:
         if i.get("nombre") and not i.get("es_menor")
     ]
     job_id = str(uuid.uuid4())
-    fs.create_job(job_id)
-    t = threading.Thread(
-        target=_run_pipeline_job,
-        args=(job_id, {
+    fs.create_job(job_id, familia_id=familia_id)
+    background_tasks.add_task(
+        _run_pipeline_job,
+        job_id,
+        {
             "nombres": nombres,
             "pais": familia.get("pais", "argentina"),
             "solo_desde": None,
@@ -419,15 +448,14 @@ def _check_y_trigger(familia_id: str) -> None:
             "upload_to_gcs": True,
             "familia_id": familia_id,
             "from_job_id": None,
-        }),
-        daemon=True,
+        },
     )
-    t.start()
-    print(f"[auto-trigger] familia {familia_id} completa → job {job_id}")
+    _enviar_email_generando(familia_id, job_id)
+    logger.info("[auto-trigger] familia %s completa → job %s", familia_id, job_id)
 
 
 @app.post("/audio/{token}")
-def recibir_audio(token: str, req: AudioRequest):
+def recibir_audio(token: str, req: AudioRequest, background_tasks: BackgroundTasks):
     """
     Recibe el audio de un integrante (base64), lo sube a GCS,
     marca el integrante como completo y dispara el pipeline si todos grabaron.
@@ -456,6 +484,6 @@ def recibir_audio(token: str, req: AudioRequest):
         os.unlink(tmp_path)
 
     fs.update_integrante_estado(familia_id, integrante_id, "completo")
-    _check_y_trigger(familia_id)
+    _check_y_trigger(familia_id, background_tasks)
 
     return {"ok": True, "audio_url": gcs_uri}

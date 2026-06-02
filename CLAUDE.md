@@ -82,7 +82,9 @@ familias/{familia_id}
 | `ANTHROPIC_API_KEY` | Secret Manager |
 | `OPENAI_API_KEY` | Secret Manager |
 | `GOOGLE_CREDENTIALS_JSON` | Secret Manager (`GOOGLE_CREDENTIALS:latest`) |
-| `GCS_BUCKET` | Env var (default: `familia-pipeline-audios`) |
+| `GCS_BUCKET_AUDIOS` | Env var (default: `libro-familiar-audios`) |
+| `GCS_BUCKET_FOTOS` | Env var (default: `libro-familiar-fotos`) |
+| `GCS_BUCKET_LIBROS` | Env var (default: `libro-familiar-libros`) |
 
 ## Auto-trigger
 

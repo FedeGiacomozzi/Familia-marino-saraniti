@@ -338,10 +338,11 @@ def add_integrante(
 
 # ─── Jobs (pipeline async) ────────────────────────────────────────────────────
 
-def create_job(job_id: str) -> None:
+def create_job(job_id: str, familia_id: str | None = None) -> None:
     from datetime import datetime, timezone
     _db().collection("jobs").document(job_id).set({
-        "status": "queued",
+        "status": "pending",
+        "familia_id": familia_id,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "result": None,
         "error": None,
