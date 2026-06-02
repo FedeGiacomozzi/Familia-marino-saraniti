@@ -5,28 +5,33 @@
 set -euo pipefail
 
 PROJECT="${1:-$(gcloud config get-value project)}"
-REGION="${2:-us-central1}"
+REGION="${2:-southamerica-east1}"
 SERVICE="familia-pipeline"
 IMAGE="gcr.io/${PROJECT}/${SERVICE}"
-GCS_BUCKET="${GCS_BUCKET:-familia-marino-pdfs}"
+GCS_BUCKET_AUDIOS="${GCS_BUCKET_AUDIOS:-libro-familiar-audios}"
+GCS_BUCKET_FOTOS="${GCS_BUCKET_FOTOS:-libro-familiar-fotos}"
+GCS_BUCKET_LIBROS="${GCS_BUCKET_LIBROS:-libro-familiar-libros}"
 SA="familia-pipeline@${PROJECT}.iam.gserviceaccount.com"
 
-echo "Project : ${PROJECT}"
-echo "Region  : ${REGION}"
-echo "Image   : ${IMAGE}"
-echo "Bucket  : ${GCS_BUCKET}"
+echo "Project        : ${PROJECT}"
+echo "Region         : ${REGION}"
+echo "Image          : ${IMAGE}"
+echo "Bucket audios  : ${GCS_BUCKET_AUDIOS}"
+echo "Bucket fotos   : ${GCS_BUCKET_FOTOS}"
+echo "Bucket libros  : ${GCS_BUCKET_LIBROS}"
 echo ""
 
-# ── GCS bucket para PDFs ────────────────────────────────────────────────────
-if ! gsutil ls -b "gs://${GCS_BUCKET}" &>/dev/null; then
-  echo "Creando bucket gs://${GCS_BUCKET}..."
-  gsutil mb -p "${PROJECT}" -l "${REGION}" "gs://${GCS_BUCKET}"
-  gsutil iam ch allUsers:objectViewer "gs://${GCS_BUCKET}"
-  gsutil iam ch "serviceAccount:${SA}:objectAdmin" "gs://${GCS_BUCKET}"
-  echo "Bucket creado y permisos configurados."
-else
-  echo "Bucket gs://${GCS_BUCKET} ya existe."
-fi
+# ── GCS buckets ─────────────────────────────────────────────────────────────
+for BUCKET in "${GCS_BUCKET_AUDIOS}" "${GCS_BUCKET_FOTOS}" "${GCS_BUCKET_LIBROS}"; do
+  if ! gsutil ls -b "gs://${BUCKET}" &>/dev/null; then
+    echo "Creando bucket gs://${BUCKET}..."
+    gsutil mb -p "${PROJECT}" -l "${REGION}" "gs://${BUCKET}"
+    gsutil iam ch "serviceAccount:${SA}:objectAdmin" "gs://${BUCKET}"
+    echo "Bucket creado."
+  else
+    echo "Bucket gs://${BUCKET} ya existe."
+  fi
+done
 echo ""
 
 # Build and push via Cloud Build
@@ -51,7 +56,7 @@ gcloud run deploy "${SERVICE}" \
   --timeout=3600 \
   --no-cpu-throttling \
   --service-account="${SA}" \
-  --set-env-vars="GCS_BUCKET=${GCS_BUCKET},FONTS_DIR=/app/fonts,FIRESTORE_PROJECT_ID=${PROJECT}" \
+  --set-env-vars="GCS_BUCKET_AUDIOS=${GCS_BUCKET_AUDIOS},GCS_BUCKET_FOTOS=${GCS_BUCKET_FOTOS},GCS_BUCKET_LIBROS=${GCS_BUCKET_LIBROS},FONTS_DIR=/app/fonts,FIRESTORE_PROJECT_ID=${PROJECT}" \
   --set-secrets="ANTHROPIC_API_KEY=ANTHROPIC_API_KEY:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,GCP_SA_KEY_JSON=GOOGLE_CREDENTIALS:latest"
 
 echo ""
