@@ -3,534 +3,1424 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Familia Mariño — Comenzar</title>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Lato:wght@300;400&display=swap" rel="stylesheet">
+<title>Onboarding Familia — Libro de Memorias</title>
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=Montserrat:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
-body {
-  font-family: 'Lato', sans-serif;
-  background: #fdf6ed;
-  min-height: 100vh;
-  color: #3d2b0a;
+:root {
+  --bg: #FAF8F5;
+  --text: #2C2C2C;
+  --accent: #8B6F5E;
+  --accent-light: #c8a99a;
+  --border: #e0d6cf;
+  --white: #ffffff;
+  --success: #4a7c59;
+  --error: #a94442;
+  --shadow: 0 2px 12px rgba(139, 111, 94, 0.12);
 }
 
-.header {
-  background: #fdf6ed;
-  border-bottom: 1px solid #c8a96e;
-  padding: 24px 20px;
+body {
+  font-family: 'Montserrat', sans-serif;
+  background: var(--bg);
+  min-height: 100vh;
+  color: var(--text);
+}
+
+header {
+  background: var(--white);
+  border-bottom: 1px solid var(--border);
+  padding: 28px 24px;
   text-align: center;
 }
 
-.header h1 {
-  font-family: 'Playfair Display', serif;
-  font-size: 28px;
-  color: #3d2b0a;
+header h1 {
+  font-family: 'Lora', serif;
+  font-size: 26px;
   font-weight: 400;
+  color: var(--text);
+  letter-spacing: 0.3px;
 }
 
-.header p {
-  font-size: 13px;
-  color: #8b6914;
+header p {
+  font-size: 11px;
+  color: var(--accent);
   margin-top: 6px;
-  letter-spacing: 2px;
+  letter-spacing: 2.5px;
   text-transform: uppercase;
+  font-weight: 500;
 }
 
 .container {
-  max-width: 640px;
+  max-width: 720px;
   margin: 0 auto;
-  padding: 40px 20px 80px;
+  padding: 40px 24px 80px;
 }
 
-.seccion {
-  background: #fff;
-  border: 1px solid #e8d9b8;
+/* ── Secciones del formulario ── */
+.section {
+  background: var(--white);
+  border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 28px;
+  padding: 32px;
   margin-bottom: 24px;
+  box-shadow: var(--shadow);
 }
 
-.seccion h2 {
-  font-family: 'Playfair Display', serif;
+.section-title {
+  font-family: 'Lora', serif;
   font-size: 18px;
-  font-weight: 400;
-  margin-bottom: 6px;
-  color: #3d2b0a;
-}
-
-.seccion-sub {
-  font-size: 12px;
-  color: #8b6914;
-  letter-spacing: 1px;
-  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--accent);
   margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
 }
 
-label {
+/* ── Campos ── */
+.field {
+  margin-bottom: 18px;
+}
+
+.field label {
   display: block;
   font-size: 12px;
-  color: #8b6914;
+  font-weight: 600;
   letter-spacing: 1px;
   text-transform: uppercase;
+  color: var(--accent);
   margin-bottom: 6px;
-  margin-top: 16px;
 }
 
-label:first-of-type { margin-top: 0; }
-
-input[type="text"],
-input[type="email"],
-select {
+.field input,
+.field select {
   width: 100%;
-  padding: 12px 16px;
-  border: 1px solid #e8d9b8;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
   border-radius: 8px;
-  font-size: 15px;
-  font-family: 'Lato', sans-serif;
-  color: #3d2b0a;
-  background: #fdf6ed;
-  outline: none;
-  appearance: none;
-  -webkit-appearance: none;
-}
-
-input[type="text"]:focus,
-input[type="email"]:focus,
-select:focus { border-color: #c8a96e; }
-
-.select-wrap {
-  position: relative;
-}
-
-.select-wrap::after {
-  content: '▾';
-  position: absolute;
-  right: 14px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #c8a96e;
-  pointer-events: none;
+  font-family: 'Montserrat', sans-serif;
   font-size: 14px;
+  color: var(--text);
+  background: var(--bg);
+  transition: border-color 0.2s;
+  -webkit-appearance: none;
+  appearance: none;
 }
 
-.integrante-card {
-  background: #fdf6ed;
-  border: 1px solid #e8d9b8;
-  border-radius: 10px;
-  padding: 18px 20px;
-  margin-bottom: 12px;
+.field select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238B6F5E' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  padding-right: 36px;
+  cursor: pointer;
+}
+
+.field input:focus,
+.field select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.field-row-3 {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 560px) {
+  .field-row,
+  .field-row-3 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Checkbox ── */
+.field-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.field-check input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.field-check label {
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text);
+  cursor: pointer;
+  margin-bottom: 0;
+}
+
+/* ── Cards de integrantes / relaciones ── */
+.card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 16px;
   position: relative;
 }
 
-.integrante-card .num {
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.card-num {
   font-size: 11px;
-  color: #c8a96e;
-  letter-spacing: 2px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
   text-transform: uppercase;
-  margin-bottom: 12px;
+  color: var(--accent-light);
 }
 
-.integrante-card label {
-  color: #8b6914;
-  margin-top: 12px;
-}
-
-.integrante-card label:first-of-type { margin-top: 0; }
-
-.integrante-card input,
-.integrante-card select {
-  background: #fff;
-}
-
-.btn-quitar {
-  position: absolute;
-  top: 14px;
-  right: 16px;
+.btn-remove {
   background: none;
   border: none;
-  color: #c8a96e;
-  font-size: 18px;
+  color: var(--accent-light);
   cursor: pointer;
+  font-size: 18px;
   line-height: 1;
-  padding: 0;
-  font-family: 'Lato', sans-serif;
+  padding: 0 4px;
+  transition: color 0.2s;
 }
 
-.btn-quitar:hover { color: #c8522a; }
+.btn-remove:hover {
+  color: var(--error);
+}
 
-.btn-agregar {
-  display: flex;
+/* ── Botones ── */
+.btn {
+  display: inline-flex;
   align-items: center;
   gap: 8px;
   padding: 10px 20px;
-  border: 1.5px dashed #c8a96e;
-  border-radius: 99px;
-  background: transparent;
-  color: #5a3e1a;
-  font-size: 14px;
-  font-family: 'Lato', sans-serif;
+  border-radius: 8px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
   cursor: pointer;
   transition: all 0.2s;
+  border: none;
+}
+
+.btn-secondary {
+  background: var(--bg);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+}
+
+.btn-secondary:hover {
+  background: var(--accent);
+  color: var(--white);
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: var(--white);
+  padding: 14px 36px;
+  font-size: 14px;
+}
+
+.btn-primary:hover {
+  background: #7a5f4f;
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-add {
   margin-top: 4px;
 }
 
-.btn-agregar:hover { border-style: solid; background: #fdf6ed; }
-.btn-agregar:disabled { opacity: 0.4; cursor: not-allowed; }
-
-.btn-submit {
-  width: 100%;
-  margin-top: 8px;
-  padding: 14px;
-  background: #3d2b0a;
-  color: #fdf6ed;
-  border: none;
+/* ── Mensajes ── */
+.msg {
+  padding: 14px 18px;
   border-radius: 8px;
+  font-size: 13px;
+  margin-bottom: 20px;
+  display: none;
+}
+
+.msg.show { display: block; }
+
+.msg-error {
+  background: #fdf0f0;
+  border: 1px solid #f5c6c6;
+  color: var(--error);
+}
+
+.msg-loading {
+  background: #fdf8f5;
+  border: 1px solid var(--border);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.submit-area {
+  text-align: center;
+  padding-top: 8px;
+}
+
+/* ── Vista de resultado ── */
+#resultado {
+  display: none;
+}
+
+.resultado-header {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 32px;
+  margin-bottom: 24px;
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+
+.resultado-header .checkmark {
+  width: 56px;
+  height: 56px;
+  background: #eaf3ec;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+  font-size: 26px;
+}
+
+.resultado-header h2 {
+  font-family: 'Lora', serif;
+  font-size: 22px;
+  font-weight: 400;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.resultado-header p {
+  font-size: 13px;
+  color: var(--accent);
+  line-height: 1.6;
+}
+
+/* ── Tabla de tokens ── */
+.tokens-section {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 32px;
+  box-shadow: var(--shadow);
+}
+
+.tokens-section .section-title {
+  margin-bottom: 24px;
+}
+
+.token-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+  margin-bottom: 16px;
+  background: var(--bg);
+}
+
+.token-card:last-child {
+  margin-bottom: 0;
+}
+
+.token-nombre {
+  font-family: 'Lora', serif;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 12px;
+}
+
+.token-code {
+  display: inline-block;
+  background: var(--text);
+  color: var(--white);
+  font-family: monospace;
   font-size: 15px;
-  font-family: 'Lato', sans-serif;
+  letter-spacing: 2px;
+  padding: 5px 12px;
+  border-radius: 6px;
+  margin-bottom: 14px;
+}
+
+.token-link {
+  font-size: 12px;
+  color: var(--accent);
+  word-break: break-all;
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+
+.token-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.btn-copy {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
   cursor: pointer;
-  letter-spacing: 1px;
+  transition: all 0.2s;
+}
+
+.btn-copy:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.btn-copy.copied {
+  background: #eaf3ec;
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.btn-whatsapp {
+  background: #25d366;
+  color: var(--white);
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   transition: background 0.2s;
 }
 
-.btn-submit:hover { background: #5a3e1a; }
-.btn-submit:disabled { opacity: 0.4; cursor: not-allowed; }
-
-.error-msg {
-  font-size: 13px;
-  color: #c8522a;
-  margin-top: 12px;
-  min-height: 18px;
+.btn-whatsapp:hover {
+  background: #1ebe5d;
 }
 
-/* Pantalla de confirmación */
-.confirmacion {
-  position: fixed;
-  inset: 0;
-  background: #fdf6ed;
-  z-index: 100;
+.nueva-familia {
+  text-align: center;
+  margin-top: 32px;
+}
+
+.nueva-familia a {
+  color: var(--accent);
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* ── Toggle regalo ── */
+.toggle-regalo-wrap {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  justify-content: flex-start;
-  padding: 60px 24px 40px;
-  overflow-y: auto;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 12px 16px;
+  background: #fdf8f5;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.toggle-regalo-wrap input[type="checkbox"] {
+  width: 0;
+  height: 0;
   opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.8s ease;
+  position: absolute;
 }
 
-.confirmacion.visible {
-  opacity: 1;
-  pointer-events: all;
-}
-
-.conf-linea {
+.toggle-switch {
+  position: relative;
   width: 40px;
-  height: 1px;
-  background: #c8a96e;
-  margin: 0 auto 32px;
+  height: 22px;
+  background: var(--border);
+  border-radius: 11px;
+  flex-shrink: 0;
+  transition: background 0.25s;
 }
 
-.conf-titulo {
-  font-family: 'Playfair Display', serif;
-  font-size: 30px;
-  font-weight: 400;
-  color: #3d2b0a;
-  line-height: 1.3;
-  margin-bottom: 12px;
-  max-width: 480px;
-  text-align: center;
+.toggle-switch::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  background: var(--white);
+  border-radius: 50%;
+  transition: transform 0.25s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
 }
 
-.conf-sub {
-  font-size: 13px;
-  color: #8b6914;
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  margin-bottom: 40px;
-  text-align: center;
+input#es_regalo:checked + .toggle-regalo-wrap .toggle-switch,
+.toggle-switch.active {
+  background: var(--accent);
 }
 
-.conf-links {
-  width: 100%;
-  max-width: 560px;
+input#es_regalo:checked + .toggle-regalo-wrap .toggle-switch::after,
+.toggle-switch.active::after {
+  transform: translateX(18px);
 }
 
-.conf-links-titulo {
-  font-family: 'Playfair Display', serif;
-  font-size: 16px;
-  font-weight: 400;
-  color: #3d2b0a;
-  margin-bottom: 16px;
-  text-align: center;
-}
-
-.link-card {
-  background: #fff;
-  border: 1px solid #e8d9b8;
-  border-radius: 10px;
-  padding: 16px 20px;
-  margin-bottom: 10px;
-}
-
-.link-nombre {
+.toggle-regalo-label {
   font-size: 14px;
-  color: #3d2b0a;
-  font-weight: 400;
-  margin-bottom: 6px;
+  font-weight: 500;
+  color: var(--text);
+  user-select: none;
 }
 
-.link-relacion {
-  font-size: 11px;
-  color: #8b6914;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  margin-bottom: 8px;
+.regalo-info {
+  display: none;
+  background: #fdf6f0;
+  border: 1px solid #e8c9b0;
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 13px;
+  color: var(--accent);
+  line-height: 1.5;
+  margin-top: 12px;
 }
 
-.link-url {
-  font-size: 12px;
-  color: #5a3e1a;
-  word-break: break-all;
-  background: #fdf6ed;
-  border: 1px solid #e8d9b8;
-  border-radius: 6px;
-  padding: 8px 12px;
-  font-family: monospace;
+.regalo-info.show {
   display: block;
 }
 
-.conf-firma {
-  font-family: 'Playfair Display', serif;
-  font-size: 15px;
+/* ── Dashboard de resultado ── */
+.dashboard-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.dash-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+#dash-progreso-txt {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.dash-refresh-txt {
+  font-size: 11px;
+  color: var(--accent-light);
   font-style: italic;
-  color: #c8a96e;
-  margin-top: 40px;
+}
+
+.dash-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--white);
+  border-radius: 8px;
   margin-bottom: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+
+.dash-nombre {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dash-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 20px;
+  white-space: nowrap;
+  background: color-mix(in srgb, var(--estado-color) 12%, transparent);
+  color: var(--estado-color);
+  border: 1px solid color-mix(in srgb, var(--estado-color) 30%, transparent);
+}
+
+.dash-acciones {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.btn-sm {
+  padding: 6px 14px;
+  font-size: 12px;
+  border-radius: 6px;
+}
+
+@media (max-width: 560px) {
+  .dash-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Foto de portada ── */
+.field-hint {
+  font-size: 12px;
+  color: var(--accent);
+  font-style: italic;
+  margin-top: 5px;
+  line-height: 1.5;
+}
+
+.field-variante-hint {
+  font-size: 11px;
+  color: #8B6F5E;
+  font-style: italic;
+  margin-top: 5px;
+  line-height: 1.5;
+}
+
+.foto-input-wrap {
+  position: relative;
+  border: 2px dashed var(--accent-light);
+  border-radius: 8px;
+  padding: 20px;
   text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  background: var(--bg);
+}
+
+.foto-input-wrap:hover {
+  border-color: var(--accent);
+  background: #fdf6f2;
+}
+
+.foto-input-wrap input[type="file"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+}
+
+.foto-input-label {
+  font-size: 13px;
+  color: var(--accent);
+  pointer-events: none;
+}
+
+.foto-preview-wrap {
+  display: none;
+  margin-top: 12px;
+}
+
+.foto-preview-wrap img {
+  width: 100%;
+  max-height: 180px;
+  object-fit: cover;
+  border-radius: 8px;
+  display: block;
+}
+
+.btn-quitar-foto {
+  margin-top: 8px;
+  background: none;
+  border: 1px solid var(--accent-light);
+  color: var(--accent);
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 5px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-quitar-foto:hover {
+  border-color: var(--error);
+  color: var(--error);
 }
 </style>
 </head>
 <body>
 
-<div class="header">
-  <h1>Familia Mariño — Saraniti</h1>
-  <p>Empezar el libro</p>
-</div>
+<header>
+  <h1>Libro de Memorias Familiar</h1>
+  <p>Panel de administración — Onboarding</p>
+</header>
 
-<div class="container" id="formulario">
+<div class="container">
 
-  <div class="seccion">
-    <h2>¿De qué familia se trata?</h2>
-    <p class="seccion-sub">Datos generales</p>
+  <!-- ══════════════════════ FORMULARIO ══════════════════════ -->
+  <div id="formulario">
 
-    <label for="nombre-familia">Nombre de la familia</label>
-    <input type="text" id="nombre-familia" placeholder="ej: Familia Rodríguez" />
+    <!-- Datos de la familia -->
+    <div class="section">
+      <div class="section-title">Datos de la familia</div>
 
-    <label for="email-comprador">Tu email</label>
-    <input type="email" id="email-comprador" placeholder="Para recibir el libro cuando esté listo" />
+      <div class="field-row">
+        <div class="field">
+          <label for="familia_id">ID de familia <span title="Identificador único sin espacios ni acentos">ⓘ</span></label>
+          <input type="text" id="familia_id" placeholder="ej: lopez-garcia" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="nombre_familia">Nombre de la familia</label>
+          <input type="text" id="nombre_familia" placeholder="ej: Familia López García">
+        </div>
+      </div>
 
-    <label for="pais">País</label>
-    <div class="select-wrap">
-      <select id="pais">
-        <option value="argentina" selected>Argentina</option>
-        <option value="bolivia">Bolivia</option>
-        <option value="brasil">Brasil</option>
-        <option value="chile">Chile</option>
-        <option value="colombia">Colombia</option>
-        <option value="costa_rica">Costa Rica</option>
-        <option value="cuba">Cuba</option>
-        <option value="ecuador">Ecuador</option>
-        <option value="el_salvador">El Salvador</option>
-        <option value="españa">España</option>
-        <option value="guatemala">Guatemala</option>
-        <option value="honduras">Honduras</option>
-        <option value="mexico">México</option>
-        <option value="nicaragua">Nicaragua</option>
-        <option value="panama">Panamá</option>
-        <option value="paraguay">Paraguay</option>
-        <option value="peru">Perú</option>
-        <option value="republica_dominicana">República Dominicana</option>
-        <option value="uruguay">Uruguay</option>
-        <option value="venezuela">Venezuela</option>
-      </select>
+      <div class="field-row">
+        <div class="field">
+          <label for="nombre_comprador">Nombre del comprador</label>
+          <input type="text" id="nombre_comprador" placeholder="ej: Juan López" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="email_comprador" id="label_email_comprador">Email del comprador</label>
+          <input type="email" id="email_comprador" placeholder="comprador@email.com">
+        </div>
+      </div>
+
+      <label for="es_regalo" style="display:none" aria-hidden="true"></label>
+      <input type="checkbox" id="es_regalo" style="display:none">
+      <div class="toggle-regalo-wrap" onclick="toggleRegalo()" id="toggle-regalo-wrap">
+        <div class="toggle-switch" id="toggle-switch"></div>
+        <span class="toggle-regalo-label">Lo hago como regalo 🎁</span>
+      </div>
+
+      <div class="regalo-info" id="regalo-info">
+        El libro es para otra persona. Los integrantes son quienes van a grabar.
+      </div>
     </div>
-  </div>
 
-  <div class="seccion">
-    <h2>¿Quiénes participan?</h2>
-    <p class="seccion-sub">Agregá a cada integrante</p>
+    <!-- Foto de portada -->
+    <div class="section">
+      <div class="section-title">Foto de portada <span style="font-size:12px;font-weight:400;color:var(--accent-light)">(opcional)</span></div>
 
-    <div id="integrantes-container"></div>
+      <div class="field">
+        <label>Foto del preámbulo (opcional)</label>
+        <p class="field-hint">Una foto grupal de la familia para abrir el libro. Puede ser reciente o histórica — la que mejor los represente a todos.</p>
+        <div class="foto-input-wrap" id="foto-drop-zone" onclick="document.getElementById('foto-portada-input').click()">
+          <input type="file" id="foto-portada-input" accept="image/*" onchange="onFotoSeleccionada(this)" onclick="event.stopPropagation()">
+          <span class="foto-input-label" id="foto-input-label">Hacé clic para elegir una foto&hellip;</span>
+        </div>
+        <div class="foto-preview-wrap" id="foto-preview-wrap">
+          <img id="foto-preview-img" src="" alt="Preview foto de portada">
+          <button type="button" class="btn-quitar-foto" onclick="quitarFoto()">Quitar foto</button>
+        </div>
+      </div>
+    </div>
 
-    <button class="btn-agregar" id="btn-agregar" onclick="agregarIntegrante()">
-      + Agregar otra persona
-    </button>
-  </div>
+    <!-- Integrantes -->
+    <div class="section">
+      <div class="section-title">Integrantes</div>
 
-  <div class="seccion" style="border:none; background:none; padding:0;">
-    <button class="btn-submit" id="btn-submit" onclick="enviar()">Confirmar y generar links →</button>
-    <div class="error-msg" id="error-msg"></div>
-  </div>
+      <div id="lista-integrantes"></div>
 
-</div>
+      <button class="btn btn-secondary btn-add" onclick="agregarIntegrante()">
+        + Agregar integrante
+      </button>
+    </div>
 
-<div class="confirmacion" id="confirmacion">
-  <div class="conf-linea"></div>
-  <div class="conf-titulo">¡Listo! Enviamos los links a cada persona.</div>
-  <div class="conf-sub">Cada uno recibirá su link para grabar</div>
-  <div class="conf-links">
-    <div class="conf-links-titulo" id="conf-familia-nombre"></div>
-    <div id="conf-links-lista"></div>
-  </div>
-  <div class="conf-firma">— Familia Mariño · Saraniti</div>
-</div>
+    <!-- Mensajes y submit -->
+    <div id="msg-error" class="msg msg-error"></div>
+    <div id="msg-loading" class="msg msg-loading" style="display:none">
+      <div class="spinner"></div>
+      <span>Creando familia y generando tokens de grabación&hellip;</span>
+    </div>
+
+    <div class="submit-area">
+      <button class="btn btn-primary" id="btn-submit" onclick="enviarOnboarding()">
+        Generar tokens de grabación
+      </button>
+    </div>
+
+  </div><!-- /#formulario -->
+
+  <!-- ══════════════════════ RESULTADO ══════════════════════ -->
+  <div id="resultado">
+
+    <div class="resultado-header">
+      <div class="checkmark">✓</div>
+      <h2 id="resultado-titulo">¡Familia creada!</h2>
+      <p id="resultado-subtitulo">Compartí cada link con la persona que corresponde. El estado se actualiza solo.</p>
+    </div>
+
+    <div class="section">
+      <div class="dashboard-top">
+        <div class="section-title">Progreso de grabaciones</div>
+        <div class="dash-meta">
+          <span id="dash-progreso-txt"></span>
+          <span id="dash-refresh-txt" class="dash-refresh-txt"></span>
+        </div>
+      </div>
+      <div id="dashboard-tabla"></div>
+    </div>
+
+    <div class="nueva-familia">
+      <a onclick="reiniciar()">Crear otra familia</a>
+    </div>
+
+  </div><!-- /#resultado -->
+
+</div><!-- /.container -->
 
 <script>
-const API_URL = 'https://familia-pipeline-776445604502.us-central1.run.app/familia';
+// ─────────────────────────────────────────────────────────────────────
+// Config
+// ─────────────────────────────────────────────────────────────────────
 
-const RELACIONES = [
-  { value: 'padre',    label: 'Padre' },
-  { value: 'madre',    label: 'Madre' },
-  { value: 'abuelo',   label: 'Abuelo' },
-  { value: 'abuela',   label: 'Abuela' },
-  { value: 'tio',      label: 'Tío' },
-  { value: 'tia',      label: 'Tía' },
-  { value: 'hermano',  label: 'Hermano' },
-  { value: 'hermana',  label: 'Hermana' },
-  { value: 'hijo',     label: 'Hijo' },
-  { value: 'hija',     label: 'Hija' },
-  { value: 'pareja',   label: 'Pareja / cónyuge' },
-  { value: 'otro',     label: 'Otro' },
-];
+const BASE_URL = 'https://familia-pipeline-776445604502.us-central1.run.app';
+const API_BASE = BASE_URL; // mismo origen; puede cambiarse a '' para URL relativa
 
-let contadorIntegrantes = 0;
+// ─────────────────────────────────────────────────────────────────────
+// Estado
+// ─────────────────────────────────────────────────────────────────────
 
-function opcionesRelacion(seleccionado) {
-  return RELACIONES.map(r =>
-    `<option value="${r.value}"${r.value === seleccionado ? ' selected' : ''}>${r.label}</option>`
-  ).join('');
+let contIntegrantes = 0;
+let esRegalo        = false;  // toggle "Lo hago como regalo"
+
+// ─────────────────────────────────────────────────────────────────────
+// Toggle regalo
+// ─────────────────────────────────────────────────────────────────────
+
+function toggleRegalo() {
+  esRegalo = !esRegalo;
+  const sw    = document.getElementById('toggle-switch');
+  const info  = document.getElementById('regalo-info');
+  const label = document.getElementById('label_email_comprador');
+
+  if (esRegalo) {
+    sw.classList.add('active');
+    info.classList.add('show');
+    label.textContent = 'Tu email (para enviarte el libro)';
+    // Desvincular primera card si existía vínculo
+    desvincularPrimerCard();
+  } else {
+    sw.classList.remove('active');
+    info.classList.remove('show');
+    label.textContent = 'Email del comprador';
+    // Re-sincronizar primera card con datos del comprador
+    sincronizarPrimerCard();
+  }
 }
 
-function agregarIntegrante(nombre = '', relacion = '') {
-  contadorIntegrantes++;
-  const id = contadorIntegrantes;
-  const container = document.getElementById('integrantes-container');
+// ─────────────────────────────────────────────────────────────────────
+// Sincronización comprador ↔ primer integrante
+// ─────────────────────────────────────────────────────────────────────
 
-  const div = document.createElement('div');
-  div.className = 'integrante-card';
-  div.id = 'integrante-' + id;
-  div.innerHTML = `
-    <div class="num">Persona ${id}</div>
-    <button class="btn-quitar" onclick="quitarIntegrante(${id})" title="Quitar">×</button>
-    <label>Nombre completo</label>
-    <input type="text" id="nombre-int-${id}" placeholder="Nombre y apellido" value="${nombre}" />
-    <label>Relación con vos</label>
-    <div class="select-wrap">
-      <select id="relacion-int-${id}">
-        ${opcionesRelacion(relacion)}
-      </select>
+function getPrimerCard() {
+  return document.querySelector('#lista-integrantes .card');
+}
+
+function sincronizarPrimerCard() {
+  if (esRegalo) return;
+  const card = getPrimerCard();
+  if (!card || card.dataset.desvinculado === 'true') return;
+
+  const nombreComp = document.getElementById('nombre_comprador').value;
+  const emailComp  = document.getElementById('email_comprador').value;
+  const nombreInput = card.querySelector('.ing-nombre');
+  const emailInput  = card.querySelector('.ing-email');
+
+  if (nombreInput) nombreInput.value = nombreComp;
+  if (emailInput)  emailInput.value  = emailComp;
+  actualizarBadge(card);
+}
+
+function desvincularPrimerCard() {
+  const card = getPrimerCard();
+  if (!card) return;
+  card.dataset.desvinculado = 'true';
+  actualizarBadge(card);
+}
+
+function actualizarBadge(card) {
+  // Actualiza el header de la card para mostrar el nombre si ya fue escrito
+  renumerar();
+}
+
+function renumerar() {
+  document.querySelectorAll('#lista-integrantes .card').forEach((card, i) => {
+    const span = card.querySelector('.card-num');
+    if (!span) return;
+    const nombre = card.querySelector('.ing-nombre')?.value.trim();
+    span.textContent = nombre || `Integrante ${i + 1}`;
+  });
+}
+
+function onCompradorInput() {
+  sincronizarPrimerCard();
+}
+
+function onPrimerIngInput(card) {
+  // Solo desvincula si la card es la primera
+  const primerCard = getPrimerCard();
+  if (card === primerCard) {
+    const nombreInput = card.querySelector('.ing-nombre');
+    const emailInput  = card.querySelector('.ing-email');
+    const nombreComp  = document.getElementById('nombre_comprador').value;
+    const emailComp   = document.getElementById('email_comprador').value;
+
+    // Desvincula solo si el usuario cambió algo respecto al valor del comprador
+    const nombreDiferente = nombreInput && nombreInput.value !== nombreComp;
+    const emailDiferente  = emailInput  && emailInput.value  !== emailComp;
+
+    if (nombreDiferente || emailDiferente) {
+      card.dataset.desvinculado = 'true';
+      actualizarBadge(card);
+    }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// HTML de un select de países (reutilizable por card)
+// ─────────────────────────────────────────────────────────────────────
+
+function paisSelectHTML(valorInicial = '') {
+  return `
+    <select class="ing-pais">
+      <option value="">— Variante del idioma —</option>
+      <optgroup label="América del Sur">
+        <option value="argentina"${valorInicial==='argentina'?' selected':''}>Argentina</option>
+        <option value="bolivia"${valorInicial==='bolivia'?' selected':''}>Bolivia</option>
+        <option value="brasil"${valorInicial==='brasil'?' selected':''}>Brasil</option>
+        <option value="chile"${valorInicial==='chile'?' selected':''}>Chile</option>
+        <option value="colombia"${valorInicial==='colombia'?' selected':''}>Colombia</option>
+        <option value="ecuador"${valorInicial==='ecuador'?' selected':''}>Ecuador</option>
+        <option value="guyana"${valorInicial==='guyana'?' selected':''}>Guyana</option>
+        <option value="paraguay"${valorInicial==='paraguay'?' selected':''}>Paraguay</option>
+        <option value="peru"${valorInicial==='peru'?' selected':''}>Perú</option>
+        <option value="surinam"${valorInicial==='surinam'?' selected':''}>Surinam</option>
+        <option value="uruguay"${valorInicial==='uruguay'?' selected':''}>Uruguay</option>
+        <option value="venezuela"${valorInicial==='venezuela'?' selected':''}>Venezuela</option>
+      </optgroup>
+      <optgroup label="América Central y Caribe">
+        <option value="costa rica"${valorInicial==='costa rica'?' selected':''}>Costa Rica</option>
+        <option value="cuba"${valorInicial==='cuba'?' selected':''}>Cuba</option>
+        <option value="el salvador"${valorInicial==='el salvador'?' selected':''}>El Salvador</option>
+        <option value="guatemala"${valorInicial==='guatemala'?' selected':''}>Guatemala</option>
+        <option value="haiti"${valorInicial==='haiti'?' selected':''}>Haití</option>
+        <option value="honduras"${valorInicial==='honduras'?' selected':''}>Honduras</option>
+        <option value="jamaica"${valorInicial==='jamaica'?' selected':''}>Jamaica</option>
+        <option value="mexico"${valorInicial==='mexico'?' selected':''}>México</option>
+        <option value="nicaragua"${valorInicial==='nicaragua'?' selected':''}>Nicaragua</option>
+        <option value="panama"${valorInicial==='panama'?' selected':''}>Panamá</option>
+        <option value="puerto rico"${valorInicial==='puerto rico'?' selected':''}>Puerto Rico</option>
+        <option value="republica dominicana"${valorInicial==='republica dominicana'?' selected':''}>República Dominicana</option>
+        <option value="trinidad"${valorInicial==='trinidad'?' selected':''}>Trinidad y Tobago</option>
+      </optgroup>
+      <optgroup label="América del Norte">
+        <option value="canada"${valorInicial==='canada'?' selected':''}>Canadá</option>
+        <option value="estados unidos"${valorInicial==='estados unidos'?' selected':''}>Estados Unidos</option>
+      </optgroup>
+      <optgroup label="Europa">
+        <option value="alemania"${valorInicial==='alemania'?' selected':''}>Alemania</option>
+        <option value="austria"${valorInicial==='austria'?' selected':''}>Austria</option>
+        <option value="belgica"${valorInicial==='belgica'?' selected':''}>Bélgica</option>
+        <option value="croacia"${valorInicial==='croacia'?' selected':''}>Croacia</option>
+        <option value="dinamarca"${valorInicial==='dinamarca'?' selected':''}>Dinamarca</option>
+        <option value="eslovaquia"${valorInicial==='eslovaquia'?' selected':''}>Eslovaquia</option>
+        <option value="eslovenia"${valorInicial==='eslovenia'?' selected':''}>Eslovenia</option>
+        <option value="espana"${valorInicial==='espana'?' selected':''}>España</option>
+        <option value="finlandia"${valorInicial==='finlandia'?' selected':''}>Finlandia</option>
+        <option value="francia"${valorInicial==='francia'?' selected':''}>Francia</option>
+        <option value="grecia"${valorInicial==='grecia'?' selected':''}>Grecia</option>
+        <option value="hungria"${valorInicial==='hungria'?' selected':''}>Hungría</option>
+        <option value="irlanda"${valorInicial==='irlanda'?' selected':''}>Irlanda</option>
+        <option value="italia"${valorInicial==='italia'?' selected':''}>Italia</option>
+        <option value="noruega"${valorInicial==='noruega'?' selected':''}>Noruega</option>
+        <option value="paises bajos"${valorInicial==='paises bajos'?' selected':''}>Países Bajos</option>
+        <option value="polonia"${valorInicial==='polonia'?' selected':''}>Polonia</option>
+        <option value="portugal"${valorInicial==='portugal'?' selected':''}>Portugal</option>
+        <option value="reino unido"${valorInicial==='reino unido'?' selected':''}>Reino Unido</option>
+        <option value="republica checa"${valorInicial==='republica checa'?' selected':''}>República Checa</option>
+        <option value="rumania"${valorInicial==='rumania'?' selected':''}>Rumanía</option>
+        <option value="rusia"${valorInicial==='rusia'?' selected':''}>Rusia</option>
+        <option value="suecia"${valorInicial==='suecia'?' selected':''}>Suecia</option>
+        <option value="suiza"${valorInicial==='suiza'?' selected':''}>Suiza</option>
+        <option value="ucrania"${valorInicial==='ucrania'?' selected':''}>Ucrania</option>
+      </optgroup>
+      <optgroup label="Asia y Oceanía">
+        <option value="australia"${valorInicial==='australia'?' selected':''}>Australia</option>
+        <option value="china"${valorInicial==='china'?' selected':''}>China</option>
+        <option value="corea del sur"${valorInicial==='corea del sur'?' selected':''}>Corea del Sur</option>
+        <option value="filipinas"${valorInicial==='filipinas'?' selected':''}>Filipinas</option>
+        <option value="india"${valorInicial==='india'?' selected':''}>India</option>
+        <option value="indonesia"${valorInicial==='indonesia'?' selected':''}>Indonesia</option>
+        <option value="japon"${valorInicial==='japon'?' selected':''}>Japón</option>
+        <option value="nueva zelanda"${valorInicial==='nueva zelanda'?' selected':''}>Nueva Zelanda</option>
+        <option value="tailandia"${valorInicial==='tailandia'?' selected':''}>Tailandia</option>
+        <option value="turquia"${valorInicial==='turquia'?' selected':''}>Turquía</option>
+        <option value="vietnam"${valorInicial==='vietnam'?' selected':''}>Vietnam</option>
+      </optgroup>
+      <optgroup label="África y Medio Oriente">
+        <option value="arabia saudita"${valorInicial==='arabia saudita'?' selected':''}>Arabia Saudita</option>
+        <option value="egipto"${valorInicial==='egipto'?' selected':''}>Egipto</option>
+        <option value="emiratos arabes"${valorInicial==='emiratos arabes'?' selected':''}>Emiratos Árabes</option>
+        <option value="israel"${valorInicial==='israel'?' selected':''}>Israel</option>
+        <option value="marruecos"${valorInicial==='marruecos'?' selected':''}>Marruecos</option>
+        <option value="nigeria"${valorInicial==='nigeria'?' selected':''}>Nigeria</option>
+        <option value="sudafrica"${valorInicial==='sudafrica'?' selected':''}>Sudáfrica</option>
+      </optgroup>
+    </select>`;
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Integrantes
+// ─────────────────────────────────────────────────────────────────────
+
+function agregarIntegrante() {
+  contIntegrantes++;
+  const idx = contIntegrantes;
+
+  // Copiar el país del último integrante para pre-seleccionarlo
+  let paisAnterior = '';
+  const ultimaCard = document.querySelector('#lista-integrantes .card:last-child');
+  if (ultimaCard) {
+    const selectPais = ultimaCard.querySelector('.ing-pais');
+    if (selectPais) paisAnterior = selectPais.value;
+  }
+
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.id = `ing-${idx}`;
+  card.innerHTML = `
+    <div class="card-header">
+      <span class="card-num">Integrante ${idx}</span>
+      <button class="btn-remove" onclick="eliminar('ing-${idx}')" title="Eliminar">&times;</button>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Nombre completo</label>
+        <input type="text" class="ing-nombre" placeholder="ej: Juan López">
+      </div>
+      <div class="field">
+        <label>Email <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px;color:var(--accent-light)">(opcional)</span></label>
+        <input type="email" class="ing-email" placeholder="juan@email.com">
+        <p class="field-variante-hint">No es necesario para menores ni adultos mayores.</p>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>¿Cómo habla?</label>
+        ${paisSelectHTML(paisAnterior)}
+        <p class="field-variante-hint">Para transcribir mejor el audio. Elegí el acento o vocabulario que usa, no el país de nacimiento.</p>
+      </div>
+      <div class="field">
+        <label>Rol en la familia</label>
+        <select class="ing-rol">
+          <option value="">— Elegir —</option>
+          <option value="abuelo">Abuelo/a</option>
+          <option value="padre">Padre/Madre</option>
+          <option value="hijo">Hijo/a</option>
+          <option value="nieto">Nieto/a</option>
+          <option value="tio">Tío/a</option>
+          <option value="primo">Primo/a</option>
+          <option value="conyuge">Cónyuge</option>
+          <option value="otro">Otro</option>
+        </select>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Fecha de nac.</label>
+        <input type="date" class="ing-fecha_nac">
+      </div>
+      <div class="field" style="display:flex;align-items:flex-end;padding-bottom:2px">
+        <div class="field-check">
+          <input type="checkbox" class="ing-es_menor" id="menor-${idx}">
+          <label for="menor-${idx}">Es menor de edad</label>
+        </div>
+      </div>
     </div>
   `;
-  container.appendChild(div);
-  actualizarBotones();
-}
 
-function quitarIntegrante(id) {
-  const total = document.querySelectorAll('.integrante-card').length;
-  if (total <= 1) return;
-  const card = document.getElementById('integrante-' + id);
-  if (card) card.remove();
-  actualizarBotones();
-}
+  document.getElementById('lista-integrantes').appendChild(card);
 
-function actualizarBotones() {
-  const cards = document.querySelectorAll('.integrante-card');
-  cards.forEach(card => {
-    const btn = card.querySelector('.btn-quitar');
-    if (btn) btn.style.display = cards.length <= 1 ? 'none' : '';
-  });
-}
-
-function getIntegrantes() {
-  const cards = document.querySelectorAll('.integrante-card');
-  return Array.from(cards).map(card => {
-    const idMatch = card.id.match(/integrante-(\d+)/);
-    const id = idMatch ? idMatch[1] : null;
-    return {
-      nombre:   document.getElementById('nombre-int-' + id)?.value.trim() || '',
-      relacion: document.getElementById('relacion-int-' + id)?.value || '',
-    };
-  });
-}
-
-async function enviar() {
-  const nombreFamilia   = document.getElementById('nombre-familia').value.trim();
-  const emailComprador  = document.getElementById('email-comprador').value.trim();
-  const pais            = document.getElementById('pais').value;
-  const integrantes     = getIntegrantes();
-  const errorEl         = document.getElementById('error-msg');
-
-  errorEl.textContent = '';
-
-  if (!nombreFamilia) { errorEl.textContent = 'Escribí el nombre de la familia.'; return; }
-  if (!emailComprador || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailComprador)) {
-    errorEl.textContent = 'Ingresá un email válido.';
-    return;
+  // Todos los cards: actualizar header al escribir nombre
+  const nombreInput = card.querySelector('.ing-nombre');
+  if (nombreInput) {
+    nombreInput.addEventListener('input', renumerar);
   }
-  const sinNombre = integrantes.find(i => !i.nombre);
-  if (sinNombre) { errorEl.textContent = 'Completá el nombre de todos los integrantes.'; return; }
 
-  const btn = document.getElementById('btn-submit');
-  btn.disabled = true;
-  btn.textContent = 'Enviando...';
+  // Primer card: vincular con comprador
+  if (idx === 1) {
+    const emailInput = card.querySelector('.ing-email');
+    if (nombreInput) nombreInput.addEventListener('input', () => onPrimerIngInput(card));
+    if (emailInput)  emailInput.addEventListener('input',  () => onPrimerIngInput(card));
+    sincronizarPrimerCard();
+    actualizarBadge(card);
+  }
 
+  renumerar();
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Utilidades
+// ─────────────────────────────────────────────────────────────────────
+
+function eliminar(id) {
+  const el = document.getElementById(id);
+  if (el) el.remove();
+  renumerar();
+}
+
+function mostrarError(msg) {
+  const el = document.getElementById('msg-error');
+  el.textContent = msg;
+  el.classList.add('show');
+}
+
+function ocultarError() {
+  const el = document.getElementById('msg-error');
+  el.textContent = '';
+  el.classList.remove('show');
+}
+
+function setLoading(on) {
+  document.getElementById('msg-loading').style.display = on ? 'flex' : 'none';
+  document.getElementById('btn-submit').disabled = on;
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Recolectar datos del formulario
+// ─────────────────────────────────────────────────────────────────────
+
+function recolectarDatos() {
+  const familiaId    = document.getElementById('familia_id').value.trim();
+  const nombreFam    = document.getElementById('nombre_familia').value.trim();
+  const emailComp    = document.getElementById('email_comprador').value.trim();
+
+  // Validaciones básicas
+  if (!familiaId)    return { error: 'El ID de familia es obligatorio.' };
+  if (!nombreFam)    return { error: 'El nombre de la familia es obligatorio.' };
+  if (!emailComp)    return { error: 'El email del comprador es obligatorio.' };
+
+  // Integrantes
+  const ingCards = document.querySelectorAll('[id^="ing-"]');
+  if (ingCards.length === 0) return { error: 'Agregá al menos un integrante.' };
+
+  const integrantes = [];
+  for (const card of ingCards) {
+    const nombre = card.querySelector('.ing-nombre')?.value.trim() || '';
+    if (!nombre) return { error: 'Todos los integrantes deben tener nombre.' };
+    const pais = card.querySelector('.ing-pais')?.value || '';
+    if (!pais) return { error: `Seleccioná la variante de idioma para "${nombre}".` };
+    integrantes.push({
+      nombre,
+      email:     card.querySelector('.ing-email')?.value.trim()     || '',
+      rol:       card.querySelector('.ing-rol')?.value               || '',
+      fecha_nac: card.querySelector('.ing-fecha_nac')?.value         || '',
+      es_menor:  card.querySelector('.ing-es_menor')?.checked        || false,
+      pais,
+    });
+  }
+
+  return {
+    payload: {
+      familia_id:      familiaId,
+      nombre_familia:  nombreFam,
+      email_comprador: emailComp,
+      integrantes,
+      relaciones: [],
+    }
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Enviar al endpoint
+// ─────────────────────────────────────────────────────────────────────
+
+async function enviarOnboarding() {
+  ocultarError();
+
+  const { error, payload } = recolectarDatos();
+  if (error) { mostrarError(error); return; }
+
+  setLoading(true);
   try {
-    const res = await fetch(API_URL, {
+    const resp = await fetch(`${API_BASE}/onboarding`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        nombre_familia:  nombreFamilia,
-        email_comprador: emailComprador,
-        pais:            pais,
-        integrantes:     integrantes,
-      }),
+      body: JSON.stringify(payload),
     });
 
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      throw new Error(data.detail || `Error ${res.status}`);
+    if (!resp.ok) {
+      let detail = `Error ${resp.status}`;
+      try {
+        const body = await resp.json();
+        detail = body.detail || detail;
+      } catch (_) {}
+      throw new Error(detail);
     }
 
-    const data = await res.json();
-    mostrarConfirmacion(nombreFamilia, data.tokens);
+    const data = await resp.json();
 
-  } catch (e) {
-    errorEl.textContent = 'Error al enviar: ' + e.message;
-    btn.disabled = false;
-    btn.textContent = 'Confirmar y generar links →';
+    // Si hay foto seleccionada, subirla al endpoint de foto-portada
+    const fotoInput = document.getElementById('foto-portada-input');
+    if (fotoInput && fotoInput.files && fotoInput.files[0] && data.familia_id) {
+      try {
+        const formData = new FormData();
+        formData.append('file', fotoInput.files[0]);
+        await fetch(`${API_BASE}/familia/${data.familia_id}/foto-portada`, {
+          method: 'POST',
+          body: formData,
+        });
+        // No bloqueamos el flujo aunque falle la foto
+      } catch (_) {
+        // silencioso: el onboarding ya fue exitoso
+      }
+    }
+
+    mostrarResultado(data, payload.nombre_familia);
+
+  } catch (err) {
+    mostrarError('No se pudo conectar con el servidor: ' + err.message);
+  } finally {
+    setLoading(false);
   }
 }
 
-function mostrarConfirmacion(nombreFamilia, tokens) {
-  document.getElementById('conf-familia-nombre').textContent = nombreFamilia;
+// ─────────────────────────────────────────────────────────────────────
+// Mostrar resultado
+// ─────────────────────────────────────────────────────────────────────
 
-  const lista = document.getElementById('conf-links-lista');
-  lista.innerHTML = tokens.map(t => `
-    <div class="link-card">
-      <div class="link-nombre">${t.nombre}</div>
-      <div class="link-relacion">${t.relacion}</div>
-      <a class="link-url" href="${t.link}" target="_blank">${t.link}</a>
-    </div>
-  `).join('');
+// ─────────────────────────────────────────────────────────────────────
+// Dashboard de resultado
+// ─────────────────────────────────────────────────────────────────────
 
-  document.getElementById('confirmacion').classList.add('visible');
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+let _dashFamiliaId  = null;
+let _dashTokensInit = [];
+let _dashInterval   = null;
+
+const WA_SVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>`;
+
+function _estadoInfo(t) {
+  if (t.estado === 'completado')  return { label: '✓ Completó',      color: '#3B6D11' };
+  if (t.estado === 'en_progreso') return { label: '⏺ Grabando…',     color: '#c8522a' };
+  if (t.usado)                    return { label: '👁 Abrió el link', color: '#c8a96e' };
+  return                                 { label: '○ Pendiente',      color: '#aaa'    };
 }
 
-// Iniciar con un integrante vacío
+function _renderDashboard(tokens) {
+  const completados = tokens.filter(t => t.estado === 'completado').length;
+  document.getElementById('dash-progreso-txt').textContent =
+    `${completados} de ${tokens.length} grabaciones completadas`;
+
+  const tabla = document.getElementById('dashboard-tabla');
+  tabla.innerHTML = tokens.map(t => {
+    const link    = t.link;
+    const waText  = encodeURIComponent(`Hola ${t.nombre}, te comparto el link para grabar tu historia para el libro familiar: ${link}`);
+    const ei      = _estadoInfo(t);
+    return `
+      <div class="dash-row">
+        <div class="dash-nombre">${escHtml(t.nombre)}</div>
+        <div class="dash-badge" style="--estado-color:${ei.color}">${ei.label}</div>
+        <div class="dash-acciones">
+          <button class="btn btn-secondary btn-sm" onclick="copiarLink('${escAttr(link)}', this)">Copiar link</button>
+          <a class="btn-whatsapp btn-sm" href="https://wa.me/?text=${encodeURIComponent(`Hola ${t.nombre}, te comparto el link para grabar tu historia para el libro familiar: ${link}`)}" target="_blank" rel="noopener">${WA_SVG} WhatsApp</a>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+async function _pollDashboard() {
+  if (!_dashFamiliaId) return;
+  try {
+    const r    = await fetch(`${API_BASE}/familia/${_dashFamiliaId}/tokens-estado`);
+    const data = await r.json();
+    _renderDashboard(data.tokens);
+    const now = new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+    document.getElementById('dash-refresh-txt').textContent = `Actualizado ${now}`;
+  } catch(_) {}
+}
+
+function mostrarResultado(data, nombreFamilia) {
+  document.getElementById('formulario').style.display = 'none';
+  document.getElementById('resultado').style.display  = 'block';
+  document.getElementById('resultado-titulo').textContent = `¡${nombreFamilia} lista!`;
+
+  _dashFamiliaId  = data.familia_id;
+  _dashTokensInit = data.tokens.map(t => ({ ...t, estado: 'pendiente', usado: false }));
+
+  _renderDashboard(_dashTokensInit);
+
+  if (_dashInterval) clearInterval(_dashInterval);
+  _dashInterval = setInterval(_pollDashboard, 30000);
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Copiar al portapapeles
+// ─────────────────────────────────────────────────────────────────────
+
+function copiarLink(texto, btn) {
+  navigator.clipboard.writeText(texto).then(() => {
+    btn.textContent = '¡Copiado!';
+    btn.classList.add('copied');
+    setTimeout(() => {
+      btn.textContent = 'Copiar link';
+      btn.classList.remove('copied');
+    }, 2000);
+  }).catch(() => {
+    // Fallback para navegadores sin clipboard API
+    const ta = document.createElement('textarea');
+    ta.value = texto;
+    ta.style.position = 'fixed';
+    ta.style.opacity  = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    btn.textContent = '¡Copiado!';
+    btn.classList.add('copied');
+    setTimeout(() => {
+      btn.textContent = 'Copiar link';
+      btn.classList.remove('copied');
+    }, 2000);
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Foto de portada
+// ─────────────────────────────────────────────────────────────────────
+
+function onFotoSeleccionada(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const img   = document.getElementById('foto-preview-img');
+    const wrap  = document.getElementById('foto-preview-wrap');
+    const label = document.getElementById('foto-input-label');
+    img.src = e.target.result;
+    wrap.style.display = 'block';
+    label.textContent = file.name;
+  };
+  reader.readAsDataURL(file);
+}
+
+function quitarFoto() {
+  const input = document.getElementById('foto-portada-input');
+  const wrap  = document.getElementById('foto-preview-wrap');
+  const label = document.getElementById('foto-input-label');
+  const img   = document.getElementById('foto-preview-img');
+
+  input.value = '';
+  img.src = '';
+  wrap.style.display = 'none';
+  label.textContent = 'Hacé clic para elegir una foto…';
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Reiniciar
+// ─────────────────────────────────────────────────────────────────────
+
+function reiniciar() {
+  if (_dashInterval) { clearInterval(_dashInterval); _dashInterval = null; }
+  _dashFamiliaId = null;
+
+  // Limpiar campos
+  ['familia_id','nombre_familia','nombre_comprador','email_comprador'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('lista-integrantes').innerHTML = '';
+  contIntegrantes = 0;
+
+  // Resetear foto de portada
+  quitarFoto();
+
+  // Resetear toggle regalo
+  if (esRegalo) toggleRegalo();
+
+  // Volver al formulario
+  document.getElementById('formulario').style.display = 'block';
+  document.getElementById('resultado').style.display  = 'none';
+  ocultarError();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  // Inicializar primer integrante
+  agregarIntegrante();
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Helpers de seguridad HTML
+// ─────────────────────────────────────────────────────────────────────
+
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function escAttr(str) {
+  return String(str).replace(/"/g, '&quot;');
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Inicializar
+// ─────────────────────────────────────────────────────────────────────
+
+// Listeners para sincronización comprador → primer integrante
+document.getElementById('nombre_comprador').addEventListener('input', onCompradorInput);
+document.getElementById('email_comprador').addEventListener('input', onCompradorInput);
+
 agregarIntegrante();
 </script>
+
 </body>
 </html>

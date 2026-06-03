@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — Libro Familiar</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Montserrat:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:           #fdf8f2;
+  --surface:      #ffffff;
+  --border:       #e8d9b8;
+  --accent:       #8b5e3c;
+  --accent-light: #c8a96e;
+  --text:         #3d2b0a;
+  --muted:        #9a7b5a;
+  --success:      #3B6D11;
+  --warning:      #c8791a;
+  --error:        #c0392b;
+  --info:         #1a6ec8;
+}
+
+body {
+  font-family: 'Montserrat', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 16px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.header-brand {
+  font-family: 'Playfair Display', serif;
+  font-size: 20px;
+  color: var(--text);
+}
+
+.header-sub {
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+#key-input {
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: 'Montserrat', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  width: 200px;
+}
+
+#key-input:focus { outline: none; border-color: var(--accent); }
+
+.btn {
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 9px 18px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-primary { background: var(--text); color: #fdf8f2; }
+.btn-primary:hover { background: #5a3e1a; }
+.btn-secondary { background: transparent; border: 1.5px solid var(--border); color: var(--accent); }
+.btn-secondary:hover { border-color: var(--accent); background: #fdf6f0; }
+.btn-sm { padding: 5px 12px; font-size: 11px; }
+.btn-danger { background: var(--error); color: white; }
+.btn-success { background: var(--success); color: white; }
+.btn-success:hover { background: #2d5a0d; }
+
+.container { max-width: 1100px; margin: 0 auto; padding: 32px 24px; }
+
+.page-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 26px;
+  font-weight: 400;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 16px;
+  margin: 24px 0;
+}
+
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.stat-val {
+  font-family: 'Playfair Display', serif;
+  font-size: 32px;
+  font-weight: 400;
+  color: var(--text);
+}
+
+.stat-label {
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  margin-top: 4px;
+}
+
+.section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  margin-bottom: 24px;
+}
+
+.section-header {
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.section-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+th {
+  padding: 10px 20px;
+  text-align: left;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  background: #faf6f0;
+}
+
+td {
+  padding: 14px 20px;
+  border-bottom: 1px solid #f5ede0;
+  vertical-align: middle;
+}
+
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: #fdf6f0; }
+
+.familia-nombre {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.familia-id {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 2px;
+  font-family: monospace;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+
+.badge-onboarding  { background: #eef3ff; color: #1a4bc8; }
+.badge-grabando    { background: #fff3e0; color: var(--warning); }
+.badge-generando   { background: #f3e8ff; color: #6b1ac8; }
+.badge-entregado   { background: #e8f5e9; color: var(--success); }
+.badge-error       { background: #fdecea; color: var(--error); }
+
+.progreso-bar-wrap {
+  width: 120px;
+  height: 6px;
+  background: var(--border);
+  border-radius: 99px;
+  overflow: hidden;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.progreso-bar {
+  height: 100%;
+  background: var(--accent-light);
+  border-radius: 99px;
+  transition: width 0.3s;
+}
+
+.progreso-bar.completo { background: var(--success); }
+
+.progreso-txt {
+  font-size: 12px;
+  color: var(--muted);
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: 8px;
+}
+
+.td-acciones { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.detail-panel {
+  background: #faf6f0;
+  border-top: 1px solid var(--border);
+  padding: 20px 24px;
+  display: none;
+}
+
+.detail-panel.open { display: block; }
+
+.detail-tokens {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.dt-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+}
+
+.dt-nombre { font-weight: 600; font-size: 13px; }
+.dt-link { font-size: 11px; color: var(--muted); word-break: break-all; margin: 4px 0; }
+.dt-estado { font-size: 11px; }
+
+.msg {
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-size: 13px;
+  margin-bottom: 16px;
+  display: none;
+}
+.msg.show { display: block; }
+.msg-error   { background: #fdecea; color: var(--error); border: 1px solid #f5c0bc; }
+.msg-success { background: #e8f5e9; color: var(--success); border: 1px solid #b8ddb8; }
+.msg-loading { background: #fdf6f0; color: var(--accent); border: 1px solid var(--border); display: flex; align-items: center; gap: 12px; }
+
+.spinner {
+  width: 18px; height: 18px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.empty {
+  text-align: center;
+  padding: 48px 20px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+#login-wall {
+  max-width: 400px;
+  margin: 80px auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 36px 32px;
+  text-align: center;
+}
+
+#login-wall h2 {
+  font-family: 'Playfair Display', serif;
+  font-size: 22px;
+  font-weight: 400;
+  margin-bottom: 24px;
+}
+
+#login-wall input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: 'Montserrat', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  margin-bottom: 16px;
+}
+
+#login-wall input:focus { outline: none; border-color: var(--accent); }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="header-brand">Libro de Memorias Familiar</div>
+    <div class="header-sub">Panel de administración</div>
+  </div>
+  <div class="header-right" id="header-right" style="display:none">
+    <span id="refresh-txt" style="font-size:12px;color:var(--muted)"></span>
+    <button class="btn btn-secondary" onclick="cargarFamilias()">↺ Actualizar</button>
+    <a class="btn btn-primary" href="/onboarding" target="_blank">+ Nueva familia</a>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- Login wall -->
+  <div id="login-wall">
+    <h2>Acceso admin</h2>
+    <input type="password" id="login-key" placeholder="Clave de administración" onkeydown="if(event.key==='Enter') login()">
+    <button class="btn btn-primary" style="width:100%" onclick="login()">Entrar</button>
+    <div id="login-error" style="color:var(--error);font-size:13px;margin-top:12px"></div>
+  </div>
+
+  <!-- Main content (hidden until login) -->
+  <div id="main-content" style="display:none">
+
+    <h1 class="page-title">Familias</h1>
+
+    <div class="stats-row" id="stats-row">
+      <div class="stat-card">
+        <div class="stat-val" id="stat-total">—</div>
+        <div class="stat-label">Familias</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" id="stat-grabando">—</div>
+        <div class="stat-label">En grabación</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" id="stat-entregadas">—</div>
+        <div class="stat-label">Entregadas</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" id="stat-error">—</div>
+        <div class="stat-label">Con error</div>
+      </div>
+    </div>
+
+    <div id="msg-loading" class="msg msg-loading">
+      <div class="spinner"></div>
+      <span>Cargando familias…</span>
+    </div>
+    <div id="msg-error" class="msg msg-error"></div>
+
+    <div class="section" id="tabla-section" style="display:none">
+      <div class="section-header">
+        <div class="section-title">Todas las familias</div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Familia</th>
+            <th>Estado</th>
+            <th>Grabaciones</th>
+            <th>Comprador</th>
+            <th>Creada</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="familias-tbody"></tbody>
+      </table>
+    </div>
+
+  </div><!-- /#main-content -->
+</div>
+
+<script>
+const API_BASE  = 'https://familia-pipeline-776445604502.us-central1.run.app';
+const ADMIN_KEY = 'familia-admin-2026';
+
+let _adminKey = '';
+let _familias = [];
+let _openDetail = null;
+
+// ─── Login ────────────────────────────────────────────────────────────────────
+
+function login() {
+  const val = document.getElementById('login-key').value.trim();
+  if (!val) return;
+  _adminKey = val;
+  // Try to load — if 403 it'll show error
+  document.getElementById('login-wall').style.display = 'none';
+  document.getElementById('main-content').style.display = 'block';
+  document.getElementById('header-right').style.display = 'flex';
+  cargarFamilias();
+}
+
+// ─── Cargar familias ─────────────────────────────────────────────────────────
+
+async function cargarFamilias() {
+  showLoading(true);
+  hideError();
+  try {
+    const r = await fetch(`${API_BASE}/admin/familias`, {
+      headers: { 'X-Admin-Key': _adminKey }
+    });
+    if (r.status === 403) {
+      showError('Clave incorrecta.');
+      showLoading(false);
+      return;
+    }
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const data = await r.json();
+    _familias = data.familias;
+    renderTabla();
+    renderStats();
+    const now = new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+    document.getElementById('refresh-txt').textContent = `Actualizado ${now}`;
+  } catch(e) {
+    showError(`Error cargando datos: ${e.message}`);
+  }
+  showLoading(false);
+}
+
+// ─── Render tabla ─────────────────────────────────────────────────────────────
+
+function renderStats() {
+  const f = _familias;
+  document.getElementById('stat-total').textContent     = f.length;
+  document.getElementById('stat-grabando').textContent  = f.filter(x => x.estado === 'grabando' || x.estado === 'onboarding').length;
+  document.getElementById('stat-entregadas').textContent = f.filter(x => x.estado === 'entregado').length;
+  document.getElementById('stat-error').textContent     = f.filter(x => x.estado === 'error').length;
+}
+
+function renderTabla() {
+  document.getElementById('tabla-section').style.display = 'block';
+  const tbody = document.getElementById('familias-tbody');
+
+  if (_familias.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6"><div class="empty">No hay familias todavía.</div></td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = _familias.map(f => {
+    const pct     = f.total_tokens > 0 ? Math.round((f.completados / f.total_tokens) * 100) : 0;
+    const badgeCls = {
+      onboarding: 'badge-onboarding',
+      grabando:   'badge-grabando',
+      generando:  'badge-generando',
+      entregado:  'badge-entregado',
+      error:      'badge-error',
+    }[f.estado] || 'badge-onboarding';
+
+    const fechaStr = f.fecha_creacion
+      ? new Date(f.fecha_creacion).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' })
+      : '—';
+
+    return `
+      <tr>
+        <td>
+          <div class="familia-nombre">${esc(f.nombre)}</div>
+          <div class="familia-id">${esc(f.familia_id)}</div>
+        </td>
+        <td><span class="badge ${badgeCls}">${esc(f.estado)}</span></td>
+        <td>
+          <div class="progreso-bar-wrap">
+            <div class="progreso-bar ${pct===100?'completo':''}" style="width:${pct}%"></div>
+          </div>
+          <span class="progreso-txt">${f.completados}/${f.total_tokens}</span>
+        </td>
+        <td style="font-size:12px;color:var(--muted)">${esc(f.email_comprador || '—')}</td>
+        <td style="font-size:12px;color:var(--muted)">${fechaStr}</td>
+        <td>
+          <div class="td-acciones">
+            <button class="btn btn-secondary btn-sm" onclick="toggleDetalle('${esc(f.familia_id)}', this)">Ver links</button>
+            ${f.completados > 0 && f.estado !== 'entregado' && f.estado !== 'generando'
+              ? `<button class="btn btn-success btn-sm" onclick="triggerPipeline('${esc(f.familia_id)}', this)">▶ Pipeline</button>`
+              : ''}
+            ${f.estado === 'entregado'
+              ? `<button class="btn btn-secondary btn-sm" onclick="descargarPdf('${esc(f.familia_id)}', this)">↓ PDF</button>`
+              : `<button class="btn btn-secondary btn-sm" onclick="enviarReminder('${esc(f.familia_id)}', this)" title="Envía email a quienes no grabaron aún">✉ Reminder</button>`}
+            <button class="btn btn-secondary btn-sm" onclick="enviarProgreso('${esc(f.familia_id)}', this)" title="Manda resumen de progreso al comprador">📊 Progreso</button>
+            ${f.estado === 'error'
+              ? `<button class="btn btn-danger btn-sm" onclick="triggerPipeline('${esc(f.familia_id)}', this)">↺ Reintentar</button>`
+              : ''}
+          </div>
+          <div id="detail-${esc(f.familia_id)}" class="detail-panel"></div>
+        </td>
+      </tr>`;
+  }).join('');
+}
+
+// ─── Detalle tokens ───────────────────────────────────────────────────────────
+
+async function toggleDetalle(familiaId, btn) {
+  const panel = document.getElementById(`detail-${familiaId}`);
+  if (panel.classList.contains('open')) {
+    panel.classList.remove('open');
+    btn.textContent = 'Ver links';
+    return;
+  }
+  btn.textContent = 'Cargando…';
+  try {
+    const r    = await fetch(`${API_BASE}/familia/${familiaId}/tokens-estado`);
+    const data = await r.json();
+    const tokens = data.tokens || [];
+
+    panel.innerHTML = `
+      <div style="font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:12px">
+        Links de grabación — ${esc(data.nombre_familia)}
+      </div>
+      <div class="detail-tokens">
+        ${tokens.map(t => {
+          const ei = estadoInfo(t);
+          const waMsg = encodeURIComponent(`Hola ${t.nombre}, te comparto el link para grabar tu historia para el libro familiar: ${t.link}`);
+          return `
+            <div class="dt-card">
+              <div class="dt-nombre">${esc(t.nombre)}</div>
+              <div class="dt-link">${esc(t.link)}</div>
+              <div class="dt-estado" style="color:${ei.color};margin-bottom:10px">${ei.label}</div>
+              <div style="display:flex;gap:6px">
+                <button class="btn btn-secondary btn-sm" onclick="copiar('${esc(t.link)}', this)">Copiar</button>
+                <a class="btn btn-secondary btn-sm" href="https://wa.me/?text=${waMsg}" target="_blank" style="text-decoration:none">WhatsApp</a>
+              </div>
+            </div>`;
+        }).join('')}
+      </div>`;
+    panel.classList.add('open');
+    btn.textContent = 'Cerrar';
+  } catch(e) {
+    panel.innerHTML = `<p style="color:var(--error);font-size:13px">Error: ${e.message}</p>`;
+    panel.classList.add('open');
+    btn.textContent = 'Cerrar';
+  }
+}
+
+// ─── Trigger pipeline ─────────────────────────────────────────────────────────
+
+async function triggerPipeline(familiaId, btn) {
+  if (!confirm(`¿Iniciar el pipeline para "${familiaId}"? Esto genera los capítulos y el PDF.`)) return;
+  btn.disabled = true;
+  btn.textContent = '⏳ Iniciando…';
+  try {
+    const r = await fetch(`${API_BASE}/familia/${familiaId}/trigger-pipeline`, {
+      method: 'POST',
+      headers: { 'X-Admin-Key': _adminKey },
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      throw new Error(err.detail || `HTTP ${r.status}`);
+    }
+    btn.textContent = '✓ Iniciado';
+    btn.className = 'btn btn-sm';
+    btn.style.color = 'var(--success)';
+    setTimeout(() => cargarFamilias(), 2000);
+  } catch(e) {
+    alert(`Error: ${e.message}`);
+    btn.disabled = false;
+    btn.textContent = '▶ Pipeline';
+  }
+}
+
+// ─── Email progreso ───────────────────────────────────────────────────────────
+
+async function enviarProgreso(familiaId, btn) {
+  btn.disabled = true;
+  btn.textContent = '⏳ Enviando…';
+  try {
+    const r = await fetch(`${API_BASE}/familia/${familiaId}/email-progreso`, {
+      method: 'POST',
+      headers: { 'X-Admin-Key': _adminKey }
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      throw new Error(err.detail || `HTTP ${r.status}`);
+    }
+    const data = await r.json();
+    btn.textContent = '✓ Enviado';
+    setTimeout(() => { btn.textContent = '📊 Progreso'; btn.disabled = false; }, 3000);
+  } catch(e) {
+    alert(`Error: ${e.message}`);
+    btn.textContent = '📊 Progreso';
+    btn.disabled = false;
+  }
+}
+
+// ─── Reminder ────────────────────────────────────────────────────────────────
+
+async function enviarReminder(familiaId, btn) {
+  btn.disabled = true;
+  btn.textContent = '⏳ Enviando…';
+  try {
+    const r = await fetch(`${API_BASE}/familia/${familiaId}/reminder`, {
+      method: 'POST',
+      headers: { 'X-Admin-Key': _adminKey }
+    });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const data = await r.json();
+    alert(`Reminders enviados: ${data.total}\n${data.enviados.map(e => `${e.nombre} → ${e.email}`).join('\n') || '(ninguno con email)'}`);
+  } catch(e) {
+    alert(`Error: ${e.message}`);
+  }
+  btn.disabled = false;
+  btn.textContent = '✉ Reminder';
+}
+
+// ─── Descargar PDF ────────────────────────────────────────────────────────────
+
+async function descargarPdf(familiaId, btn) {
+  btn.disabled = true;
+  btn.textContent = '⏳ Generando…';
+  try {
+    const r = await fetch(`${API_BASE}/familia/${familiaId}/pdf`, {
+      headers: { 'X-Admin-Key': _adminKey }
+    });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const data = await r.json();
+    window.open(data.pdf_url, '_blank');
+    btn.textContent = '↓ PDF';
+  } catch(e) {
+    alert(`Error: ${e.message}`);
+    btn.textContent = '↓ PDF';
+  }
+  btn.disabled = false;
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function estadoInfo(t) {
+  if (t.estado === 'completado')  return { label: '✓ Completó',      color: '#3B6D11' };
+  if (t.estado === 'en_progreso') return { label: '⏺ Grabando…',     color: '#c8522a' };
+  if (t.usado)                    return { label: '👁 Abrió el link', color: '#c8a96e' };
+  return                                 { label: '○ Pendiente',      color: '#aaa'    };
+}
+
+function copiar(texto, btn) {
+  navigator.clipboard.writeText(texto).then(() => {
+    btn.textContent = '¡Copiado!';
+    setTimeout(() => btn.textContent = 'Copiar', 1500);
+  });
+}
+
+function esc(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function showLoading(on) {
+  document.getElementById('msg-loading').classList.toggle('show', on);
+}
+
+function showError(msg) {
+  const el = document.getElementById('msg-error');
+  el.textContent = msg;
+  el.classList.add('show');
+}
+
+function hideError() {
+  document.getElementById('msg-error').classList.remove('show');
+}
+</script>
+</body>
+</html>

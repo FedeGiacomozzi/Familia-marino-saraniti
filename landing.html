@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Raíces — El libro biográfico de tu familia</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,700;1,400;1,500&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:'Lato',sans-serif;color:#3d2b0a;background:#fdf8f2}
+
+/* ── NAV ── */
+nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(253,248,242,0.92);backdrop-filter:blur(8px);border-bottom:0.5px solid #e8d9b8;padding:0 2rem;display:flex;align-items:center;justify-content:space-between;height:56px}
+.nav-brand{font-family:'Playfair Display',serif;font-size:18px;color:#3d2b0a;letter-spacing:0.05em}
+.nav-cta{background:#2C1A0E;color:#F5EDD8;border:none;padding:8px 20px;border-radius:100px;font-family:'Lato',sans-serif;font-size:13px;cursor:pointer;letter-spacing:0.04em;text-decoration:none}
+
+/* ── HERO ── */
+.hero{min-height:100vh;display:flex;align-items:center;justify-content:center;text-align:center;padding:80px 24px 60px;background:linear-gradient(180deg,#2C1A0E 0%,#3d2b0a 60%,#fdf8f2 100%)}
+.hero-eyebrow{font-size:12px;letter-spacing:0.2em;text-transform:uppercase;color:#C4956A;margin-bottom:1.5rem}
+.hero h1{font-family:'Playfair Display',serif;font-size:clamp(36px,6vw,64px);color:#F5EDD8;line-height:1.15;margin-bottom:1.5rem;max-width:760px}
+.hero h1 em{color:#C4956A;font-style:italic}
+.hero-sub{font-size:18px;color:#c4a882;line-height:1.6;max-width:520px;margin:0 auto 2.5rem}
+.hero-actions{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.btn-primary{background:#C4956A;color:#fff;border:none;padding:14px 32px;border-radius:100px;font-family:'Lato',sans-serif;font-size:15px;font-weight:700;cursor:pointer;letter-spacing:0.04em;text-decoration:none;transition:background 0.2s}
+.btn-primary:hover{background:#a87a52}
+.btn-ghost{background:transparent;color:#F5EDD8;border:1px solid rgba(244,237,216,0.4);padding:14px 32px;border-radius:100px;font-family:'Lato',sans-serif;font-size:15px;cursor:pointer;letter-spacing:0.04em;text-decoration:none;transition:border-color 0.2s}
+.btn-ghost:hover{border-color:#F5EDD8}
+.hero-nota{font-size:12px;color:#9a7b5a;margin-top:1rem}
+
+/* ── SECCIÓN BASE ── */
+section{padding:80px 24px}
+.container{max-width:960px;margin:0 auto}
+.section-eyebrow{font-size:11px;letter-spacing:0.2em;text-transform:uppercase;color:#C4956A;margin-bottom:0.75rem;text-align:center}
+.section-title{font-family:'Playfair Display',serif;font-size:clamp(28px,4vw,42px);text-align:center;line-height:1.25;margin-bottom:1rem}
+.section-sub{font-size:16px;color:#9a7b5a;text-align:center;line-height:1.7;max-width:560px;margin:0 auto 3rem}
+
+/* ── CÓMO FUNCIONA ── */
+#como-funciona{background:#fff}
+.pasos{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:2rem;margin-top:3rem}
+.paso{text-align:center;padding:2rem 1.5rem;border-radius:12px;border:0.5px solid #e8d9b8;background:#fdf8f2}
+.paso-num{width:40px;height:40px;border-radius:50%;background:#2C1A0E;color:#F5EDD8;display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-size:18px;margin:0 auto 1rem}
+.paso h3{font-family:'Playfair Display',serif;font-size:18px;margin-bottom:0.5rem}
+.paso p{font-size:14px;color:#9a7b5a;line-height:1.6}
+
+/* ── MUESTRA / QUOTE ── */
+#historia{background:#2C1A0E}
+#historia .section-title{color:#F5EDD8}
+#historia .section-eyebrow{color:#C4956A}
+.historia-card{background:#3d2b0a;border:0.5px solid #5a3f20;border-radius:16px;padding:2.5rem;margin-top:2rem;max-width:680px;margin-left:auto;margin-right:auto}
+.historia-quote{font-family:'Playfair Display',serif;font-style:italic;font-size:20px;color:#F5EDD8;line-height:1.6;margin-bottom:1.5rem}
+.historia-meta{font-size:13px;color:#9a7b5a;border-top:0.5px solid #5a3f20;padding-top:1rem}
+
+/* ── PRECIOS ── */
+#precios{background:#fdf8f2}
+.precios-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1.5rem;margin-top:3rem}
+.precio-card{background:#fff;border:0.5px solid #e8d9b8;border-radius:16px;padding:2rem;position:relative}
+.precio-card.destacado{border-color:#C4956A;box-shadow:0 0 0 2px #C4956A}
+.precio-badge{position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:#C4956A;color:#fff;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;padding:4px 16px;border-radius:100px;white-space:nowrap}
+.precio-pack{font-size:12px;letter-spacing:0.15em;text-transform:uppercase;color:#9a7b5a;margin-bottom:0.5rem}
+.precio-monto{font-family:'Playfair Display',serif;font-size:48px;color:#2C1A0E;line-height:1;margin-bottom:0.25rem}
+.precio-monto sup{font-size:24px;vertical-align:top;margin-top:10px;display:inline-block}
+.precio-desc{font-size:13px;color:#9a7b5a;margin-bottom:1.5rem}
+.precio-features{list-style:none;margin-bottom:1.5rem}
+.precio-features li{font-size:14px;padding:6px 0;border-bottom:0.5px solid #f0e8d8;color:#3d2b0a}
+.precio-features li:last-child{border:none}
+.precio-features li::before{content:"✓ ";color:#C4956A;font-weight:700}
+.btn-comprar{width:100%;background:#2C1A0E;color:#F5EDD8;border:none;padding:14px;border-radius:8px;font-family:'Lato',sans-serif;font-size:14px;font-weight:700;cursor:pointer;letter-spacing:0.04em;transition:background 0.2s}
+.btn-comprar:hover{background:#3d2b0a}
+.btn-comprar.stripe{background:#635BFF}
+.btn-comprar.stripe:hover{background:#4b44c7}
+.precio-extra{font-size:12px;color:#9a7b5a;text-align:center;margin-top:0.75rem}
+
+/* ── FAQ ── */
+#faq{background:#fff}
+.faq-list{max-width:680px;margin:2rem auto 0}
+.faq-item{border-bottom:0.5px solid #e8d9b8;padding:1.25rem 0}
+.faq-q{font-family:'Playfair Display',serif;font-size:17px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:1rem}
+.faq-q::after{content:"↓";font-family:'Lato',sans-serif;font-size:14px;color:#9a7b5a;flex-shrink:0;transition:transform 0.2s}
+.faq-item.open .faq-q::after{transform:rotate(180deg)}
+.faq-a{font-size:14px;color:#9a7b5a;line-height:1.7;margin-top:0.75rem;display:none}
+.faq-item.open .faq-a{display:block}
+
+/* ── FOOTER ── */
+footer{background:#2C1A0E;padding:48px 24px;text-align:center}
+.footer-brand{font-family:'Playfair Display',serif;font-size:22px;color:#F5EDD8;margin-bottom:0.5rem}
+.footer-sub{font-size:13px;color:#9a7b5a}
+.footer-links{margin-top:1.5rem;display:flex;gap:1.5rem;justify-content:center;flex-wrap:wrap}
+.footer-links a{font-size:13px;color:#9a7b5a;text-decoration:none}
+
+/* ── MODAL DE CHECKOUT ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:200;display:flex;align-items:center;justify-content:center;padding:24px;opacity:0;pointer-events:none;transition:opacity 0.2s}
+.modal-overlay.visible{opacity:1;pointer-events:all}
+.modal{background:#fff;border-radius:16px;padding:2rem;max-width:480px;width:100%;max-height:90vh;overflow-y:auto}
+.modal h2{font-family:'Playfair Display',serif;font-size:22px;margin-bottom:0.25rem}
+.modal-sub{font-size:14px;color:#9a7b5a;margin-bottom:1.5rem}
+.form-group{margin-bottom:1rem}
+.form-group label{display:block;font-size:13px;color:#9a7b5a;margin-bottom:4px}
+.form-group input{width:100%;border:0.5px solid #e8d9b8;border-radius:8px;padding:10px 12px;font-family:'Lato',sans-serif;font-size:14px;color:#3d2b0a;background:#fff}
+.form-group input:focus{outline:none;border-color:#C4956A}
+.modal-integrantes{margin:1rem 0}
+.integrante-row{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-bottom:8px;align-items:center}
+.integrante-row input{border:0.5px solid #e8d9b8;border-radius:8px;padding:8px 10px;font-family:'Lato',sans-serif;font-size:13px;width:100%}
+.btn-add-ing{background:none;border:0.5px dashed #e8d9b8;border-radius:8px;padding:8px;font-size:13px;color:#9a7b5a;cursor:pointer;width:100%;margin-bottom:1rem}
+.btn-remove{background:none;border:none;cursor:pointer;color:#9a7b5a;font-size:16px;padding:4px}
+.modal-divider{border:none;border-top:0.5px solid #e8d9b8;margin:1.25rem 0}
+.payment-options{display:flex;flex-direction:column;gap:10px}
+.btn-pay{width:100%;padding:14px;border:none;border-radius:8px;font-family:'Lato',sans-serif;font-size:14px;font-weight:700;cursor:pointer;letter-spacing:0.03em}
+.btn-pay.mp{background:#009EE3;color:#fff}
+.btn-pay.stripe{background:#635BFF;color:#fff}
+.payment-nota{font-size:11px;color:#9a7b5a;text-align:center;margin-top:0.5rem}
+.modal-close{float:right;background:none;border:none;font-size:20px;cursor:pointer;color:#9a7b5a;margin-top:-4px}
+#modal-loading{text-align:center;padding:2rem;display:none}
+#modal-loading p{font-size:14px;color:#9a7b5a;margin-top:1rem}
+
+@media(max-width:600px){
+  .integrante-row{grid-template-columns:1fr 1fr auto}
+  .precios-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <span class="nav-brand">Raíces</span>
+  <div style="display:flex;gap:12px;align-items:center">
+    <a href="/mi-familia" style="font-size:13px;color:#9a7b5a;text-decoration:none">Mi libro</a>
+    <a href="#precios" class="nav-cta">Ver precios</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div>
+    <p class="hero-eyebrow">Raíces · Libros biográficos</p>
+    <h1>El libro que<br><em>tu familia</em><br>merece tener</h1>
+    <p class="hero-sub">Grabamos las historias de cada integrante. Nosotros las convertimos en un libro biográfico único, impreso o digital.</p>
+    <div class="hero-actions">
+      <a href="#precios" class="btn-primary">Empezar ahora</a>
+      <a href="#como-funciona" class="btn-ghost">Cómo funciona</a>
+    </div>
+    <p class="hero-nota">Sin instalaciones · Desde el celular · Entrega en 15 días</p>
+  </div>
+</div>
+
+<!-- CÓMO FUNCIONA -->
+<section id="como-funciona">
+  <div class="container">
+    <p class="section-eyebrow">El proceso</p>
+    <h2 class="section-title">Cuatro pasos.<br>Un libro para siempre.</h2>
+    <p class="section-sub">Todo el trabajo técnico lo hacemos nosotros. Vos solo grabás.</p>
+    <div class="pasos">
+      <div class="paso">
+        <div class="paso-num">1</div>
+        <h3>Elegís el pack</h3>
+        <p>Seleccionás cuántos integrantes querés incluir y completás los datos de cada uno.</p>
+      </div>
+      <div class="paso">
+        <div class="paso-num">2</div>
+        <h3>Cada uno graba</h3>
+        <p>Cada integrante recibe un link único. Responde 16 preguntas con su voz, desde el celular.</p>
+      </div>
+      <div class="paso">
+        <div class="paso-num">3</div>
+        <h3>Procesamos todo</h3>
+        <p>Transcribimos, redactamos y armamos cada capítulo. El árbol genealógico se genera solo.</p>
+      </div>
+      <div class="paso">
+        <div class="paso-num">4</div>
+        <h3>Recibís el libro</h3>
+        <p>PDF de alta calidad listo para imprimir, o versión impresa enviada a tu domicilio.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FRAGMENTO DE HISTORIA -->
+<section id="historia">
+  <div class="container">
+    <p class="section-eyebrow">Una muestra</p>
+    <h2 class="section-title" style="color:#F5EDD8">Así queda escrita<br>una historia</h2>
+    <div class="historia-card">
+      <p class="historia-quote">"Llegué a Buenos Aires con una valija y las direcciones de dos parientes que casi no conocía. No sabía que me iba a quedar cuarenta años. Creo que nadie sabe esas cosas cuando empieza."</p>
+      <p class="historia-meta">Jorge Mariño · Capítulo I: De dónde venís</p>
+    </div>
+  </div>
+</section>
+
+<!-- PRECIOS -->
+<section id="precios">
+  <div class="container">
+    <p class="section-eyebrow">Planes</p>
+    <h2 class="section-title">Elegí tu pack</h2>
+    <p class="section-sub">Un precio único, sin suscripción. El libro es tuyo para siempre.</p>
+    <div class="precios-grid">
+
+      <div class="precio-card">
+        <p class="precio-pack">Esencial</p>
+        <p class="precio-monto"><sup>US$</sup>59</p>
+        <p class="precio-desc">Hasta 2 integrantes</p>
+        <ul class="precio-features">
+          <li>2 capítulos biográficos</li>
+          <li>16 preguntas por persona</li>
+          <li>PDF de alta calidad</li>
+          <li>Entrega en ~10 días</li>
+        </ul>
+        <button class="btn-comprar" onclick="abrirModal('esencial', 59, 2)">Empezar →</button>
+      </div>
+
+      <div class="precio-card destacado">
+        <span class="precio-badge">Más elegido</span>
+        <p class="precio-pack">Familiar</p>
+        <p class="precio-monto"><sup>US$</sup>79</p>
+        <p class="precio-desc">Hasta 4 integrantes</p>
+        <ul class="precio-features">
+          <li>4 capítulos biográficos</li>
+          <li>Árbol genealógico incluido</li>
+          <li>Introducción y cierre editorial</li>
+          <li>PDF + opción de impresión</li>
+          <li>Entrega en ~15 días</li>
+        </ul>
+        <button class="btn-comprar" onclick="abrirModal('familiar', 79, 4)">Empezar →</button>
+        <p class="precio-extra">+ US$8 por integrante extra</p>
+      </div>
+
+      <div class="precio-card">
+        <p class="precio-pack">Extendido</p>
+        <p class="precio-monto"><sup>US$</sup>129</p>
+        <p class="precio-desc">Hasta 8 integrantes</p>
+        <ul class="precio-features">
+          <li>8 capítulos biográficos</li>
+          <li>Árbol genealógico completo</li>
+          <li>Introducción y cierre editorial</li>
+          <li>PDF + libro impreso incluido</li>
+          <li>Entrega en ~20 días</li>
+        </ul>
+        <button class="btn-comprar" onclick="abrirModal('extendido', 129, 8)">Empezar →</button>
+        <p class="precio-extra">+ US$8 por integrante extra</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section id="faq">
+  <div class="container">
+    <p class="section-eyebrow">Preguntas</p>
+    <h2 class="section-title">Dudas frecuentes</h2>
+    <div class="faq-list">
+      <div class="faq-item">
+        <p class="faq-q">¿Qué pasa si alguien no puede grabar?</p>
+        <p class="faq-a">Podés excluir a esa persona del libro sin problema. El libro se genera con las grabaciones que hayas recibido. También podés reenviar el link de grabación todas las veces que quieras.</p>
+      </div>
+      <div class="faq-item">
+        <p class="faq-q">¿Cuánto tiempo lleva grabar?</p>
+        <p class="faq-a">Entre 20 y 40 minutos por persona. Se puede hacer de corrido o en varias sesiones — el progreso queda guardado. No hace falta prepararse, solo hablar.</p>
+      </div>
+      <div class="faq-item">
+        <p class="faq-q">¿En qué idioma se escribe el libro?</p>
+        <p class="faq-a">En el idioma en que grabe cada persona. Si mezclan idiomas, el capítulo se escribe en español neutro, que es lo más cómodo para toda la familia.</p>
+      </div>
+      <div class="faq-item">
+        <p class="faq-q">¿Puedo pedir el libro impreso?</p>
+        <p class="faq-a">Sí. Todos los planes incluyen PDF. Los planes Familiar y Extendido incluyen opción de impresión con envío a Argentina. Para otros países, coordinamos el envío por separado.</p>
+      </div>
+      <div class="faq-item">
+        <p class="faq-q">¿Qué pasa con los audios y la privacidad?</p>
+        <p class="faq-a">Los audios se usan solo para transcribir y redactar el capítulo. No se comparten con terceros. Los guardamos encriptados durante el proceso y los eliminamos a los 90 días de la entrega.</p>
+      </div>
+      <div class="faq-item">
+        <p class="faq-q">¿Puedo pagar en pesos argentinos?</p>
+        <p class="faq-a">Sí, con Mercado Pago podés pagar en pesos al tipo de cambio del momento. También aceptamos tarjetas internacionales vía Stripe.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <p class="footer-brand">Raíces</p>
+  <p class="footer-sub">Libros biográficos · Hecho con cuidado en Argentina</p>
+  <div class="footer-links">
+    <a href="mailto:hola@librofamiliar.com">hola@librofamiliar.com</a>
+    <a href="#faq">Preguntas frecuentes</a>
+    <a href="#precios">Precios</a>
+  </div>
+</footer>
+
+<!-- MODAL DE CHECKOUT -->
+<div class="modal-overlay" id="modal-overlay" onclick="cerrarModal(event)">
+  <div class="modal" id="modal">
+    <button class="modal-close" onclick="cerrarModal()">×</button>
+    <h2 id="modal-titulo">Comenzar libro</h2>
+    <p class="modal-sub" id="modal-sub">Completá los datos y elegí cómo pagar.</p>
+
+    <div id="modal-form">
+      <div class="form-group">
+        <label>Tu nombre</label>
+        <input type="text" id="inp-nombre-comp" placeholder="María García">
+      </div>
+      <div class="form-group">
+        <label>Tu email (para recibir el libro)</label>
+        <input type="email" id="inp-email-comp" placeholder="maria@email.com">
+      </div>
+      <div class="form-group">
+        <label>Nombre para el libro de la familia</label>
+        <input type="text" id="inp-nombre-fam" placeholder="Familia García">
+      </div>
+
+      <div class="modal-integrantes">
+        <p style="font-size:13px;color:#9a7b5a;margin-bottom:8px">Integrantes que van a grabar:</p>
+        <div id="lista-integrantes-modal"></div>
+        <button class="btn-add-ing" onclick="agregarIntegranteModal()">+ Agregar integrante</button>
+      </div>
+
+      <hr class="modal-divider">
+
+      <p style="font-size:13px;font-weight:700;margin-bottom:12px">Elegí cómo pagar:</p>
+      <div class="payment-options">
+        <button class="btn-pay mp" onclick="pagar('mp')">
+          💳 Pagar con Mercado Pago <span id="mp-precio"></span>
+        </button>
+        <button class="btn-pay stripe" onclick="pagar('stripe')">
+          💳 Pagar con tarjeta internacional <span id="stripe-precio"></span>
+        </button>
+      </div>
+      <p class="payment-nota">Pago 100% seguro · SSL · Sin datos guardados</p>
+    </div>
+
+    <div id="modal-loading">
+      <div style="font-size:32px">⏳</div>
+      <p>Preparando tu checkout seguro…</p>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = '';  // misma origin
+let _pack = 'familiar';
+let _precio_base = 79;
+let _max_integ = 4;
+
+function abrirModal(pack, precio, maxInteg) {
+  _pack = pack;
+  _precio_base = precio;
+  _max_integ = maxInteg;
+  document.getElementById('modal-titulo').textContent = 'Comenzar libro — Pack ' + pack.charAt(0).toUpperCase() + pack.slice(1);
+  actualizarPrecioModal();
+  if (document.getElementById('lista-integrantes-modal').children.length === 0) {
+    agregarIntegranteModal();
+    agregarIntegranteModal();
+  }
+  document.getElementById('modal-overlay').classList.add('visible');
+}
+
+function cerrarModal(e) {
+  if (!e || e.target === document.getElementById('modal-overlay')) {
+    document.getElementById('modal-overlay').classList.remove('visible');
+  }
+}
+
+function agregarIntegranteModal() {
+  const lista = document.getElementById('lista-integrantes-modal');
+  const row = document.createElement('div');
+  row.className = 'integrante-row';
+  row.innerHTML = `
+    <input type="text" placeholder="Nombre" class="ing-nombre-m">
+    <input type="email" placeholder="Email (opcional)" class="ing-email-m">
+    <button class="btn-remove" onclick="this.parentElement.remove();actualizarPrecioModal()">×</button>
+  `;
+  lista.appendChild(row);
+  actualizarPrecioModal();
+}
+
+function actualizarPrecioModal() {
+  const n = document.getElementById('lista-integrantes-modal').children.length;
+  const extra = Math.max(0, n - _max_integ);
+  const total = _precio_base + extra * 8;
+  document.getElementById('mp-precio').textContent = `— US$${total}`;
+  document.getElementById('stripe-precio').textContent = `— US$${total}`;
+}
+
+function recolectarDatosModal() {
+  const nombre_comp = document.getElementById('inp-nombre-comp').value.trim();
+  const email_comp  = document.getElementById('inp-email-comp').value.trim();
+  const nombre_fam  = document.getElementById('inp-nombre-fam').value.trim();
+  if (!nombre_comp || !email_comp || !nombre_fam) {
+    alert('Completá tu nombre, email y el nombre de la familia.');
+    return null;
+  }
+  const rows = document.getElementById('lista-integrantes-modal').querySelectorAll('.integrante-row');
+  const integrantes = [];
+  for (const row of rows) {
+    const nombre = row.querySelector('.ing-nombre-m').value.trim();
+    const email  = row.querySelector('.ing-email-m').value.trim();
+    if (!nombre) { alert('Completá el nombre de cada integrante.'); return null; }
+    integrantes.push({ nombre, email });
+  }
+  if (integrantes.length === 0) { alert('Agregá al menos un integrante.'); return null; }
+  return { nombre_comp, email_comp, nombre_fam, integrantes };
+}
+
+async function pagar(gateway) {
+  const datos = recolectarDatosModal();
+  if (!datos) return;
+
+  document.getElementById('modal-form').style.display = 'none';
+  document.getElementById('modal-loading').style.display = 'block';
+
+  const endpoint = gateway === 'mp'
+    ? '/pago/crear-checkout'
+    : '/pago/crear-stripe-checkout';
+
+  try {
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        nombre_familia:   datos.nombre_fam,
+        email_comprador:  datos.email_comp,
+        nombre_comprador: datos.nombre_comp,
+        integrantes:      datos.integrantes,
+        pack:             _pack,
+      }),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.detail || 'Error del servidor');
+
+    const url = json.init_point || json.sandbox_init_point || json.checkout_url;
+    if (url) {
+      window.location.href = url;
+    } else {
+      throw new Error('No se recibió URL de pago');
+    }
+  } catch (err) {
+    alert('Error al crear el pago: ' + err.message);
+    document.getElementById('modal-form').style.display = 'block';
+    document.getElementById('modal-loading').style.display = 'none';
+  }
+}
+
+// FAQ accordion
+document.querySelectorAll('.faq-q').forEach(q => {
+  q.addEventListener('click', () => {
+    const item = q.parentElement;
+    item.classList.toggle('open');
+  });
+});
+</script>
+</body>
+</html>
