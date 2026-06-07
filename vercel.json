@@ -1,0 +1,24 @@
+{
+  "rewrites": [
+    {
+      "source": "/r/:path*",
+      "destination": "https://familia-pipeline-776445604502.southamerica-east1.run.app/r/:path*"
+    },
+    {
+      "source": "/recording",
+      "destination": "https://familia-pipeline-776445604502.southamerica-east1.run.app/recording"
+    },
+    {
+      "source": "/token/:path*",
+      "destination": "https://familia-pipeline-776445604502.southamerica-east1.run.app/token/:path*"
+    },
+    {
+      "source": "/run/:path*",
+      "destination": "https://familia-pipeline-776445604502.southamerica-east1.run.app/run/:path*"
+    },
+    {
+      "source": "/health",
+      "destination": "https://familia-pipeline-776445604502.southamerica-east1.run.app/health"
+    }
+  ]
+}
