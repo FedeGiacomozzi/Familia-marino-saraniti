@@ -117,6 +117,39 @@ def update_integrante_estado(familia_id: str, integrante_id: str, estado: str) -
 
 # ─── Respuestas ──────────────────────────────────────────────────────────────
 
+def save_respuesta(familia_id: str, integrante_id: str, pregunta_id: str, audio_url: str) -> None:
+    from datetime import datetime, timezone
+    (
+        _db()
+        .collection("familias")
+        .document(familia_id)
+        .collection("integrantes")
+        .document(integrante_id)
+        .collection("respuestas")
+        .document(str(pregunta_id))
+        .set(
+            {
+                "audio_url": audio_url,
+                "transcripcion": "",
+                "duracion_seg": 0,
+                "timestamp": datetime.now(timezone.utc),
+            },
+            merge=True,
+        )
+    )
+
+
+def update_integrante_foto(familia_id: str, integrante_id: str, foto_url: str) -> None:
+    (
+        _db()
+        .collection("familias")
+        .document(familia_id)
+        .collection("integrantes")
+        .document(integrante_id)
+        .update({"foto_url": foto_url})
+    )
+
+
 def get_respuestas(familia_id: str, integrante_id: str) -> list[dict]:
     docs = (
         _db()

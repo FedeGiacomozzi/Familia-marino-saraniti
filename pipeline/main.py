@@ -11,7 +11,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException
+from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
 from pydantic import BaseModel
@@ -512,6 +512,85 @@ def recibir_audio(token: str, req: AudioRequest, background_tasks: BackgroundTas
     _check_y_trigger(familia_id, background_tasks)
 
     return {"ok": True, "audio_url": gcs_uri}
+
+
+# ─── Endpoints de grabación (token-based, usados por recording.html) ─────────
+
+@app.get("/token/{token}/info")
+def token_info(token: str):
+    from pipeline.utils import firestore as fs
+    match = fs.get_integrante_by_token(token)
+    if match is None:
+        raise HTTPException(status_code=404, detail="Token inválido o no encontrado")
+    _, _, data = match
+    return {"nombre": data.get("nombre", "")}
+
+
+@app.post("/token/{token}/foto")
+async def token_foto(token: str, foto: UploadFile = File(...)):
+    from pipeline.utils import firestore as fs, storage as st
+    match = fs.get_integrante_by_token(token)
+    if match is None:
+        raise HTTPException(status_code=404, detail="Token inválido o no encontrado")
+    familia_id, integrante_id, _ = match
+
+    filename = foto.filename or "foto.jpg"
+    ext = filename.rsplit(".", 1)[-1] if "." in filename else "jpg"
+    blob_name = f"{familia_id}/{integrante_id}/foto.{ext}"
+
+    with tempfile.NamedTemporaryFile(suffix=f".{ext}", delete=False) as tmp:
+        tmp.write(await foto.read())
+        tmp_path = tmp.name
+
+    try:
+        gs_url = st.upload_to_gcs(tmp_path, st.GCS_BUCKET_FOTOS, blob_name, foto.content_type or "image/jpeg")
+    finally:
+        os.unlink(tmp_path)
+
+    fs.update_integrante_foto(familia_id, integrante_id, gs_url)
+    return {"ok": True}
+
+
+@app.post("/token/{token}/respuesta")
+async def token_respuesta(
+    token: str,
+    pregunta: str = Form(...),
+    audio: UploadFile = File(...),
+):
+    from pipeline.utils import firestore as fs, storage as st
+    match = fs.get_integrante_by_token(token)
+    if match is None:
+        raise HTTPException(status_code=404, detail="Token inválido o no encontrado")
+    familia_id, integrante_id, _ = match
+
+    filename = audio.filename or f"q{pregunta}.webm"
+    ext = filename.rsplit(".", 1)[-1] if "." in filename else "webm"
+    blob_name = f"{familia_id}/{integrante_id}/q{pregunta}.{ext}"
+
+    with tempfile.NamedTemporaryFile(suffix=f".{ext}", delete=False) as tmp:
+        tmp.write(await audio.read())
+        tmp_path = tmp.name
+
+    try:
+        gs_url = st.upload_to_gcs(tmp_path, st.GCS_BUCKET_AUDIOS, blob_name, audio.content_type or "audio/webm")
+    finally:
+        os.unlink(tmp_path)
+
+    fs.save_respuesta(familia_id, integrante_id, pregunta, gs_url)
+    fs.update_integrante_estado(familia_id, integrante_id, "en_progreso")
+    return {"ok": True}
+
+
+@app.post("/token/{token}/completar")
+def token_completar(token: str, background_tasks: BackgroundTasks):
+    from pipeline.utils import firestore as fs
+    match = fs.get_integrante_by_token(token)
+    if match is None:
+        raise HTTPException(status_code=404, detail="Token inválido o no encontrado")
+    familia_id, integrante_id, _ = match
+    fs.update_integrante_estado(familia_id, integrante_id, "completo")
+    _check_y_trigger(familia_id, background_tasks)
+    return {"ok": True}
 
 
 # ─── Admin ────────────────────────────────────────────────────────────────────
