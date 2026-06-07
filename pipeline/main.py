@@ -67,7 +67,12 @@ app = FastAPI(title="Familia Libro Pipeline", version="1.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://fedegiacomozzi.github.io"],
+    allow_origins=[
+        "https://fedegiacomozzi.github.io",
+        "https://ethosbios.com",
+        "https://www.ethosbios.com",
+        "https://ethosbios.vercel.app",
+    ],
     allow_methods=["*"],
     allow_headers=["*"],
 )
