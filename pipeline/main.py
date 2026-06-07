@@ -9,10 +9,14 @@ import os
 import tempfile
 import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 
 from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, RedirectResponse
 from pydantic import BaseModel
+
+_STATIC_DIR = Path(__file__).parent / "static"
 
 logger = logging.getLogger(__name__)
 
@@ -129,6 +133,21 @@ def health_deep():
 
     overall_ok = all(v["ok"] for v in checks.values())
     return {"ok": overall_ok, "checks": checks}
+
+
+# ─── Redirect de token de grabación ──────────────────────────────────────────
+
+@app.get("/r/{token}")
+def redirect_token(token: str):
+    from pipeline.utils import firestore as fs
+    if fs.get_integrante_by_token(token) is None:
+        raise HTTPException(status_code=404, detail="Token inválido o no encontrado")
+    return RedirectResponse(url=f"/recording?token={token}")
+
+
+@app.get("/recording")
+def serve_recording():
+    return FileResponse(_STATIC_DIR / "recording.html")
 
 
 # ─── Full pipeline ────────────────────────────────────────────────────────────

@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Libro de Memorias Familiar</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400;1,600&family=Montserrat:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #fdf8f2;
+  --surface: #ffffff;
+  --border: #e8d9b8;
+  --accent: #8b5e3c;
+  --accent-light: #c8a96e;
+  --text: #3d2b0a;
+  --error: #c0392b;
+  --success: #3B6D11;
+  --shadow: 0 2px 14px rgba(139, 94, 60, 0.10);
+}
+
+body {
+  font-family: 'Montserrat', sans-serif;
+  background: var(--bg);
+  min-height: 100vh;
+  color: var(--text);
+}
+
+/* ── Header ── */
+header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 16px 24px;
+  text-align: center;
+}
+
+header .logo {
+  font-family: 'Playfair Display', serif;
+  font-size: 15px;
+  font-weight: 400;
+  color: var(--accent);
+  letter-spacing: 0.5px;
+}
+
+/* ── Screens ── */
+.screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40px 20px 120px;
+  min-height: calc(100vh - 57px);
+}
+
+.screen.hidden { display: none; }
+
+/* ── Container ── */
+.container {
+  width: 100%;
+  max-width: 680px;
+}
+
+/* ══════════════════════════════
+   SCREEN 1 — BIENVENIDA
+══════════════════════════════ */
+.welcome-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 48px 40px 40px;
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+
+.saludo {
+  font-family: 'Playfair Display', serif;
+  font-style: italic;
+  font-size: 28px;
+  color: var(--text);
+  margin-bottom: 16px;
+}
+
+.welcome-subtitle {
+  font-size: 15px;
+  color: var(--accent);
+  line-height: 1.7;
+  max-width: 480px;
+  margin: 0 auto 32px;
+  font-weight: 400;
+}
+
+/* Video placeholder */
+.video-wrap {
+  background: #f5ede0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 36px 24px;
+  margin-bottom: 28px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.video-wrap:hover { background: #eedfc8; }
+
+.video-play-icon {
+  width: 56px;
+  height: 56px;
+  background: var(--accent);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 14px;
+}
+
+.video-play-icon svg {
+  fill: white;
+  width: 22px;
+  height: 22px;
+  margin-left: 3px;
+}
+
+.video-text {
+  font-size: 13px;
+  color: var(--accent);
+  line-height: 1.5;
+}
+
+/* Block pills */
+.bloques-preview {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 4px 0 8px;
+  margin-bottom: 32px;
+  justify-content: center;
+  flex-wrap: wrap;
+  scrollbar-width: none;
+}
+
+.bloques-preview::-webkit-scrollbar { display: none; }
+
+.bloque-pill {
+  display: inline-flex;
+  align-items: center;
+  background: #f5ede0;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--accent);
+  white-space: nowrap;
+  letter-spacing: 0.2px;
+}
+
+.bloque-pill .num {
+  background: var(--accent);
+  color: white;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 600;
+  margin-right: 7px;
+  flex-shrink: 0;
+}
+
+/* ══════════════════════════════
+   SCREEN 2 — PREGUNTAS
+══════════════════════════════ */
+.bloque-header {
+  margin-bottom: 28px;
+}
+
+.bloque-meta {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent-light);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.bloque-titulo {
+  font-family: 'Playfair Display', serif;
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+
+.bloque-sub {
+  font-size: 12px;
+  color: var(--accent);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
+/* Question card */
+.pregunta-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 28px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow);
+  transition: border-color 0.3s, background 0.3s;
+}
+
+.pregunta-card.grabando {
+  border-color: #e74c3c;
+  background: #fff8f8;
+}
+
+.pregunta-card.enviada {
+  border-color: var(--success);
+  background: #f4faf0;
+}
+
+.pregunta-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--accent-light);
+  margin-bottom: 10px;
+}
+
+.pregunta-texto {
+  font-family: 'Playfair Display', serif;
+  font-style: italic;
+  font-size: 18px;
+  line-height: 1.55;
+  color: var(--text);
+  margin-bottom: 20px;
+}
+
+/* Recording controls */
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.btn-grabar {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: 2px solid var(--accent);
+  color: var(--accent);
+  border-radius: 999px;
+  padding: 9px 20px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-grabar:hover:not(:disabled) {
+  background: var(--accent);
+  color: white;
+}
+
+.btn-grabar.grabando-btn {
+  background: #e74c3c;
+  border-color: #e74c3c;
+  color: white;
+}
+
+.btn-grabar:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Pulsing red dot */
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+.grabando-btn .dot {
+  animation: pulse-dot 1s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.4; transform: scale(0.7); }
+}
+
+.timer {
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: #e74c3c;
+  min-width: 40px;
+}
+
+.timer.hidden { display: none; }
+
+.btn-enviar {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--text);
+  color: white;
+  border: none;
+  border-radius: 999px;
+  padding: 9px 20px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.btn-enviar:hover:not(:disabled) { opacity: 0.85; }
+.btn-enviar:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-enviar.hidden { display: none; }
+
+.status-line {
+  margin-top: 12px;
+  font-size: 12px;
+  min-height: 18px;
+  color: var(--accent);
+}
+
+.status-line.ok  { color: var(--success); font-weight: 600; }
+.status-line.err { color: var(--error); }
+
+/* Siguiente bloque */
+.siguiente-wrap {
+  text-align: right;
+  margin-top: 8px;
+  margin-bottom: 60px;
+}
+
+.btn-siguiente {
+  background: var(--text);
+  color: white;
+  border: none;
+  border-radius: 999px;
+  padding: 14px 32px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  letter-spacing: 0.3px;
+}
+
+.btn-siguiente:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.btn-siguiente:hover:not(:disabled) { opacity: 0.82; }
+
+/* ── Fixed progress bar ── */
+.progress-bar-wrap {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  z-index: 100;
+}
+
+.progress-count {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  white-space: nowrap;
+  min-width: 42px;
+}
+
+.progress-track {
+  flex: 1;
+  height: 6px;
+  background: var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 999px;
+  transition: width 0.4s ease;
+  width: 0%;
+}
+
+.progress-pct {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  white-space: nowrap;
+  min-width: 36px;
+  text-align: right;
+}
+
+/* ══════════════════════════════
+   SCREEN 3 — GRACIAS
+══════════════════════════════ */
+.gracias-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 64px 40px;
+  box-shadow: var(--shadow);
+  text-align: center;
+  max-width: 520px;
+  margin: 0 auto;
+}
+
+#gracias-nombre {
+  font-family: 'Playfair Display', serif;
+  font-size: 36px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 24px;
+}
+
+.gracias-divider {
+  width: 80px;
+  height: 1px;
+  background: var(--accent-light);
+  margin: 0 auto 24px;
+}
+
+.gracias-msg {
+  font-size: 16px;
+  color: var(--accent);
+  line-height: 1.7;
+  margin-bottom: 28px;
+}
+
+.gracias-firma {
+  font-family: 'Playfair Display', serif;
+  font-style: italic;
+  font-size: 14px;
+  color: var(--accent-light);
+}
+
+/* ── Shared button ── */
+.btn-primary {
+  display: inline-block;
+  background: var(--text);
+  color: white;
+  border: none;
+  border-radius: 999px;
+  padding: 15px 32px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  width: 100%;
+  text-align: center;
+  letter-spacing: 0.3px;
+}
+
+.btn-primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-primary:hover:not(:disabled) { opacity: 0.82; }
+
+.foto-section {
+  margin: 20px 0 0;
+  text-align: center;
+}
+
+.foto-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border: 1.5px dashed var(--accent-light);
+  border-radius: 99px;
+  font-size: 13px;
+  color: var(--accent);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.foto-label:hover { border-style: solid; background: #fdf6f0; }
+
+/* ── Responsive tweaks ── */
+@media (max-width: 480px) {
+  .welcome-card { padding: 36px 22px 30px; }
+  .saludo { font-size: 24px; }
+  .bloque-titulo { font-size: 24px; }
+  .pregunta-texto { font-size: 16px; }
+  .gracias-card { padding: 48px 24px; }
+  #gracias-nombre { font-size: 28px; }
+  .bloques-preview { justify-content: flex-start; flex-wrap: nowrap; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Libro de Memorias Familiar</div>
+</header>
+
+<!-- ══════════════════ SCREEN 1: BIENVENIDA ══════════════════ -->
+<div id="screen-bienvenida" class="screen">
+  <div class="container">
+    <div class="welcome-card">
+      <p id="saludo" class="saludo">Cargando…</p>
+      <p class="welcome-subtitle">
+        Preparamos 16 preguntas para ayudarte a contar tu historia.
+        Podés tomarte el tiempo que necesites — no hay apuro.
+      </p>
+
+      <!-- Video section: reemplazar VIDEO_ID con el ID de YouTube cuando esté disponible -->
+      <div class="video-wrap" id="video-wrap" style="position:relative;aspect-ratio:16/9;border-radius:12px;overflow:hidden;background:#1a1a1a">
+        <iframe
+          id="video-intro"
+          src="https://www.youtube.com/embed/VIDEO_ID?rel=0&modestbranding=1"
+          title="Cómo funciona la grabación"
+          frameborder="0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowfullscreen
+          style="position:absolute;top:0;left:0;width:100%;height:100%"
+          onerror="this.parentElement.style.display='none'"
+        ></iframe>
+        <noscript>
+          <p class="video-text">Mirá este video antes de empezar — te explica para qué sirve esto.</p>
+        </noscript>
+      </div>
+
+      <!-- Block preview pills -->
+      <div class="bloques-preview" id="bloques-preview">
+        <span class="bloque-pill"><span class="num">1</span>De dónde venís</span>
+        <span class="bloque-pill"><span class="num">2</span>Los que te formaron</span>
+        <span class="bloque-pill"><span class="num">3</span>Tus elecciones</span>
+        <span class="bloque-pill"><span class="num">4</span>Tu gente</span>
+        <span class="bloque-pill"><span class="num">5</span>Lo que sabés ahora</span>
+      </div>
+
+      <!-- Foto opcional -->
+      <div class="foto-section">
+        <label class="foto-label" id="foto-label">
+          📷 Agregar una foto tuya <span style="font-weight:400;opacity:0.6">(opcional)</span>
+          <input type="file" id="foto-input" accept="image/*" onchange="onFotoSeleccionada(this)" style="display:none">
+        </label>
+        <div id="foto-preview-wrap" style="display:none;margin-top:10px;text-align:center">
+          <img id="foto-preview-img" src="" alt="" style="width:80px;height:80px;object-fit:cover;border-radius:50%;border:2px solid var(--border)">
+          <div style="font-size:11px;color:var(--muted);margin-top:4px" id="foto-status"></div>
+        </div>
+      </div>
+
+      <button class="btn-primary" id="btn-empezar" onclick="empezar()" disabled>
+        Empezar →
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ SCREEN 2: PREGUNTAS ══════════════════ -->
+<div id="screen-preguntas" class="screen hidden">
+  <div class="container">
+    <div id="bloque-container"></div>
+    <div class="siguiente-wrap">
+      <button class="btn-siguiente" id="btn-siguiente" onclick="siguienteBloque()" disabled>
+        Siguiente bloque →
+      </button>
+    </div>
+  </div>
+
+  <!-- Fixed progress bar -->
+  <div class="progress-bar-wrap">
+    <span class="progress-count" id="prog-count">0 / 16</span>
+    <div class="progress-track">
+      <div class="progress-fill" id="prog-fill"></div>
+    </div>
+    <span class="progress-pct" id="prog-pct">0%</span>
+  </div>
+</div>
+
+<!-- ══════════════════ SCREEN 3: GRACIAS ══════════════════ -->
+<div id="screen-gracias" class="screen hidden">
+  <div class="container">
+    <div class="gracias-card">
+      <div id="gracias-nombre">¡Gracias!</div>
+      <div class="gracias-divider"></div>
+      <p class="gracias-msg">Tu historia ya es parte de algo más grande.</p>
+      <p class="gracias-firma">— Libro Familiar</p>
+    </div>
+  </div>
+</div>
+
+<script>
+const TOKEN = new URLSearchParams(location.search).get('token');
+const API_BASE = 'https://familia-pipeline-776445604502.us-central1.run.app';
+
+const BLOQUES = [
+  { titulo: 'De dónde venís',       sub: 'El punto de partida de tu historia', preguntas: [1,2,3] },
+  { titulo: 'Los que te formaron',  sub: 'La gente que estuvo antes que vos',  preguntas: [4,5,6] },
+  { titulo: 'Tus elecciones',       sub: 'El camino que construiste',           preguntas: [7,8,9] },
+  { titulo: 'Tu gente',             sub: 'Los que hacen que valga la pena',     preguntas: [10,11,12,13,14] },
+  { titulo: 'Lo que sabés ahora',   sub: 'Lo que se gana con el tiempo',        preguntas: [15,16] },
+];
+
+const PREGUNTAS = {
+  1:  '¿Cómo te llaman en tu familia — y de dónde viene ese nombre o apodo?',
+  2:  '¿Dónde naciste y cómo era ese lugar? Pintá la imagen.',
+  3:  '¿Cómo eras de chico? ¿Qué te gustaba hacer?',
+  4:  '¿Cómo eran tus viejos? Describílos como si yo no los conociera.',
+  5:  '¿Cuál era el momento de la semana que más disfrutabas en casa?',
+  6:  '¿Hay alguien más que te acuerdes además de tus viejos que te haya marcado en tu vida?',
+  7:  '¿Cómo terminaste donde estás — trabajo, familia, dónde vivís?',
+  8:  '¿Qué hobbies tenés, qué cosas disfrutás, y cuál es el logro del que más orgulloso te sentís?',
+  9:  '¿Cuál es una decisión que tomaste y que quizás nadie vio, pero que cambió todo?',
+  10: '¿Hay alguien en tu familia a quien nunca le dijiste algo importante? ¿Qué le dirías hoy?',
+  11: '¿Cómo querés que te recuerden los que vienen después?',
+  12: '¿Hay alguien fuera de tu familia que haya marcado tu vida? ¿Qué tiene de especial esa persona?',
+  13: '¿Cuál es la anécdota que siempre contás cuando estás con tus amigos de siempre?',
+  14: '¿Cuál es la travesura que más recuerdan de vos?',
+  15: '¿Qué aprendiste con los años que ojalá hubieras sabido antes?',
+  16: 'Si pudieras volver atrás y hablarle a una versión más joven de vos, ¿qué le dirías?',
+};
+
+// ── State ──
+let nombreFamiliar = '';
+let bloqueActual = 0;
+let state = {};          // state[pregId] = { sent, blob, mediaRecorder, timerInterval }
+let mediaRecorders = {}; // active MediaRecorder per question
+
+// ── Init ──
+async function init() {
+  if (!TOKEN) {
+    document.getElementById('saludo').textContent = 'Este link no es válido.';
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/token/${TOKEN}/info`);
+    if (!res.ok) throw new Error('not found');
+    const data = await res.json();
+    nombreFamiliar = data.nombre || '';
+    document.getElementById('saludo').textContent = `Hola, ${nombreFamiliar}.`;
+    document.title = `Libro de Memorias — ${nombreFamiliar}`;
+    document.getElementById('gracias-nombre').textContent = `¡Gracias, ${nombreFamiliar}!`;
+    document.getElementById('btn-empezar').disabled = false;
+  } catch {
+    document.getElementById('saludo').textContent = 'Este link no es válido.';
+    // btn-empezar stays disabled
+  }
+}
+
+// ── Foto opcional ──
+function onFotoSeleccionada(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    document.getElementById('foto-preview-img').src = e.target.result;
+    document.getElementById('foto-preview-wrap').style.display = 'block';
+    document.getElementById('foto-status').textContent = file.name;
+    document.getElementById('foto-label').style.opacity = '0.5';
+  };
+  reader.readAsDataURL(file);
+}
+
+async function _subirFoto() {
+  const input = document.getElementById('foto-input');
+  if (!input.files || !input.files[0] || !TOKEN) return;
+  try {
+    const fd = new FormData();
+    fd.append('foto', input.files[0]);
+    await fetch(`${API_BASE}/token/${TOKEN}/foto`, { method: 'POST', body: fd });
+    document.getElementById('foto-status').textContent = '✓ Foto guardada';
+  } catch(_) {}
+}
+
+// ── Navigation ──
+function empezar() {
+  _subirFoto(); // fire and forget
+  document.getElementById('screen-bienvenida').classList.add('hidden');
+  document.getElementById('screen-preguntas').classList.remove('hidden');
+  renderBloque(0);
+}
+
+function siguienteBloque() {
+  const esUltimo = bloqueActual === BLOQUES.length - 1;
+  if (esUltimo) {
+    completar();
+    document.getElementById('screen-preguntas').classList.add('hidden');
+    document.getElementById('screen-gracias').classList.remove('hidden');
+    window.scrollTo(0, 0);
+  } else {
+    bloqueActual++;
+    renderBloque(bloqueActual);
+  }
+}
+
+// ── Block rendering ──
+function renderBloque(idx) {
+  const bloque = BLOQUES[idx];
+  const esUltimo = idx === BLOQUES.length - 1;
+  const container = document.getElementById('bloque-container');
+
+  let html = `
+    <div class="bloque-header">
+      <p class="bloque-meta">Bloque ${idx + 1} de ${BLOQUES.length}</p>
+      <h2 class="bloque-titulo">${bloque.titulo}</h2>
+      <p class="bloque-sub">${bloque.sub}</p>
+    </div>
+  `;
+
+  bloque.preguntas.forEach((pid, i) => {
+    html += `
+      <div class="pregunta-card" id="card-${pid}">
+        <p class="pregunta-label">Pregunta ${pid}</p>
+        <p class="pregunta-texto">${PREGUNTAS[pid]}</p>
+        <div class="controls">
+          <button class="btn-grabar" id="btn-grabar-${pid}" onclick="toggleGrabar(${pid})">
+            <span class="dot"></span> ⏺ Grabar respuesta
+          </button>
+          <span class="timer hidden" id="timer-${pid}">00:00</span>
+          <button class="btn-enviar hidden" id="btn-enviar-${pid}" onclick="enviarAudio(${pid})">
+            Enviar ✓
+          </button>
+        </div>
+        <p class="status-line" id="status-${pid}"></p>
+      </div>
+    `;
+  });
+
+  container.innerHTML = html;
+
+  // Update siguiente button label
+  const btnSig = document.getElementById('btn-siguiente');
+  btnSig.textContent = esUltimo ? 'Terminar →' : 'Siguiente bloque →';
+  btnSig.disabled = true;
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  actualizarProgreso();
+}
+
+// ── Recording ──
+async function toggleGrabar(pid) {
+  if (state[pid]?.grabando) {
+    stopGrabar(pid);
+  } else {
+    await startGrabar(pid);
+  }
+}
+
+async function startGrabar(pid) {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const chunks = [];
+    const mr = new MediaRecorder(stream);
+
+    mr.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+    mr.onstop = () => {
+      stream.getTracks().forEach(t => t.stop());
+      const blob = new Blob(chunks, { type: 'audio/webm' });
+      state[pid] = { ...state[pid], grabando: false, blob };
+      // Show enviar button
+      const btnEnviar = document.getElementById(`btn-enviar-${pid}`);
+      btnEnviar.classList.remove('hidden');
+      // Reset grabar button
+      const btnGrabar = document.getElementById(`btn-grabar-${pid}`);
+      btnGrabar.classList.remove('grabando-btn');
+      btnGrabar.innerHTML = '<span class="dot"></span> ⏺ Grabar de nuevo';
+      // Stop timer
+      clearInterval(state[pid]?.timerInterval);
+      document.getElementById(`timer-${pid}`).classList.add('hidden');
+      // Un-mark card
+      document.getElementById(`card-${pid}`).classList.remove('grabando');
+    };
+
+    mr.start();
+    state[pid] = { grabando: true, blob: null, mr };
+
+    // UI
+    const btnGrabar = document.getElementById(`btn-grabar-${pid}`);
+    btnGrabar.classList.add('grabando-btn');
+    btnGrabar.innerHTML = '<span class="dot"></span> ⏹ Grabando… (tocá para parar)';
+    document.getElementById(`card-${pid}`).classList.add('grabando');
+
+    // Hide enviar while re-recording
+    document.getElementById(`btn-enviar-${pid}`).classList.add('hidden');
+    document.getElementById(`status-${pid}`).textContent = '';
+    document.getElementById(`status-${pid}`).className = 'status-line';
+
+    // Timer
+    let secs = 0;
+    const timerEl = document.getElementById(`timer-${pid}`);
+    timerEl.classList.remove('hidden');
+    timerEl.textContent = '00:00';
+    const interval = setInterval(() => {
+      secs++;
+      const m = String(Math.floor(secs / 60)).padStart(2, '0');
+      const s = String(secs % 60).padStart(2, '0');
+      timerEl.textContent = `${m}:${s}`;
+    }, 1000);
+    state[pid].timerInterval = interval;
+
+  } catch (err) {
+    setStatus(pid, 'No se pudo acceder al micrófono. Verificá los permisos.', 'err');
+  }
+}
+
+function stopGrabar(pid) {
+  if (state[pid]?.mr) {
+    state[pid].mr.stop();
+  }
+}
+
+// ── Upload ──
+async function enviarAudio(pid) {
+  const blob = state[pid]?.blob;
+  if (!blob) return;
+
+  const btnEnviar = document.getElementById(`btn-enviar-${pid}`);
+  const btnGrabar = document.getElementById(`btn-grabar-${pid}`);
+  btnEnviar.disabled = true;
+  btnEnviar.textContent = 'Enviando…';
+  btnGrabar.disabled = true;
+  setStatus(pid, 'Subiendo tu respuesta…', '');
+
+  try {
+    const fd = new FormData();
+    fd.append('pregunta', String(pid));
+    fd.append('audio', blob, `q${pid}.webm`);
+
+    const res = await fetch(`${API_BASE}/token/${TOKEN}/respuesta`, {
+      method: 'POST',
+      body: fd,
+    });
+
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    // Mark as sent
+    state[pid] = { ...state[pid], sent: true };
+    document.getElementById(`card-${pid}`).classList.add('enviada');
+    btnEnviar.classList.add('hidden');
+    btnGrabar.disabled = true;
+    setStatus(pid, '✓ Respuesta guardada', 'ok');
+    actualizarProgreso();
+    checkBloqueCompleto();
+
+  } catch (err) {
+    setStatus(pid, 'Hubo un error al enviar. Intentá de nuevo.', 'err');
+    btnEnviar.disabled = false;
+    btnEnviar.textContent = 'Enviar ✓';
+    btnGrabar.disabled = false;
+  }
+}
+
+// ── Block completion check ──
+function checkBloqueCompleto() {
+  const bloque = BLOQUES[bloqueActual];
+  const todas = bloque.preguntas.every(pid => state[pid]?.sent === true);
+  document.getElementById('btn-siguiente').disabled = !todas;
+}
+
+// ── Completar (fire-and-forget) ──
+function completar() {
+  fetch(`${API_BASE}/token/${TOKEN}/completar`, { method: 'POST' }).catch(() => {});
+}
+
+// ── Progress bar ──
+function actualizarProgreso() {
+  const enviadas = Object.values(state).filter(s => s?.sent).length;
+  const total = 16;
+  const pct = Math.round((enviadas / total) * 100);
+  document.getElementById('prog-count').textContent = `${enviadas} / ${total}`;
+  document.getElementById('prog-fill').style.width = `${pct}%`;
+  document.getElementById('prog-pct').textContent = `${pct}%`;
+}
+
+// ── Helper ──
+function setStatus(pid, msg, type) {
+  const el = document.getElementById(`status-${pid}`);
+  el.textContent = msg;
+  el.className = `status-line${type ? ' ' + type : ''}`;
+}
+
+// ── Start ──
+init();
+</script>
+</body>
+</html>
