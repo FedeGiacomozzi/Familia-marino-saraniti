@@ -10,7 +10,7 @@ import tempfile
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import BackgroundTasks, FastAPI, HTTPException
+from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -52,6 +52,12 @@ def _run_pipeline_job(job_id: str, req_dict: dict) -> None:
         fs.update_job_done(job_id, payload)
     except Exception as exc:  # noqa: BLE001
         fs.update_job_error(job_id, str(exc))
+
+def _admin_auth(x_admin_key: str = Header(...)) -> None:
+    pwd = os.environ.get("ADMIN_PASSWORD", "")
+    if not pwd or x_admin_key != pwd:
+        raise HTTPException(status_code=401, detail="No autorizado")
+
 
 app = FastAPI(title="Familia Libro Pipeline", version="1.0")
 
@@ -487,3 +493,20 @@ def recibir_audio(token: str, req: AudioRequest, background_tasks: BackgroundTas
     _check_y_trigger(familia_id, background_tasks)
 
     return {"ok": True, "audio_url": gcs_uri}
+
+
+# ─── Admin ────────────────────────────────────────────────────────────────────
+
+@app.post("/admin/test-email")
+def test_email(_: None = Depends(_admin_auth)):
+    from pipeline.utils.email import send_bienvenida
+
+    send_bienvenida(
+        email_comprador="test@raices.app",
+        nombre_familia="Familia García",
+        tokens=[
+            {"nombre": "Abuela Rosa", "url": "https://example.com/grabar/abc123"},
+            {"nombre": "Tío Carlos", "url": "https://example.com/grabar/def456"},
+        ],
+    )
+    return {"ok": True, "message": "Email de prueba enviado"}
