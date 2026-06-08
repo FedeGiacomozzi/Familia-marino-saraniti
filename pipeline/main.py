@@ -11,7 +11,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
 from pydantic import BaseModel
@@ -190,12 +190,29 @@ def run_pipeline(req: PipelineRequest):
 
 
 @app.post("/run/pipeline/async")
-def run_pipeline_async(req: PipelineRequest, background_tasks: BackgroundTasks):
+def run_pipeline_async(req: PipelineRequest):
     from pipeline.utils import firestore as fs
+    from pipeline.utils.tasks import enqueue_pipeline
     job_id = str(uuid.uuid4())
     fs.create_job(job_id, familia_id=req.familia_id)
-    background_tasks.add_task(_run_pipeline_job, job_id, req.model_dump())
-    return {"job_id": job_id, "status": "pending"}
+    task_name = enqueue_pipeline(job_id, req.model_dump())
+    return {"job_id": job_id, "status": "pending", "task_name": task_name}
+
+
+class WorkerRequest(PipelineRequest):
+    job_id: str
+
+
+@app.post("/run/pipeline/worker")
+def run_pipeline_worker(
+    req: WorkerRequest,
+    x_cloudtasks_queuename: str | None = Header(default=None),
+):
+    expected = os.environ.get("CLOUD_TASKS_QUEUE", "pipeline-jobs")
+    if x_cloudtasks_queuename != expected:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    _run_pipeline_job(req.job_id, req.model_dump())
+    return {"ok": True, "job_id": req.job_id}
 
 
 @app.get("/job/{job_id}")
@@ -450,9 +467,10 @@ def _enviar_email_generando(familia_id: str, job_id: str) -> None:
     #   - Tiempo estimado: ~40 minutos
 
 
-def _check_y_trigger(familia_id: str, background_tasks: BackgroundTasks) -> None:
+def _check_y_trigger(familia_id: str) -> None:
     """Auto-trigger del pipeline cuando todos los integrantes grabaron."""
     from pipeline.utils import firestore as fs
+    from pipeline.utils.tasks import enqueue_pipeline
 
     integrantes = fs.get_integrantes(familia_id)
     pendientes = [i for i in integrantes if i.get("estado") != "completo"]
@@ -467,8 +485,7 @@ def _check_y_trigger(familia_id: str, background_tasks: BackgroundTasks) -> None
     ]
     job_id = str(uuid.uuid4())
     fs.create_job(job_id, familia_id=familia_id)
-    background_tasks.add_task(
-        _run_pipeline_job,
+    enqueue_pipeline(
         job_id,
         {
             "nombres": nombres,
@@ -485,7 +502,7 @@ def _check_y_trigger(familia_id: str, background_tasks: BackgroundTasks) -> None
 
 
 @app.post("/audio/{token}")
-def recibir_audio(token: str, req: AudioRequest, background_tasks: BackgroundTasks):
+def recibir_audio(token: str, req: AudioRequest):
     """
     Recibe el audio de un integrante (base64), lo sube a GCS,
     marca el integrante como completo y dispara el pipeline si todos grabaron.
@@ -514,7 +531,7 @@ def recibir_audio(token: str, req: AudioRequest, background_tasks: BackgroundTas
         os.unlink(tmp_path)
 
     fs.update_integrante_estado(familia_id, integrante_id, "completo")
-    _check_y_trigger(familia_id, background_tasks)
+    _check_y_trigger(familia_id)
 
     return {"ok": True, "audio_url": gcs_uri}
 
@@ -587,14 +604,14 @@ async def token_respuesta(
 
 
 @app.post("/token/{token}/completar")
-def token_completar(token: str, background_tasks: BackgroundTasks):
+def token_completar(token: str):
     from pipeline.utils import firestore as fs
     match = fs.get_integrante_by_token(token)
     if match is None:
         raise HTTPException(status_code=404, detail="Token inválido o no encontrado")
     familia_id, integrante_id, _ = match
     fs.update_integrante_estado(familia_id, integrante_id, "completo")
-    _check_y_trigger(familia_id, background_tasks)
+    _check_y_trigger(familia_id)
     return {"ok": True}
 
 

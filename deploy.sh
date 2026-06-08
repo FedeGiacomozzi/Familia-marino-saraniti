@@ -12,6 +12,8 @@ GCS_BUCKET_AUDIOS="${GCS_BUCKET_AUDIOS:-libro-familiar-audios}"
 GCS_BUCKET_FOTOS="${GCS_BUCKET_FOTOS:-libro-familiar-fotos}"
 GCS_BUCKET_LIBROS="${GCS_BUCKET_LIBROS:-libro-familiar-libros}"
 SA="familia-pipeline@${PROJECT}.iam.gserviceaccount.com"
+CLOUD_TASKS_QUEUE="pipeline-jobs"
+CLOUD_TASKS_LOCATION="${REGION}"
 
 echo "Project        : ${PROJECT}"
 echo "Region         : ${REGION}"
@@ -19,6 +21,7 @@ echo "Image          : ${IMAGE}"
 echo "Bucket audios  : ${GCS_BUCKET_AUDIOS}"
 echo "Bucket fotos   : ${GCS_BUCKET_FOTOS}"
 echo "Bucket libros  : ${GCS_BUCKET_LIBROS}"
+echo "Tasks queue    : ${CLOUD_TASKS_QUEUE} (${CLOUD_TASKS_LOCATION})"
 echo ""
 
 # ── GCS buckets ─────────────────────────────────────────────────────────────
@@ -32,6 +35,28 @@ for BUCKET in "${GCS_BUCKET_AUDIOS}" "${GCS_BUCKET_FOTOS}" "${GCS_BUCKET_LIBROS}
     echo "Bucket gs://${BUCKET} ya existe."
   fi
 done
+echo ""
+
+# ── Cloud Tasks queue (idempotente) ─────────────────────────────────────────
+gcloud tasks queues create "${CLOUD_TASKS_QUEUE}" \
+  --location="${CLOUD_TASKS_LOCATION}" \
+  --max-concurrent-dispatches=5 \
+  --max-attempts=3 \
+  --project="${PROJECT}" 2>/dev/null || echo "Queue ${CLOUD_TASKS_QUEUE} ya existe."
+
+gcloud tasks queues add-iam-policy-binding "${CLOUD_TASKS_QUEUE}" \
+  --location="${CLOUD_TASKS_LOCATION}" \
+  --member="serviceAccount:${SA}" \
+  --role="roles/cloudtasks.enqueuer" \
+  --project="${PROJECT}" > /dev/null
+
+# ── Cloud Run URL (necesaria para que Cloud Tasks apunte al worker) ──────────
+CLOUD_RUN_URL=$(gcloud run services describe "${SERVICE}" \
+  --project="${PROJECT}" \
+  --region="${REGION}" \
+  --format="value(status.url)" 2>/dev/null || \
+  echo "https://familia-pipeline-776445604502.${REGION}.run.app")
+echo "Cloud Run URL  : ${CLOUD_RUN_URL}"
 echo ""
 
 # Build and push via Cloud Build
@@ -59,7 +84,7 @@ gcloud run deploy "${SERVICE}" \
   --timeout=3600 \
   --no-cpu-throttling \
   --service-account="${SA}" \
-  --set-env-vars="GCS_BUCKET_AUDIOS=${GCS_BUCKET_AUDIOS},GCS_BUCKET_FOTOS=${GCS_BUCKET_FOTOS},GCS_BUCKET_LIBROS=${GCS_BUCKET_LIBROS},FONTS_DIR=/app/fonts,FIRESTORE_PROJECT_ID=${PROJECT},RESEND_API_KEY=${RESEND_API_KEY}" \
+  --set-env-vars="GCS_BUCKET_AUDIOS=${GCS_BUCKET_AUDIOS},GCS_BUCKET_FOTOS=${GCS_BUCKET_FOTOS},GCS_BUCKET_LIBROS=${GCS_BUCKET_LIBROS},FONTS_DIR=/app/fonts,FIRESTORE_PROJECT_ID=${PROJECT},RESEND_API_KEY=${RESEND_API_KEY},CLOUD_TASKS_QUEUE=${CLOUD_TASKS_QUEUE},CLOUD_TASKS_LOCATION=${CLOUD_TASKS_LOCATION},CLOUD_RUN_URL=${CLOUD_RUN_URL}" \
   --set-secrets="ANTHROPIC_API_KEY=ANTHROPIC_API_KEY:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,GCP_SA_KEY_JSON=GOOGLE_CREDENTIALS:latest"
 
 echo ""
