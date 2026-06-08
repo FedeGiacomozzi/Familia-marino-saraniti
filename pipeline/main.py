@@ -11,10 +11,13 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
 from pydantic import BaseModel
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
 _STATIC_DIR = Path(__file__).parent / "static"
 
@@ -63,7 +66,11 @@ def _admin_auth(x_admin_key: str = Header(...)) -> None:
         raise HTTPException(status_code=401, detail="No autorizado")
 
 
+limiter = Limiter(key_func=get_remote_address)
+
 app = FastAPI(title="Familia Libro Pipeline", version="1.0")
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
@@ -365,7 +372,6 @@ class OnboardingIntegranteRequest(BaseModel):
 
 
 class OnboardingRequest(BaseModel):
-    familia_id: str
     nombre_familia: str
     email_comprador: str
     integrantes: list[OnboardingIntegranteRequest]
@@ -380,15 +386,17 @@ def _recording_base() -> str:
 
 
 @app.post("/onboarding", status_code=201)
-def onboarding(req: OnboardingRequest):
+@limiter.limit("5/hour")
+async def onboarding(request: Request, req: OnboardingRequest):
     """
     Crea la familia e integrantes en Firestore y devuelve los tokens de grabación.
-    Idempotente: si un integrante con el mismo nombre ya existe, reutiliza su token.
+    familia_id siempre generado en servidor. Tokens generados en servidor vía add_integrante().
+    Idempotente por nombre de integrante. Rate-limited: 5 req/IP/hora.
     """
     from google.cloud import firestore as _firestore
     from pipeline.utils import firestore as fs
 
-    familia_id = req.familia_id
+    familia_id = uuid.uuid4().hex[:8]
     db = fs._db()
 
     # Upsert familia
@@ -714,6 +722,13 @@ async def token_foto(token: str, foto: UploadFile = File(...)):
     return {"ok": True}
 
 
+_ALLOWED_AUDIO_TYPES = {
+    "audio/webm", "audio/mpeg", "audio/mp4",
+    "audio/ogg", "audio/wav", "audio/x-m4a",
+}
+_MAX_AUDIO_BYTES = 25 * 1024 * 1024  # 25 MB
+
+
 @app.post("/token/{token}/respuesta")
 async def token_respuesta(
     token: str,
@@ -726,12 +741,28 @@ async def token_respuesta(
         raise HTTPException(status_code=404, detail="Token inválido o no encontrado")
     familia_id, integrante_id, _ = match
 
+    # Fix 4a: validar MIME type
+    content_type = (audio.content_type or "").split(";")[0].strip().lower()
+    if content_type not in _ALLOWED_AUDIO_TYPES:
+        raise HTTPException(
+            status_code=415,
+            detail=f"Tipo de archivo no permitido: {content_type!r}. Se aceptan: {', '.join(sorted(_ALLOWED_AUDIO_TYPES))}",
+        )
+
+    # Fix 4b: leer y validar tamaño
+    audio_bytes = await audio.read()
+    if len(audio_bytes) > _MAX_AUDIO_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Archivo demasiado grande ({len(audio_bytes) / 1024 / 1024:.1f} MB). Máximo permitido: 25 MB.",
+        )
+
     filename = audio.filename or f"q{pregunta}.webm"
     ext = filename.rsplit(".", 1)[-1] if "." in filename else "webm"
     blob_name = f"{familia_id}/{integrante_id}/q{pregunta}.{ext}"
 
     with tempfile.NamedTemporaryFile(suffix=f".{ext}", delete=False) as tmp:
-        tmp.write(await audio.read())
+        tmp.write(audio_bytes)
         tmp_path = tmp.name
 
     try:

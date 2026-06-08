@@ -711,10 +711,6 @@ input#es_regalo:checked + .toggle-regalo-wrap .toggle-switch::after,
 
       <div class="field-row">
         <div class="field">
-          <label for="familia_id">ID de familia <span title="Identificador único sin espacios ni acentos">ⓘ</span></label>
-          <input type="text" id="familia_id" placeholder="ej: lopez-garcia" autocomplete="off">
-        </div>
-        <div class="field">
           <label for="nombre_familia">Nombre de la familia</label>
           <input type="text" id="nombre_familia" placeholder="ej: Familia López García">
         </div>
@@ -794,6 +790,7 @@ input#es_regalo:checked + .toggle-regalo-wrap .toggle-switch::after,
       <div class="checkmark">✓</div>
       <h2 id="resultado-titulo">¡Familia creada!</h2>
       <p id="resultado-subtitulo">Compartí cada link con la persona que corresponde. El estado se actualiza solo.</p>
+      <p style="font-size:0.8rem;color:#888;margin-top:4px">ID de familia: <code id="resultado-familia-id" style="user-select:all"></code></p>
     </div>
 
     <div class="section">
@@ -1138,12 +1135,10 @@ function setLoading(on) {
 // ─────────────────────────────────────────────────────────────────────
 
 function recolectarDatos() {
-  const familiaId    = document.getElementById('familia_id').value.trim();
   const nombreFam    = document.getElementById('nombre_familia').value.trim();
   const emailComp    = document.getElementById('email_comprador').value.trim();
 
   // Validaciones básicas
-  if (!familiaId)    return { error: 'El ID de familia es obligatorio.' };
   if (!nombreFam)    return { error: 'El nombre de la familia es obligatorio.' };
   if (!emailComp)    return { error: 'El email del comprador es obligatorio.' };
 
@@ -1169,7 +1164,6 @@ function recolectarDatos() {
 
   return {
     payload: {
-      familia_id:      familiaId,
       nombre_familia:  nombreFam,
       email_comprador: emailComp,
       integrantes,
@@ -1290,6 +1284,7 @@ function mostrarResultado(data, nombreFamilia) {
   document.getElementById('formulario').style.display = 'none';
   document.getElementById('resultado').style.display  = 'block';
   document.getElementById('resultado-titulo').textContent = `¡${nombreFamilia} lista!`;
+  document.getElementById('resultado-familia-id').textContent = data.familia_id;
 
   _dashFamiliaId  = data.familia_id;
   _dashTokensInit = data.tokens.map(t => ({ ...t, estado: 'pendiente', usado: false }));
@@ -1372,7 +1367,7 @@ function reiniciar() {
   _dashFamiliaId = null;
 
   // Limpiar campos
-  ['familia_id','nombre_familia','nombre_comprador','email_comprador'].forEach(id => {
+  ['nombre_familia','nombre_comprador','email_comprador'].forEach(id => {
     document.getElementById(id).value = '';
   });
   document.getElementById('lista-integrantes').innerHTML = '';
