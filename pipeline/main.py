@@ -353,6 +353,147 @@ def run_layout(req: LayoutRequest):
     return {"pdf": pdf_path, "uploaded": False}
 
 
+# ─── Onboarding unificado (usado por onboarding.html) ────────────────────────
+
+class OnboardingIntegranteRequest(BaseModel):
+    nombre: str
+    email: str = ""
+    rol: str = ""
+    fecha_nac: str = ""
+    es_menor: bool = False
+    pais: str = "argentina"
+
+
+class OnboardingRequest(BaseModel):
+    familia_id: str
+    nombre_familia: str
+    email_comprador: str
+    integrantes: list[OnboardingIntegranteRequest]
+    relaciones: list = []
+
+
+def _recording_base() -> str:
+    return os.environ.get(
+        "RECORDING_BASE_URL",
+        os.environ.get("CLOUD_RUN_URL", "https://familia-pipeline-776445604502.southamerica-east1.run.app"),
+    )
+
+
+@app.post("/onboarding", status_code=201)
+def onboarding(req: OnboardingRequest):
+    """
+    Crea la familia e integrantes en Firestore y devuelve los tokens de grabación.
+    Idempotente: si un integrante con el mismo nombre ya existe, reutiliza su token.
+    """
+    from google.cloud import firestore as _firestore
+    from pipeline.utils import firestore as fs
+
+    familia_id = req.familia_id
+    db = fs._db()
+
+    # Upsert familia
+    db.collection("familias").document(familia_id).set(
+        {
+            "nombre": req.nombre_familia,
+            "comprador": {
+                "email": req.email_comprador,
+                "nombre": "",
+                "es_tambien_retratado": False,
+            },
+            "estado": "onboarding",
+            "pack": "base",
+            "pais": req.integrantes[0].pais if req.integrantes else "argentina",
+            "integrantes_extra": max(0, len(req.integrantes) - 4),
+            "fecha_compra": _firestore.SERVER_TIMESTAMP,
+            "fecha_entrega": None,
+        },
+        merge=True,
+    )
+
+    # Índice de integrantes existentes por nombre para idempotencia
+    existentes = {
+        i.get("nombre", "").lower(): i
+        for i in fs.get_integrantes(familia_id)
+    }
+
+    base = _recording_base()
+    tokens = []
+
+    for ing in req.integrantes:
+        existing = existentes.get(ing.nombre.lower())
+        if existing:
+            token = existing.get("token_unico", "")
+        else:
+            integrante_id, token = fs.add_integrante(
+                familia_id=familia_id,
+                nombre=ing.nombre,
+                relacion_con_comprador=ing.rol,
+                es_menor=ing.es_menor,
+                fecha_nac=ing.fecha_nac,
+            )
+            # Campos extra que add_integrante no acepta
+            db.collection("familias").document(familia_id) \
+              .collection("integrantes").document(integrante_id) \
+              .update({"email": ing.email, "pais": ing.pais})
+
+        tokens.append({
+            "nombre": ing.nombre,
+            "link": f"{base}/r/{token}",
+            "token": token,
+        })
+
+    return {"familia_id": familia_id, "tokens": tokens}
+
+
+@app.post("/familia/{familia_id}/foto-portada")
+async def foto_portada(familia_id: str, file: UploadFile = File(...)):
+    """Sube la foto de portada del libro a GCS y guarda la URL en Firestore."""
+    from pipeline.utils import firestore as fs, storage as st
+
+    if not fs.get_familia(familia_id):
+        raise HTTPException(status_code=404, detail=f"Familia no encontrada: {familia_id}")
+
+    filename = file.filename or "portada.jpg"
+    ext = filename.rsplit(".", 1)[-1] if "." in filename else "jpg"
+    blob_name = f"{familia_id}/portada.{ext}"
+
+    with tempfile.NamedTemporaryFile(suffix=f".{ext}", delete=False) as tmp:
+        tmp.write(await file.read())
+        tmp_path = tmp.name
+
+    try:
+        gs_url = st.upload_to_gcs(tmp_path, st.GCS_BUCKET_FOTOS, blob_name, file.content_type or "image/jpeg")
+    finally:
+        os.unlink(tmp_path)
+
+    fs._db().collection("familias").document(familia_id).update({"foto_portada_url": gs_url})
+    return {"ok": True, "foto_portada_url": gs_url}
+
+
+@app.get("/familia/{familia_id}/tokens-estado")
+def tokens_estado(familia_id: str):
+    """Devuelve estado actual de cada token para el dashboard de onboarding.html."""
+    from pipeline.utils import firestore as fs
+
+    if not fs.get_familia(familia_id):
+        raise HTTPException(status_code=404, detail=f"Familia no encontrada: {familia_id}")
+
+    integrantes = fs.get_integrantes(familia_id)
+    base = _recording_base()
+
+    tokens = []
+    for i in integrantes:
+        token = i.get("token_unico", "")
+        tokens.append({
+            "nombre": i.get("nombre", ""),
+            "link": f"{base}/r/{token}" if token else "",
+            "estado": i.get("estado", "pendiente"),
+            "usado": i.get("ultimo_acceso") is not None,
+        })
+
+    return {"tokens": tokens}
+
+
 # ─── Onboarding: Familias ─────────────────────────────────────────────────────
 
 class CompradorInfo(BaseModel):
