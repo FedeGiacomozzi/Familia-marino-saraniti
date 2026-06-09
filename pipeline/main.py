@@ -380,7 +380,7 @@ class OnboardingRequest(BaseModel):
 
 def _recording_base() -> str:
     return os.environ.get(
-        "RECORDING_BASE_URL",
+        "BASE_URL",
         os.environ.get("CLOUD_RUN_URL", "https://familia-pipeline-776445604502.southamerica-east1.run.app"),
     )
 
