@@ -69,10 +69,7 @@ gcloud builds submit \
 # SHEET_ID (Respuestas + Perfiles): 1A1M79ITLeRVWkwct7pqjUTmLu9NWXn9uDLpKWMMomgM
 # FAMILIA_SHEET_ID (Integrantes + Relaciones): 1iEpnly_f3OQL6nLH41XU76zg1iM2vHZQyQdF0RLVQFE
 
-# Fetch RESEND_API_KEY from Secret Manager before deploy
-export RESEND_API_KEY=$(gcloud secrets versions access latest --secret="RESEND_API_KEY")
-
-# Deploy to Cloud Run (--clear-env-vars evicts any plain env vars before setting secrets)
+# Deploy to Cloud Run
 gcloud run deploy "${SERVICE}" \
   --project="${PROJECT}" \
   --image="${IMAGE}" \
@@ -84,8 +81,8 @@ gcloud run deploy "${SERVICE}" \
   --timeout=3600 \
   --no-cpu-throttling \
   --service-account="${SA}" \
-  --set-env-vars="GCS_BUCKET_AUDIOS=${GCS_BUCKET_AUDIOS},GCS_BUCKET_FOTOS=${GCS_BUCKET_FOTOS},GCS_BUCKET_LIBROS=${GCS_BUCKET_LIBROS},FONTS_DIR=/app/fonts,FIRESTORE_PROJECT_ID=${PROJECT},RESEND_API_KEY=${RESEND_API_KEY},CLOUD_TASKS_QUEUE=${CLOUD_TASKS_QUEUE},CLOUD_TASKS_LOCATION=${CLOUD_TASKS_LOCATION},CLOUD_RUN_URL=${CLOUD_RUN_URL}" \
-  --set-secrets="ANTHROPIC_API_KEY=ANTHROPIC_API_KEY:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,GCP_SA_KEY_JSON=GOOGLE_CREDENTIALS:latest"
+  --set-env-vars="GCS_BUCKET_AUDIOS=${GCS_BUCKET_AUDIOS},GCS_BUCKET_FOTOS=${GCS_BUCKET_FOTOS},GCS_BUCKET_LIBROS=${GCS_BUCKET_LIBROS},FONTS_DIR=/app/fonts,FIRESTORE_PROJECT_ID=${PROJECT},CLOUD_TASKS_QUEUE=${CLOUD_TASKS_QUEUE},CLOUD_TASKS_LOCATION=${CLOUD_TASKS_LOCATION},CLOUD_RUN_URL=${CLOUD_RUN_URL}" \
+  --set-secrets="ANTHROPIC_API_KEY=ANTHROPIC_API_KEY:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,GCP_SA_KEY_JSON=GOOGLE_CREDENTIALS:latest,POSTMARK_API_KEY=POSTMARK_API_KEY:latest,ADMIN_PASSWORD=ADMIN_PASSWORD:latest"
 
 echo ""
 echo "Deploy complete."

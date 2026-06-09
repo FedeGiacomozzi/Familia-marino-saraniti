@@ -1,22 +1,52 @@
 import logging
 import os
+import re
 from datetime import datetime
 from pathlib import Path
 
-import resend
+import httpx
 
 logger = logging.getLogger(__name__)
 
 _TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
-_FROM = os.environ.get("RESEND_FROM_EMAIL", "Raíces <noreply@raices.app>")
+_FROM = "hola@ethosbios.com"
+_POSTMARK_URL = "https://api.postmarkapp.com/email"
 
 
 def _get_key() -> str | None:
-    RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
-    if not RESEND_API_KEY:
-        logger.warning("RESEND_API_KEY no configurada")
+    key = os.environ.get("POSTMARK_API_KEY", "")
+    if not key:
+        logger.warning("POSTMARK_API_KEY no configurada")
         return None
-    return RESEND_API_KEY
+    return key
+
+
+def _html_to_text(html: str) -> str:
+    text = re.sub(r"<[^>]+>", " ", html)
+    return re.sub(r" {2,}", " ", text).strip()
+
+
+def _send(key: str, to: str, subject: str, html: str) -> None:
+    resp = httpx.post(
+        _POSTMARK_URL,
+        headers={"X-Postmark-Server-Token": key, "Content-Type": "application/json"},
+        json={
+            "From": _FROM,
+            "To": to,
+            "Subject": subject,
+            "HtmlBody": html,
+            "TextBody": _html_to_text(html),
+        },
+        timeout=15,
+    )
+    if not resp.is_success:
+        logger.error(
+            "Postmark error %s — %s — body: %s",
+            resp.status_code,
+            subject,
+            resp.text,
+        )
+    resp.raise_for_status()
 
 
 def send_bienvenida(email_comprador: str, nombre_familia: str, tokens: list[dict]) -> None:
@@ -42,13 +72,7 @@ def send_bienvenida(email_comprador: str, nombre_familia: str, tokens: list[dict
     )
 
     try:
-        resend.api_key = key
-        resend.Emails.send({
-            "from": _FROM,
-            "to": [email_comprador],
-            "subject": f"Ya podés empezar — {nombre_familia}",
-            "html": html,
-        })
+        _send(key, email_comprador, f"Ya podés empezar — {nombre_familia}", html)
     except Exception as exc:  # noqa: BLE001
         logger.warning("Error enviando bienvenida a %s: %s", email_comprador, exc)
 
@@ -74,13 +98,7 @@ def send_libro_listo(email_comprador: str, nombre_familia: str, signed_url: str)
     )
 
     try:
-        resend.api_key = key
-        resend.Emails.send({
-            "from": _FROM,
-            "to": [email_comprador],
-            "subject": f"Tu libro está listo — {nombre_familia}",
-            "html": html,
-        })
+        _send(key, email_comprador, f"Tu libro está listo — {nombre_familia}", html)
     except Exception as exc:  # noqa: BLE001
         logger.warning("Error enviando libro_listo a %s: %s", email_comprador, exc)
 
@@ -104,12 +122,6 @@ def send_recordatorio(
     )
 
     try:
-        resend.api_key = key
-        resend.Emails.send({
-            "from": _FROM,
-            "to": [email_integrante],
-            "subject": f"{nombre_familia} te está esperando",
-            "html": html,
-        })
+        _send(key, email_integrante, f"{nombre_familia} te está esperando", html)
     except Exception as exc:  # noqa: BLE001
         logger.warning("Error enviando recordatorio a %s: %s", email_integrante, exc)
