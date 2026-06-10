@@ -3,39 +3,68 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Tu link de acceso</title>
+<title>Tu link de acceso — Ethos Bios</title>
 <style>
-  body { margin: 0; padding: 0; background: #fdf8f2; font-family: Georgia, serif; }
-  .wrapper { max-width: 540px; margin: 0 auto; padding: 40px 24px; }
-  .card { background: #ffffff; border: 1px solid #e8d9b8; border-radius: 12px; padding: 40px 36px; }
-  .wordmark { font-size: 13px; letter-spacing: 0.18em; text-transform: uppercase; color: #C4956A; margin-bottom: 28px; font-family: Georgia, serif; }
-  h1 { font-size: 22px; color: #2C1A0E; margin-bottom: 12px; font-weight: normal; }
-  p { font-size: 15px; color: #5a4030; line-height: 1.7; margin-bottom: 16px; font-family: Arial, sans-serif; }
-  .btn-link { display: inline-block; background: #2C1A0E; color: #F5EDD8 !important; text-decoration: none; padding: 14px 28px; border-radius: 8px; font-family: Arial, sans-serif; font-size: 14px; font-weight: bold; letter-spacing: 0.04em; margin: 8px 0 20px; }
-  .link-text { font-size: 13px; color: #9a7b5a; word-break: break-all; font-family: monospace; background: #f5edd8; padding: 10px 14px; border-radius: 6px; margin-bottom: 20px; }
-  .footer { font-size: 12px; color: #b89a7a; text-align: center; margin-top: 28px; font-family: Arial, sans-serif; }
-  .divider { border: none; border-top: 1px solid #e8d9b8; margin: 24px 0; }
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=Mulish:wght@400;600;700&display=swap');
+body{margin:0;padding:0;background:#fdf8f2;font-family:'Mulish',Arial,sans-serif}
+.wrap{max-width:560px;margin:0 auto;padding:32px 16px}
+.card{background:#ffffff;border:0.5px solid #e8d9b8;border-radius:12px;overflow:hidden}
+.header{background:#2C1A0E;padding:2.25rem 2rem 2rem;text-align:center}
+.wordmark{font-family:'Cormorant Garamond',Georgia,serif;font-size:26px;font-weight:500;color:#F5EDD8;letter-spacing:0.04em;margin:0 0 4px}
+.header-sub{font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#C4956A;font-family:'Mulish',Arial,sans-serif;font-weight:700}
+.body{padding:2rem}
+.body-intro{font-size:15px;line-height:1.7;color:#3d2b0a;margin:0 0 1.5rem}
+.quote{font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-size:18px;color:#8B5E3C;line-height:1.5;margin:0 0 1.5rem;padding-left:1rem;border-left:2px solid #e8d9b8}
+.cta{
+  display:block;background:#2C1A0E;color:#F5EDD8;text-align:center;
+  padding:0.9rem 1.5rem;border-radius:8px;font-family:'Mulish',Arial,sans-serif;
+  font-size:14px;font-weight:700;letter-spacing:0.06em;text-decoration:none;
+  margin:1.5rem 0
+}
+.link-fallback{font-size:12px;color:#9a7b5a;margin:0 0 1rem;font-family:'Mulish',Arial,sans-serif}
+.link-text{font-size:12px;color:#3d2b0a;word-break:break-all;font-family:monospace;background:#f5edd8;padding:8px 12px;border-radius:6px;display:block;margin-bottom:1.5rem}
+.divider{border:none;border-top:0.5px solid #e8d9b8;margin:1.5rem 0}
+.footnote{font-size:13px;color:#9a7b5a;line-height:1.6;margin:0;font-family:'Mulish',Arial,sans-serif}
+.footer{padding:1rem 2rem;border-top:0.5px solid #e8d9b8;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+.footer-brand{font-family:'Cormorant Garamond',Georgia,serif;font-size:13px;color:#9a7b5a}
+.footer-link{font-size:12px;color:#9a7b5a;font-family:'Mulish',Arial,sans-serif}
 </style>
 </head>
 <body>
-<div class="wrapper">
+<div class="wrap">
   <div class="card">
-    <p class="wordmark">Raíces</p>
-    <h1>Tu link de acceso</h1>
-    <p>Hacé clic en el botón para acceder al seguimiento de <strong>{{NOMBRE_FAMILIA}}</strong>.</p>
+    <div class="header">
+      <p class="wordmark">Ethos Bios</p>
+      <p class="header-sub">Libros biográficos familiares</p>
+    </div>
+    <div class="body">
+      <p class="body-intro">
+        Recibiste este mensaje porque solicitaste acceso al seguimiento de
+        <strong>{{NOMBRE_FAMILIA}}</strong>.
+        Hacé clic en el botón para ingresar a tu panel.
+      </p>
 
-    <a href="{{MAGIC_LINK}}" class="btn-link">Acceder a mi libro familiar →</a>
+      <blockquote class="quote">
+        "Cada historia merece ser guardada."
+      </blockquote>
 
-    <p style="font-size:13px;color:#9a7b5a;">O copiá este link en tu navegador:</p>
-    <div class="link-text">{{MAGIC_LINK}}</div>
+      <a href="{{MAGIC_LINK}}" class="cta">Acceder a mi libro familiar →</a>
 
-    <hr class="divider">
+      <p class="link-fallback">Si el botón no funciona, copiá este link en tu navegador:</p>
+      <span class="link-text">{{MAGIC_LINK}}</span>
 
-    <p style="font-size:13px;color:#9a7b5a;margin-bottom:0;">
-      Este link es personal y caduca en 90 días. Si no solicitaste este email, podés ignorarlo.
-    </p>
+      <hr class="divider">
+
+      <p class="footnote">
+        Este link es personal y caduca en 90 días.<br>
+        Si no solicitaste este email, podés ignorarlo sin problema.
+      </p>
+    </div>
+    <div class="footer">
+      <span class="footer-brand">Ethos Bios</span>
+      <span class="footer-link">© {{AÑO}} · ethosbios.com</span>
+    </div>
   </div>
-  <div class="footer">© {{AÑO}} Raíces · ethosbios.com</div>
 </div>
 </body>
 </html>
