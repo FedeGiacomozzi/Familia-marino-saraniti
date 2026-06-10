@@ -101,7 +101,6 @@ h1{font-family:'Playfair Display',serif;font-size:26px;margin-bottom:0.5rem}
 <script>
 const API = '';
 let _familiaId = null;
-let _mlToken = null;
 let _pollInterval = null;
 
 // ── Magic link flow ──────────────────────────────────────────────────────────
@@ -116,7 +115,7 @@ async function solicitarAcceso() {
   btn.disabled = true;
   btn.textContent = 'Enviando…';
   try {
-    const res = await fetch('/auth/magic-link', {
+    const res = await fetch('/auth/request-link', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email }),
@@ -141,14 +140,13 @@ function mostrarMsg(txt, tipo) {
 
 // ── Dashboard ────────────────────────────────────────────────────────────────
 
-async function cargarDashboard(mlToken) {
-  _mlToken = mlToken;
+async function cargarDashboard() {
   try {
-    const res = await fetch(`/auth/magic-link/${mlToken}/familia`);
+    const res = await fetch('/me', { credentials: 'include' });
     if (!res.ok) {
-      const err = await res.json();
-      document.getElementById('login-screen').querySelector('.sub').textContent =
-        err.detail || 'El link expiró. Solicitá uno nuevo.';
+      if (res.status === 401) return; // session absent — login screen stays visible
+      const err = await res.json().catch(() => ({}));
+      mostrarMsg(err.detail || 'Error al cargar el libro.', 'error');
       return;
     }
     const data = await res.json();
@@ -157,14 +155,9 @@ async function cargarDashboard(mlToken) {
     document.getElementById('dashboard').style.display = 'block';
     document.getElementById('dash-nombre-fam').textContent = data.nombre_familia;
 
-    if (data.pdf_url) {
-      document.getElementById('dash-pdf-box').style.display = 'block';
-      document.getElementById('btn-pdf').dataset.url = data.pdf_url;
-    }
-
     actualizarTabla(data.tokens || []);
 
-    // Poll cada 30s
+    // Poll estado cada 30s
     _pollInterval = setInterval(pollEstado, 30000);
   } catch (err) {
     mostrarMsg('Error al cargar el libro: ' + err.message, 'error');
@@ -172,16 +165,12 @@ async function cargarDashboard(mlToken) {
 }
 
 async function pollEstado() {
-  if (!_familiaId || !_mlToken) return;
+  if (!_familiaId) return;
   try {
-    const res = await fetch(`/auth/magic-link/${_mlToken}/familia`);
+    const res = await fetch('/me', { credentials: 'include' });
     if (!res.ok) return;
     const data = await res.json();
     actualizarTabla(data.tokens || []);
-    if (data.pdf_url) {
-      document.getElementById('dash-pdf-box').style.display = 'block';
-      document.getElementById('btn-pdf').dataset.url = data.pdf_url;
-    }
     document.getElementById('dash-refresh-txt').textContent =
       'Actualizado ' + new Date().toLocaleTimeString('es-AR', {hour:'2-digit',minute:'2-digit'});
   } catch (_) {}
@@ -212,12 +201,12 @@ function descargarPdf() {
 }
 
 async function reenviarLinks() {
-  if (!_mlToken) return;
+  if (!_familiaId) return;
   const btn = event.target;
   btn.disabled = true;
   btn.textContent = 'Enviando…';
   try {
-    await fetch(`/auth/magic-link/${_mlToken}/reenviar-links`, { method: 'POST' });
+    await fetch(`/familia/${_familiaId}/reenviar-links`, { method: 'POST', credentials: 'include' });
     btn.textContent = 'Links enviados ✓';
     setTimeout(() => { btn.textContent = 'Reenviar links por email'; btn.disabled = false; }, 3000);
   } catch (_) {
@@ -226,14 +215,9 @@ async function reenviarLinks() {
   }
 }
 
-// ── Entrada: ¿hay magic link en la URL? ─────────────────────────────────────
+// ── Entrada: intentar sesión de cookie, luego check URL ─────────────────────
 (function init() {
-  const params = new URLSearchParams(location.search);
-  const ml = params.get('ml');
-  if (ml) {
-    cargarDashboard(ml);
-  }
-  // Enter en el input
+  cargarDashboard();
   document.getElementById('inp-email').addEventListener('keydown', e => {
     if (e.key === 'Enter') solicitarAcceso();
   });

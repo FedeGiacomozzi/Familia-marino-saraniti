@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>¡Pago confirmado! — Raíces</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;1,400&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Lato',sans-serif;background:#fdf8f2;color:#3d2b0a;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px}
+.card{background:#fff;border:0.5px solid #e8d9b8;border-radius:16px;padding:2.5rem 2rem;max-width:480px;width:100%;text-align:center}
+.wordmark{font-family:'Playfair Display',serif;font-size:13px;letter-spacing:0.18em;text-transform:uppercase;color:#C4956A;margin-bottom:1.5rem}
+.check-circle{width:64px;height:64px;border-radius:50%;background:#EAF3DE;display:flex;align-items:center;justify-content:center;margin:0 auto 1.5rem;font-size:28px}
+h1{font-family:'Playfair Display',serif;font-size:26px;margin-bottom:0.5rem;font-weight:400}
+.sub{font-size:14px;color:#9a7b5a;margin-bottom:2rem;line-height:1.6}
+
+/* Link box */
+.link-box{background:#f5edd8;border:0.5px solid #e8d9b8;border-radius:10px;padding:1.25rem 1.5rem;margin-bottom:1.25rem;text-align:left}
+.link-box-label{font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:#9a7b5a;margin-bottom:6px}
+.link-text{font-size:13px;color:#3d2b0a;word-break:break-all;font-family:monospace;line-height:1.5}
+.btn-copy{width:100%;background:#2C1A0E;color:#F5EDD8;border:none;padding:13px;border-radius:8px;font-family:'Lato',sans-serif;font-size:14px;font-weight:700;cursor:pointer;letter-spacing:0.04em;margin-bottom:0.75rem;transition:opacity .15s}
+.btn-copy:hover{opacity:.88}
+.btn-copy:disabled{opacity:.5;cursor:not-allowed}
+.btn-secondary{width:100%;background:transparent;border:0.5px solid #e8d9b8;color:#3d2b0a;padding:13px;border-radius:8px;font-family:'Lato',sans-serif;font-size:14px;font-weight:700;cursor:pointer;letter-spacing:0.04em;text-decoration:none;display:block;transition:background .15s}
+.btn-secondary:hover{background:#f5edd8}
+.copied-msg{font-size:13px;color:#3B6D11;margin-bottom:0.75rem;display:none}
+
+/* Loading state */
+.loading-wrap{padding:1rem 0 1.5rem;color:#9a7b5a;font-size:14px}
+.spinner{display:inline-block;width:20px;height:20px;border:2px solid #e8d9b8;border-top-color:#C4956A;border-radius:50%;animation:spin .8s linear infinite;vertical-align:middle;margin-right:8px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Error state */
+.error-box{background:#faeeda;border:0.5px solid #e8c4a0;border-radius:8px;padding:12px 16px;font-size:13px;color:#854F0B;margin-bottom:1rem;display:none;text-align:left}
+
+/* Tip */
+.tip{font-size:12px;color:#b89a7a;margin-top:1.25rem;line-height:1.6}
+.tip a{color:#C4956A;text-decoration:none}
+.tip a:hover{text-decoration:underline}
+</style>
+</head>
+<body>
+
+<div class="card">
+  <p class="wordmark">Raíces</p>
+  <div class="check-circle">✓</div>
+  <h1>¡Pago confirmado!</h1>
+  <p class="sub">Gracias por tu compra. Este es tu link personal para acceder al libro familiar en cualquier momento.</p>
+
+  <!-- Loading state -->
+  <div id="loading" class="loading-wrap">
+    <span class="spinner"></span>Preparando tu link de acceso…
+  </div>
+
+  <!-- Link disponible -->
+  <div id="link-section" style="display:none">
+    <div class="link-box">
+      <p class="link-box-label">Tu link de acceso</p>
+      <p class="link-text" id="link-display">—</p>
+    </div>
+    <p class="copied-msg" id="copied-msg">Link copiado al portapapeles</p>
+    <button class="btn-copy" id="btn-copy" onclick="copiarLink()">Copiar mi link</button>
+    <a href="/onboarding" class="btn-secondary" id="btn-onboarding">Configurar los integrantes →</a>
+    <p class="tip">
+      Guardá este link: es la puerta de entrada a tu libro familiar.<br>
+      También podés pedirlo de nuevo en <a href="/mi-familia">mi-familia</a> con tu email.
+    </p>
+  </div>
+
+  <!-- Error -->
+  <div id="error-box" class="error-box">
+    Tu link llegará en minutos. Si el pago ya fue procesado y el link no aparece,
+    podés pedirlo desde <a href="/mi-familia" style="color:#854F0B">mi-familia</a>
+    ingresando tu email.
+  </div>
+</div>
+
+<script>
+const API = '';
+let _link = null;
+let _pollAttempts = 0;
+const MAX_ATTEMPTS = 15;  // 15 × 2s = 30 segundos máximo
+
+function getFamiliaId() {
+  const params = new URLSearchParams(location.search);
+  return params.get('familia_id') || params.get('collection_id') || null;
+}
+
+async function pollLink(familiaId) {
+  _pollAttempts++;
+  try {
+    const res = await fetch(`${API}/familia/${familiaId}/link-acceso`);
+    if (!res.ok) throw new Error('Error ' + res.status);
+    const data = await res.json();
+    if (data.disponible && data.link) {
+      mostrarLink(data.link);
+      return;
+    }
+  } catch (_) {}
+
+  if (_pollAttempts >= MAX_ATTEMPTS) {
+    mostrarError();
+    return;
+  }
+  setTimeout(() => pollLink(familiaId), 2000);
+}
+
+function mostrarLink(link) {
+  _link = link;
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('link-display').textContent = link;
+  document.getElementById('link-section').style.display = 'block';
+
+  // Pre-populate the onboarding link with familia_id if present
+  const familiaId = getFamiliaId();
+  if (familiaId) {
+    const btn = document.getElementById('btn-onboarding');
+    btn.href = `/onboarding?familia_id=${familiaId}`;
+  }
+}
+
+function mostrarError() {
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('error-box').style.display = 'block';
+}
+
+async function copiarLink() {
+  if (!_link) return;
+  const btn = document.getElementById('btn-copy');
+  try {
+    await navigator.clipboard.writeText(_link);
+    document.getElementById('copied-msg').style.display = 'block';
+    btn.textContent = 'Copiado ✓';
+    setTimeout(() => {
+      btn.textContent = 'Copiar mi link';
+      document.getElementById('copied-msg').style.display = 'none';
+    }, 3000);
+  } catch (_) {
+    // Fallback: select the text
+    const el = document.getElementById('link-display');
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    window.getSelection().removeAllRanges();
+    window.getSelection().addRange(range);
+    btn.textContent = 'Seleccionado — copiá con Ctrl+C';
+    setTimeout(() => { btn.textContent = 'Copiar mi link'; }, 3000);
+  }
+}
+
+// Init
+(function() {
+  const familiaId = getFamiliaId();
+  if (!familiaId) {
+    mostrarError();
+    return;
+  }
+  pollLink(familiaId);
+})();
+</script>
+</body>
+</html>
