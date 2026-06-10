@@ -411,3 +411,108 @@ def get_job(job_id: str) -> dict | None:
         except (json.JSONDecodeError, TypeError):
             pass
     return data
+
+
+# ─── Access tokens (magic link auth) ─────────────────────────────────────────
+
+def set_access_token(familia_id: str, token: str, expires_at) -> None:
+    _db().collection("familias").document(familia_id).update({
+        "access_token": token,
+        "access_token_expires_at": expires_at,
+    })
+
+
+def get_familia_by_access_token(token: str) -> tuple[str, dict] | None:
+    """Find familia by access_token. Returns (familia_id, data) or None if not found/expired."""
+    from datetime import datetime, timezone
+    if not token:
+        return None
+    docs = (
+        _db().collection("familias")
+        .where("access_token", "==", token)
+        .limit(1)
+        .stream()
+    )
+    for doc in docs:
+        data = doc.to_dict()
+        expires_at = data.get("access_token_expires_at")
+        if expires_at:
+            now = datetime.now(timezone.utc)
+            try:
+                if expires_at.tzinfo is None:
+                    expires_at = expires_at.replace(tzinfo=timezone.utc)
+                if expires_at < now:
+                    return None
+            except Exception:
+                pass
+        data["id"] = doc.id
+        return doc.id, data
+    return None
+
+
+def get_access_token(familia_id: str) -> str | None:
+    """Returns access_token if familia exists and token is not expired."""
+    from datetime import datetime, timezone
+    doc = _db().collection("familias").document(familia_id).get()
+    if not doc.exists:
+        return None
+    data = doc.to_dict()
+    token = data.get("access_token")
+    expires_at = data.get("access_token_expires_at")
+    if not token or not expires_at:
+        return None
+    now = datetime.now(timezone.utc)
+    try:
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        if expires_at < now:
+            return None
+    except Exception:
+        pass
+    return token
+
+
+def get_familia_by_email(email: str) -> tuple[str, dict] | None:
+    """Find familia by comprador email. Returns (familia_id, data) or None."""
+    docs = (
+        _db().collection("familias")
+        .where("comprador.email", "==", email)
+        .limit(1)
+        .stream()
+    )
+    for doc in docs:
+        data = doc.to_dict()
+        data["id"] = doc.id
+        return doc.id, data
+    return None
+
+
+def check_and_record_rate_limit(key: str, max_count: int, window_seconds: int) -> bool:
+    """
+    Check rate limit for a key. Records the hit if allowed.
+    Returns True if under limit (allowed), False if exceeded (blocked).
+    """
+    from datetime import datetime, timezone, timedelta
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(seconds=window_seconds)
+
+    ref = _db().collection("rate_limits").document(key)
+    doc = ref.get()
+
+    hits: list = []
+    if doc.exists:
+        for h in doc.to_dict().get("hits", []):
+            try:
+                if h.tzinfo is None:
+                    h = h.replace(tzinfo=timezone.utc)
+                if h > cutoff:
+                    hits.append(h)
+            except Exception:
+                pass
+
+    if len(hits) >= max_count:
+        return False
+
+    hits.append(now)
+    ref.set({"hits": hits})
+    return True

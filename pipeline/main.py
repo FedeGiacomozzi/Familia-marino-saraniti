@@ -4,16 +4,22 @@ All heavy work happens in the agent modules.
 """
 
 import base64
+import hashlib
+import hmac
+import json
 import logging
 import os
 import tempfile
+import time as _time
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+import httpx
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
+from itsdangerous import BadSignature, URLSafeTimedSerializer
 from pydantic import BaseModel
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -64,6 +70,64 @@ def _admin_auth(x_admin_key: str = Header(...)) -> None:
     pwd = os.environ.get("ADMIN_PASSWORD", "")
     if not pwd or x_admin_key != pwd:
         raise HTTPException(status_code=401, detail="No autorizado")
+
+
+# ─── Session helpers (itsdangerous cookie) ───────────────────────────────────
+
+_SESSION_COOKIE = "session"
+_SESSION_MAX_AGE = 30 * 24 * 3600  # 30 days
+
+
+def _session_serializer() -> URLSafeTimedSerializer:
+    secret = os.environ.get("SESSION_SECRET", "")
+    if not secret:
+        raise RuntimeError("SESSION_SECRET no configurado")
+    return URLSafeTimedSerializer(secret, salt="session")
+
+
+def _sign_session(familia_id: str) -> str:
+    return _session_serializer().dumps({"familia_id": familia_id})
+
+
+def _verify_session(cookie_value: str) -> str | None:
+    """Returns familia_id if cookie is valid and not expired, None otherwise."""
+    try:
+        data = _session_serializer().loads(cookie_value, max_age=_SESSION_MAX_AGE)
+        return data.get("familia_id")
+    except (BadSignature, Exception):
+        return None
+
+
+# ─── Stripe webhook signature verification ───────────────────────────────────
+
+def _verify_stripe_signature(payload: bytes, sig_header: str, secret: str) -> bool:
+    timestamp: int | None = None
+    v1_sigs: list[str] = []
+    for part in sig_header.split(","):
+        if "=" not in part:
+            continue
+        k, v = part.split("=", 1)
+        if k.strip() == "t":
+            try:
+                timestamp = int(v.strip())
+            except ValueError:
+                pass
+        elif k.strip() == "v1":
+            v1_sigs.append(v.strip())
+
+    if timestamp is None or not v1_sigs:
+        return False
+
+    if abs(_time.time() - timestamp) > 300:  # 5-minute tolerance
+        return False
+
+    signed_payload = f"{timestamp}.{payload.decode('utf-8')}"
+    expected = hmac.new(
+        secret.encode("utf-8"),
+        signed_payload.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+    return any(hmac.compare_digest(expected, sig) for sig in v1_sigs)
 
 
 limiter = Limiter(key_func=get_remote_address)
@@ -785,6 +849,215 @@ def token_completar(token: str):
     fs.update_integrante_estado(familia_id, integrante_id, "completo")
     _check_y_trigger(familia_id)
     return {"ok": True}
+
+
+# ─── Webhooks de pago ────────────────────────────────────────────────────────
+
+def _generar_access_token_familia(familia_id: str) -> None:
+    """Generate and persist access_token (UUID4, 90 days) for a familia."""
+    from pipeline.utils import firestore as fs
+
+    if not fs.get_familia(familia_id):
+        logger.warning("[webhook] familia no encontrada: %s", familia_id)
+        return
+
+    token = str(uuid.uuid4())
+    expires_at = datetime.now(timezone.utc) + timedelta(days=90)
+    fs.set_access_token(familia_id, token, expires_at)
+    logger.info("[webhook] access_token generado para familia=%s expira=%s", familia_id, expires_at.date())
+
+
+@app.post("/webhook/stripe")
+async def webhook_stripe(request: Request):
+    payload = await request.body()
+    sig_header = request.headers.get("stripe-signature", "")
+    secret = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
+
+    if secret and not _verify_stripe_signature(payload, sig_header, secret):
+        raise HTTPException(status_code=400, detail="Firma de webhook inválida")
+
+    try:
+        event = json.loads(payload)
+    except Exception:
+        raise HTTPException(status_code=400, detail="JSON inválido")
+
+    if event.get("type") == "checkout.session.completed":
+        session = event.get("data", {}).get("object", {})
+        familia_id = (
+            session.get("metadata", {}).get("familia_id")
+            or session.get("client_reference_id")
+        )
+        if familia_id:
+            _generar_access_token_familia(familia_id)
+
+    return {"ok": True}
+
+
+def _handle_mp_payment(payment_id: str) -> None:
+    """Fetch payment from MercadoPago API and generate access_token if approved."""
+    mp_token = os.environ.get("MP_ACCESS_TOKEN", "")
+    if not mp_token:
+        logger.warning("[webhook-mp] MP_ACCESS_TOKEN no configurado")
+        return
+
+    try:
+        resp = httpx.get(
+            f"https://api.mercadopago.com/v1/payments/{payment_id}",
+            headers={"Authorization": f"Bearer {mp_token}"},
+            timeout=10,
+        )
+        if not resp.is_success:
+            logger.warning("[webhook-mp] error al obtener pago %s: %s", payment_id, resp.status_code)
+            return
+
+        payment = resp.json()
+        if payment.get("status") == "approved":
+            familia_id = payment.get("external_reference")
+            if familia_id:
+                _generar_access_token_familia(familia_id)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[webhook-mp] excepción procesando pago %s: %s", payment_id, exc)
+
+
+@app.post("/webhook/mercadopago")
+async def webhook_mercadopago(request: Request):
+    # MercadoPago sends both modern webhooks (JSON body) and legacy IPN (query params).
+    topic = request.query_params.get("topic", "")
+    payment_id_query = request.query_params.get("id", "")
+
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    event_type = body.get("type", "") or topic
+    payment_id = body.get("data", {}).get("id") or (payment_id_query if topic == "payment" else "")
+
+    if event_type == "payment" and payment_id:
+        _handle_mp_payment(str(payment_id))
+
+    return {"ok": True}
+
+
+# ─── Auth: magic link ─────────────────────────────────────────────────────────
+
+@app.get("/auth/{token}")
+def auth_magic_link(token: str):
+    """Validate access_token, set session cookie, redirect to /mi-familia."""
+    from pipeline.utils import firestore as fs
+
+    result = fs.get_familia_by_access_token(token)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Link inválido o expirado")
+
+    familia_id, _ = result
+    signed = _sign_session(familia_id)
+
+    response = RedirectResponse(url="/mi-familia", status_code=303)
+    response.set_cookie(
+        key=_SESSION_COOKIE,
+        value=signed,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        max_age=_SESSION_MAX_AGE,
+    )
+    return response
+
+
+class RequestLinkBody(BaseModel):
+    email: str
+
+
+_MAGIC_LINK_MAX_REQUESTS = 3
+_MAGIC_LINK_WINDOW_SECONDS = 3600
+
+
+@app.post("/auth/request-link")
+@limiter.limit("20/hour")  # coarse IP-level guard
+async def request_magic_link(request: Request, body: RequestLinkBody):
+    """
+    Send a magic link to the given email.
+    Rate-limited to 3 requests/hour per email.
+    Returns the same response regardless of whether the email exists.
+    """
+    from pipeline.utils import firestore as fs
+    from pipeline.utils.email import send_magic_link
+
+    email = body.email.strip().lower()
+    _GENERIC_OK = {"ok": True, "message": "Si el email está registrado, recibirás el link en breve."}
+
+    # Per-email rate limit (stored in Firestore)
+    email_key = hashlib.sha256(email.encode()).hexdigest()[:32]
+    if not fs.check_and_record_rate_limit(email_key, _MAGIC_LINK_MAX_REQUESTS, _MAGIC_LINK_WINDOW_SECONDS):
+        return JSONResponse(content=_GENERIC_OK)
+
+    try:
+        result = fs.get_familia_by_email(email)
+        if result:
+            familia_id, familia = result
+            token = fs.get_access_token(familia_id)
+            if token:
+                base = _recording_base()
+                magic_link = f"{base}/auth/{token}"
+                nombre_familia = familia.get("nombre", "tu familia")
+                send_magic_link(email, nombre_familia, magic_link)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[request-link] error para %s: %s", email, exc)
+
+    return _GENERIC_OK
+
+
+# ─── Session: GET /me ─────────────────────────────────────────────────────────
+
+@app.get("/me")
+def get_me(request: Request):
+    """Return familia data for the currently authenticated session."""
+    from pipeline.utils import firestore as fs
+
+    cookie_value = request.cookies.get(_SESSION_COOKIE, "")
+    if not cookie_value:
+        raise HTTPException(status_code=401, detail="No autenticado")
+
+    familia_id = _verify_session(cookie_value)
+    if not familia_id:
+        raise HTTPException(status_code=401, detail="Sesión inválida o expirada")
+
+    familia = fs.get_familia(familia_id)
+    if not familia:
+        raise HTTPException(status_code=404, detail="Familia no encontrada")
+
+    integrantes = fs.get_integrantes(familia_id)
+    tokens_estado = [
+        {
+            "nombre": i.get("nombre", ""),
+            "estado": i.get("estado", "pendiente"),
+        }
+        for i in integrantes
+    ]
+
+    return {
+        "familia_id": familia_id,
+        "nombre_familia": familia.get("nombre", ""),
+        "comprador": familia.get("comprador", {}),
+        "tokens": tokens_estado,
+        "estado": familia.get("estado", ""),
+    }
+
+
+# ─── Familia: link de acceso (usado por /gracias) ────────────────────────────
+
+@app.get("/familia/{familia_id}/link-acceso")
+def familia_link_acceso(familia_id: str):
+    """Return the access link for a familia once payment is confirmed."""
+    from pipeline.utils import firestore as fs
+
+    token = fs.get_access_token(familia_id)
+    if token is None:
+        return {"disponible": False, "link": None}
+
+    base = _recording_base()
+    return {"disponible": True, "link": f"{base}/auth/{token}"}
 
 
 # ─── Admin ────────────────────────────────────────────────────────────────────

@@ -103,6 +103,25 @@ def send_libro_listo(email_comprador: str, nombre_familia: str, signed_url: str)
         logger.warning("Error enviando libro_listo a %s: %s", email_comprador, exc)
 
 
+def send_magic_link(email: str, nombre_familia: str, magic_link_url: str) -> None:
+    key = _get_key()
+    if not key:
+        return
+
+    html = (_TEMPLATES_DIR / "email_magic_link.html").read_text()
+    html = (
+        html
+        .replace("{{NOMBRE_FAMILIA}}", nombre_familia)
+        .replace("{{MAGIC_LINK}}", magic_link_url)
+        .replace("{{AÑO}}", str(datetime.now().year))
+    )
+
+    try:
+        _send(key, email, f"Tu link de acceso — {nombre_familia}", html)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Error enviando magic link a %s: %s", email, exc)
+
+
 def send_recordatorio(
     email_integrante: str,
     nombre_integrante: str,

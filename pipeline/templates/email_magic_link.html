@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tu link de acceso</title>
+<style>
+  body { margin: 0; padding: 0; background: #fdf8f2; font-family: Georgia, serif; }
+  .wrapper { max-width: 540px; margin: 0 auto; padding: 40px 24px; }
+  .card { background: #ffffff; border: 1px solid #e8d9b8; border-radius: 12px; padding: 40px 36px; }
+  .wordmark { font-size: 13px; letter-spacing: 0.18em; text-transform: uppercase; color: #C4956A; margin-bottom: 28px; font-family: Georgia, serif; }
+  h1 { font-size: 22px; color: #2C1A0E; margin-bottom: 12px; font-weight: normal; }
+  p { font-size: 15px; color: #5a4030; line-height: 1.7; margin-bottom: 16px; font-family: Arial, sans-serif; }
+  .btn-link { display: inline-block; background: #2C1A0E; color: #F5EDD8 !important; text-decoration: none; padding: 14px 28px; border-radius: 8px; font-family: Arial, sans-serif; font-size: 14px; font-weight: bold; letter-spacing: 0.04em; margin: 8px 0 20px; }
+  .link-text { font-size: 13px; color: #9a7b5a; word-break: break-all; font-family: monospace; background: #f5edd8; padding: 10px 14px; border-radius: 6px; margin-bottom: 20px; }
+  .footer { font-size: 12px; color: #b89a7a; text-align: center; margin-top: 28px; font-family: Arial, sans-serif; }
+  .divider { border: none; border-top: 1px solid #e8d9b8; margin: 24px 0; }
+</style>
+</head>
+<body>
+<div class="wrapper">
+  <div class="card">
+    <p class="wordmark">Raíces</p>
+    <h1>Tu link de acceso</h1>
+    <p>Hacé clic en el botón para acceder al seguimiento de <strong>{{NOMBRE_FAMILIA}}</strong>.</p>
+
+    <a href="{{MAGIC_LINK}}" class="btn-link">Acceder a mi libro familiar →</a>
+
+    <p style="font-size:13px;color:#9a7b5a;">O copiá este link en tu navegador:</p>
+    <div class="link-text">{{MAGIC_LINK}}</div>
+
+    <hr class="divider">
+
+    <p style="font-size:13px;color:#9a7b5a;margin-bottom:0;">
+      Este link es personal y caduca en 90 días. Si no solicitaste este email, podés ignorarlo.
+    </p>
+  </div>
+  <div class="footer">© {{AÑO}} Raíces · ethosbios.com</div>
+</div>
+</body>
+</html>
