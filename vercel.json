@@ -19,6 +19,34 @@
     {
       "source": "/health",
       "destination": "https://familia-pipeline-776445604502.southamerica-east1.run.app/health"
+    },
+    {
+      "source": "/auth/:path*",
+      "destination": "https://familia-pipeline-776445604502.southamerica-east1.run.app/auth/:path*"
+    },
+    {
+      "source": "/webhook/:path*",
+      "destination": "https://familia-pipeline-776445604502.southamerica-east1.run.app/webhook/:path*"
+    },
+    {
+      "source": "/me",
+      "destination": "https://familia-pipeline-776445604502.southamerica-east1.run.app/me"
+    },
+    {
+      "source": "/familia/:path*",
+      "destination": "https://familia-pipeline-776445604502.southamerica-east1.run.app/familia/:path*"
+    },
+    {
+      "source": "/onboarding",
+      "destination": "https://familia-pipeline-776445604502.southamerica-east1.run.app/onboarding"
+    },
+    {
+      "source": "/job/:path*",
+      "destination": "https://familia-pipeline-776445604502.southamerica-east1.run.app/job/:path*"
+    },
+    {
+      "source": "/audio/:path*",
+      "destination": "https://familia-pipeline-776445604502.southamerica-east1.run.app/audio/:path*"
     }
   ]
 }
