@@ -63,6 +63,12 @@ def _run_pipeline_job(job_id: str, req_dict: dict) -> None:
             "errores": result.errores,
         }
         fs.update_job_done(job_id, payload)
+        familia_id_job = req_dict.get("familia_id")
+        if familia_id_job and result.ok:
+            layout_url = result.layout or ""
+            if layout_url.startswith("gs://"):
+                fs.save_libro_url(familia_id_job, layout_url)
+            fs.update_familia_estado(familia_id_job, "entregado")
     except Exception as exc:  # noqa: BLE001
         fs.update_job_error(job_id, str(exc))
 
@@ -561,6 +567,8 @@ def tokens_estado(familia_id: str):
             "link": f"{base}/r/{token}" if token else "",
             "estado": i.get("estado", "pendiente"),
             "usado": i.get("ultimo_acceso") is not None,
+            "email": i.get("email", ""),
+            "token": token,
         })
 
     return {"tokens": tokens}
@@ -710,6 +718,7 @@ def _check_y_trigger(familia_id: str) -> None:
             "from_job_id": None,
         },
     )
+    fs.update_familia_estado(familia_id, "generando")
     _enviar_email_generando(familia_id, job_id)
     logger.info("[auto-trigger] familia %s completa → job %s", familia_id, job_id)
 
@@ -757,8 +766,12 @@ def token_info(token: str):
     match = fs.get_integrante_by_token(token)
     if match is None:
         raise HTTPException(status_code=404, detail="Token inválido o no encontrado")
-    _, _, data = match
-    return {"nombre": data.get("nombre", "")}
+    familia_id, _, data = match
+    familia = fs.get_familia(familia_id)
+    return {
+        "nombre": data.get("nombre", ""),
+        "nombre_familia": familia.get("nombre", "") if familia else "",
+    }
 
 
 @app.post("/token/{token}/foto")
@@ -1013,7 +1026,7 @@ async def request_magic_link(request: Request, body: RequestLinkBody):
 @app.get("/me")
 def get_me(request: Request):
     """Return familia data for the currently authenticated session."""
-    from pipeline.utils import firestore as fs
+    from pipeline.utils import firestore as fs, storage as st
 
     cookie_value = request.cookies.get(_SESSION_COOKIE, "")
     if not cookie_value:
@@ -1028,20 +1041,57 @@ def get_me(request: Request):
         raise HTTPException(status_code=404, detail="Familia no encontrada")
 
     integrantes = fs.get_integrantes(familia_id)
+    base = _recording_base()
     tokens_estado = [
         {
             "nombre": i.get("nombre", ""),
             "estado": i.get("estado", "pendiente"),
+            "link": f"{base}/r/{i.get('token_unico', '')}" if i.get("token_unico") else "",
+            "email": i.get("email", ""),
+            "token": i.get("token_unico", ""),
         }
         for i in integrantes
     ]
+
+    # Derive book production status
+    total = len(integrantes)
+    completados = sum(1 for i in integrantes if i.get("estado") == "completo")
+    familia_estado = familia.get("estado", "")
+    if familia_estado in ("entregado",):
+        libro_status = "listo"
+    elif familia_estado in ("generando",) or (total > 0 and completados == total):
+        libro_status = "produccion"
+    else:
+        libro_status = "esperando"
+
+    # Signed URL for cover photo (24h)
+    foto_portada_url = None
+    gs_foto = familia.get("foto_portada_url", "")
+    if gs_foto and gs_foto.startswith("gs://"):
+        try:
+            foto_portada_url = st.get_signed_url(gs_foto, expiration_hours=24)
+        except Exception:
+            pass
+
+    # PDF signed URL if book is done (7 days)
+    pdf_url = None
+    if libro_status == "listo":
+        gs_libro = familia.get("libro_url", "")
+        if gs_libro and gs_libro.startswith("gs://"):
+            try:
+                pdf_url = st.get_signed_url(gs_libro, expiration_hours=168)
+            except Exception:
+                pass
 
     return {
         "familia_id": familia_id,
         "nombre_familia": familia.get("nombre", ""),
         "comprador": familia.get("comprador", {}),
         "tokens": tokens_estado,
-        "estado": familia.get("estado", ""),
+        "estado": familia_estado,
+        "libro_status": libro_status,
+        "foto_portada_url": foto_portada_url,
+        "pdf_url": pdf_url,
     }
 
 
@@ -1058,6 +1108,50 @@ def familia_link_acceso(familia_id: str):
 
     base = _recording_base()
     return {"disponible": True, "link": f"{base}/auth/{token}"}
+
+
+# ─── Reenviar link de grabación ──────────────────────────────────────────────
+
+class ReenviarInvitacionBody(BaseModel):
+    token: str
+
+
+@app.post("/familia/{familia_id}/reenviar-invitacion")
+@limiter.limit("20/hour")
+async def reenviar_invitacion(familia_id: str, request: Request, body: ReenviarInvitacionBody):
+    """Reenvía el link de grabación por email al integrante identificado por su token."""
+    from pipeline.utils import firestore as fs
+    from pipeline.utils.email import send_recordatorio
+
+    familia = fs.get_familia(familia_id)
+    if not familia:
+        raise HTTPException(status_code=404, detail="Familia no encontrada")
+
+    match = fs.get_integrante_by_token(body.token)
+    if match is None:
+        raise HTTPException(status_code=404, detail="Token inválido")
+
+    match_familia_id, _, integrante_data = match
+    if match_familia_id != familia_id:
+        raise HTTPException(status_code=403, detail="Token no pertenece a esta familia")
+
+    email = integrante_data.get("email", "")
+    if not email:
+        raise HTTPException(status_code=422, detail="Este integrante no tiene email registrado")
+
+    nombre = integrante_data.get("nombre", "")
+    nombre_familia = familia.get("nombre", "")
+    base = _recording_base()
+    token_url = f"{base}/r/{body.token}"
+
+    send_recordatorio(
+        email_integrante=email,
+        nombre_integrante=nombre,
+        nombre_familia=nombre_familia,
+        token_url=token_url,
+    )
+
+    return {"ok": True}
 
 
 # ─── Admin ────────────────────────────────────────────────────────────────────

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Acceder — Ethos Bios</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Mulish:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Mulish',sans-serif;background:#fdf8f2;color:#3d2b0a;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px}
+.card{background:#fff;border:0.5px solid #e8d9b8;border-radius:16px;padding:2.5rem 2rem;max-width:420px;width:100%;text-align:center}
+.wordmark{font-family:'Cormorant Garamond',serif;font-size:28px;color:#C4956A;margin-bottom:8px;font-weight:500;letter-spacing:0.02em}
+.tagline{font-size:12px;letter-spacing:0.14em;text-transform:uppercase;color:#9a7b5a;margin-bottom:2rem;font-weight:600}
+h1{font-family:'Cormorant Garamond',serif;font-size:26px;font-weight:500;margin-bottom:8px;color:#2C1A0E}
+.sub{font-size:14px;color:#9a7b5a;line-height:1.65;margin-bottom:2rem}
+.field{text-align:left;margin-bottom:1.25rem}
+.field label{display:block;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:#9a7b5a;margin-bottom:6px;font-weight:600}
+.field input{
+  width:100%;border:0.5px solid #e8d9b8;border-radius:8px;padding:13px 14px;
+  font-family:'Mulish',sans-serif;font-size:15px;color:#3d2b0a;background:#fff;
+  transition:border-color .15s;outline:none;-webkit-appearance:none
+}
+.field input:focus{border-color:#C4956A}
+.btn{
+  width:100%;background:#2C1A0E;color:#F5EDD8;border:none;padding:14px;
+  border-radius:8px;font-family:'Mulish',sans-serif;font-size:14px;font-weight:700;
+  cursor:pointer;letter-spacing:0.05em;transition:opacity .15s;margin-top:4px
+}
+.btn:hover:not(:disabled){opacity:.88}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.msg{font-size:14px;margin-top:1rem;padding:13px 14px;border-radius:8px;display:none;text-align:left;line-height:1.5}
+.msg.ok{background:#EAF3DE;color:#3B6D11}
+.msg.err{background:#FAEEDA;color:#854F0B}
+.divider{border:none;border-top:0.5px solid #e8d9b8;margin:1.75rem 0}
+.footer-link{font-size:13px;color:#9a7b5a}
+.footer-link a{color:#C4956A;text-decoration:none;font-weight:600}
+.footer-link a:hover{text-decoration:underline}
+</style>
+</head>
+<body>
+
+<div class="card">
+  <p class="wordmark">Ethos Bios</p>
+  <p class="tagline">Libros biográficos familiares</p>
+  <h1>Acceder a mi libro</h1>
+  <p class="sub">Ingresá el email con el que compraste y te enviamos un link de acceso a tu panel.</p>
+
+  <form onsubmit="enviar(event)">
+    <div class="field">
+      <label for="email">Tu email</label>
+      <input type="email" id="email" placeholder="nombre@ejemplo.com" autocomplete="email" inputmode="email" required>
+    </div>
+    <button class="btn" id="btn" type="submit">Enviar link de acceso</button>
+  </form>
+
+  <div class="msg" id="msg"></div>
+
+  <hr class="divider">
+  <p class="footer-link">¿Compraste hace poco? Revisá tu email, el link de bienvenida llega en minutos.<br><br>
+    <a href="/">Volver al inicio</a>
+  </p>
+</div>
+
+<script>
+async function enviar(e) {
+  e.preventDefault();
+  const email = document.getElementById('email').value.trim();
+  if (!email) return;
+  const btn = document.getElementById('btn');
+  btn.disabled = true;
+  btn.textContent = 'Enviando…';
+  mostrarMsg('', '');
+
+  try {
+    const res = await fetch('/auth/request-link', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({email}),
+    });
+    await res.json();
+    mostrarMsg('Si tu email está registrado, el link llega en segundos. Revisá también la carpeta de spam.', 'ok');
+    btn.textContent = 'Enviado ✓';
+    btn.disabled = true;
+  } catch (_) {
+    mostrarMsg('Hubo un problema al enviar. Intentá de nuevo en un momento.', 'err');
+    btn.disabled = false;
+    btn.textContent = 'Enviar link de acceso';
+  }
+}
+
+function mostrarMsg(txt, tipo) {
+  const el = document.getElementById('msg');
+  el.textContent = txt;
+  el.className = 'msg' + (tipo ? ' ' + tipo : '');
+  el.style.display = txt ? 'block' : 'none';
+}
+
+document.getElementById('email').focus();
+</script>
+</body>
+</html>
