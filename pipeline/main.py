@@ -484,6 +484,8 @@ async def onboarding(request: Request, req: OnboardingRequest):
             "integrantes_extra": max(0, len(req.integrantes) - 4),
             "fecha_compra": _firestore.SERVER_TIMESTAMP,
             "fecha_entrega": None,
+            "acepta_tyc": True,
+            "acepta_tyc_timestamp": datetime.utcnow().isoformat(),
         },
         merge=True,
     )
@@ -849,6 +851,23 @@ async def token_respuesta(
 
     fs.save_respuesta(familia_id, integrante_id, pregunta, gs_url)
     fs.update_integrante_estado(familia_id, integrante_id, "en_progreso")
+    return {"ok": True}
+
+
+@app.post("/token/{token}/consentimiento")
+def token_consentimiento(token: str):
+    """Registra el consentimiento de grabación del integrante en Firestore."""
+    from pipeline.utils import firestore as fs
+    match = fs.get_integrante_by_token(token)
+    if match is None:
+        raise HTTPException(status_code=404, detail="Token inválido o no encontrado")
+    familia_id, integrante_id, _ = match
+    fs._db().collection("familias").document(familia_id) \
+        .collection("integrantes").document(integrante_id) \
+        .update({
+            "acepta_grabacion": True,
+            "acepta_grabacion_timestamp": datetime.utcnow().isoformat(),
+        })
     return {"ok": True}
 
 

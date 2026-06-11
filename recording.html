@@ -502,6 +502,72 @@ header .logo {
 
 .foto-label:hover { border-style: solid; background: #fdf6f0; }
 
+/* ══════════════════════════════
+   SCREEN 0 — CONSENTIMIENTO
+══════════════════════════════ */
+.screen-consent {
+  background: #2C1A0E;
+  justify-content: center;
+  align-items: center;
+}
+.consent-card {
+  max-width: 580px;
+  width: 100%;
+  text-align: center;
+  padding-bottom: 40px;
+}
+.consent-icon { font-size: 48px; margin-bottom: 20px; }
+.consent-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 32px;
+  color: #F5EDD8;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.consent-subtitle {
+  font-size: 15px;
+  color: #C4956A;
+  margin-bottom: 28px;
+  font-style: italic;
+}
+.consent-box {
+  background: rgba(196, 149, 106, 0.08);
+  border: 1px solid #C4956A;
+  border-radius: 12px;
+  padding: 24px 28px;
+  margin-bottom: 16px;
+  text-align: left;
+}
+.consent-text {
+  font-size: 14px;
+  color: #F5EDD8;
+  line-height: 1.75;
+  font-style: italic;
+}
+.consent-links {
+  font-size: 13px;
+  color: #9a7b5a;
+  margin-bottom: 24px;
+  line-height: 1.6;
+}
+.consent-links a { color: #C4956A; text-decoration: underline; }
+.btn-consent {
+  background: #C4956A;
+  color: #fff;
+  border: none;
+  padding: 16px 40px;
+  border-radius: 100px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 0.04em;
+  transition: background 0.2s;
+  width: 100%;
+}
+.btn-consent:hover:not(:disabled) { background: #a87a52; }
+.btn-consent:disabled { opacity: 0.5; cursor: not-allowed; }
+
 /* ── Responsive tweaks ── */
 @media (max-width: 480px) {
   .welcome-card { padding: 36px 22px 30px; }
@@ -520,8 +586,35 @@ header .logo {
   <div class="logo">Libro de Memorias Familiar</div>
 </header>
 
+<!-- ══════════════════ SCREEN 0: CONSENTIMIENTO ══════════════════ -->
+<div id="screen-consentimiento" class="screen screen-consent">
+  <div class="container">
+    <div class="consent-card">
+      <div class="consent-icon">📖</div>
+      <h1 class="consent-title">Antes de comenzar</h1>
+      <p class="consent-subtitle" id="consent-nombre">Cargando…</p>
+      <div class="consent-box">
+        <p class="consent-text">
+          "Acepto que mis respuestas de voz sean grabadas, transcritas y procesadas por Ethos Bios
+          con el único fin de crear el libro biográfico familiar. Entiendo que mis grabaciones no
+          serán usadas para entrenar inteligencia artificial ni compartidas con terceros fuera de
+          los proveedores técnicos del servicio. Puedo revocar este consentimiento en cualquier
+          momento escribiendo a hola@ethosbios.com."
+        </p>
+      </div>
+      <p class="consent-links">
+        Leé nuestra <a href="/privacidad" target="_blank">Política de Privacidad</a>
+        y los <a href="/terminos" target="_blank">Términos y Condiciones</a>
+      </p>
+      <button class="btn-consent" id="btn-consent" onclick="aceptarConsentimiento()" disabled>
+        Acepto y comienzo mi historia →
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- ══════════════════ SCREEN 1: BIENVENIDA ══════════════════ -->
-<div id="screen-bienvenida" class="screen">
+<div id="screen-bienvenida" class="screen hidden">
   <div class="container">
     <div class="welcome-card">
       <p id="saludo" class="saludo">Cargando…</p>
@@ -648,7 +741,7 @@ let mediaRecorders = {}; // active MediaRecorder per question
 // ── Init ──
 async function init() {
   if (!TOKEN) {
-    document.getElementById('saludo').textContent = 'Este link no es válido.';
+    document.getElementById('consent-nombre').textContent = 'Este link no es válido.';
     return;
   }
 
@@ -657,14 +750,27 @@ async function init() {
     if (!res.ok) throw new Error('not found');
     const data = await res.json();
     nombreFamiliar = data.nombre || '';
+    document.getElementById('consent-nombre').textContent = `Hola, ${nombreFamiliar}`;
     document.getElementById('saludo').textContent = `Hola, ${nombreFamiliar}.`;
     document.title = `Libro de Memorias — ${nombreFamiliar}`;
     document.getElementById('gracias-nombre').textContent = `¡Gracias, ${nombreFamiliar}!`;
-    document.getElementById('btn-empezar').disabled = false;
+    document.getElementById('btn-consent').disabled = false;
   } catch {
-    document.getElementById('saludo').textContent = 'Este link no es válido.';
-    // btn-empezar stays disabled
+    document.getElementById('consent-nombre').textContent = 'Este link no es válido.';
   }
+}
+
+// ── Consentimiento ──
+async function aceptarConsentimiento() {
+  const btn = document.getElementById('btn-consent');
+  btn.disabled = true;
+  btn.textContent = 'Guardando…';
+  try {
+    await fetch(`${API_BASE}/token/${TOKEN}/consentimiento`, { method: 'POST' });
+  } catch(_) {}
+  document.getElementById('screen-consentimiento').classList.add('hidden');
+  document.getElementById('screen-bienvenida').classList.remove('hidden');
+  document.getElementById('btn-empezar').disabled = false;
 }
 
 // ── Foto opcional ──

@@ -47,6 +47,14 @@
     {
       "source": "/audio/:path*",
       "destination": "https://familia-pipeline-776445604502.southamerica-east1.run.app/audio/:path*"
+    },
+    {
+      "source": "/privacidad",
+      "destination": "/privacidad.html"
+    },
+    {
+      "source": "/terminos",
+      "destination": "/terminos.html"
     }
   ]
 }

@@ -691,6 +691,12 @@ input#es_regalo:checked + .toggle-regalo-wrap .toggle-switch::after,
   border-color: var(--error);
   color: var(--error);
 }
+
+/* ── Checkbox legal ── */
+.legal-check { margin: 1.5rem 0; padding: 1rem; background: #fdf8f2; border: 0.5px solid #e8d9b8; border-radius: 8px; }
+.legal-check label { display: flex; gap: 0.75rem; align-items: flex-start; font-size: 13px; color: #9a7b5a; line-height: 1.5; cursor: pointer; }
+.legal-check input[type="checkbox"] { margin-top: 2px; flex-shrink: 0; accent-color: #C4956A; width: 16px; height: 16px; }
+.legal-check a { color: #C4956A; text-decoration: underline; }
 </style>
 </head>
 <body>
@@ -773,6 +779,17 @@ input#es_regalo:checked + .toggle-regalo-wrap .toggle-switch::after,
     <div id="msg-loading" class="msg msg-loading" style="display:none">
       <div class="spinner"></div>
       <span>Creando familia y generando tokens de grabación&hellip;</span>
+    </div>
+
+    <div class="legal-check">
+      <label>
+        <input type="checkbox" id="acepta_tyc">
+        He leído y acepto los
+        <a href="/terminos" target="_blank">Términos y Condiciones</a>
+        y la
+        <a href="/privacidad" target="_blank">Política de Privacidad</a>
+        de Ethos Bios, incluyendo el tratamiento de datos personales y grabaciones de voz de los integrantes.
+      </label>
     </div>
 
     <div class="submit-area">
@@ -1141,6 +1158,9 @@ function recolectarDatos() {
   // Validaciones básicas
   if (!nombreFam)    return { error: 'El nombre de la familia es obligatorio.' };
   if (!emailComp)    return { error: 'El email del comprador es obligatorio.' };
+  if (!document.getElementById('acepta_tyc')?.checked) {
+    return { error: 'Debés aceptar los Términos y Condiciones y la Política de Privacidad para continuar.' };
+  }
 
   // Integrantes
   const ingCards = document.querySelectorAll('[id^="ing-"]');
