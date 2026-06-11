@@ -1157,11 +1157,11 @@ async def reenviar_invitacion(familia_id: str, request: Request, body: ReenviarI
 # ─── Admin ────────────────────────────────────────────────────────────────────
 
 @app.post("/admin/test-email")
-def test_email(_: None = Depends(_admin_auth)):
+def test_email(email: str = "test@raices.app", _: None = Depends(_admin_auth)):
     from pipeline.utils.email import send_bienvenida
 
     send_bienvenida(
-        email_comprador="test@raices.app",
+        email_comprador=email,
         nombre_familia="Familia García",
         tokens=[
             {"nombre": "Abuela Rosa", "url": "https://example.com/grabar/abc123"},
