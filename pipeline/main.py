@@ -69,6 +69,19 @@ def _run_pipeline_job(job_id: str, req_dict: dict) -> None:
             if layout_url.startswith("gs://"):
                 fs.save_libro_url(familia_id_job, layout_url)
             fs.update_familia_estado(familia_id_job, "entregado")
+            try:
+                from pipeline.utils import firestore as _fs_email, storage as st
+                from pipeline.utils.email import send_libro_listo
+                familia = _fs_email.get_familia(familia_id_job) or {}
+                comprador = familia.get('comprador', {})
+                comprador_email = comprador.get('email', '')
+                nombre_familia = familia.get('nombre', 'tu familia')
+                if comprador_email and layout_url:
+                    signed = st.get_signed_url(layout_url, expiration_hours=168)
+                    send_libro_listo(email_comprador=comprador_email, nombre_familia=nombre_familia, signed_url=signed)
+                    logger.info('[email-libro-listo] enviado a %s', comprador_email)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning('[email-libro-listo] error: %s', exc)
     except Exception as exc:  # noqa: BLE001
         fs.update_job_error(job_id, str(exc))
 
@@ -1167,6 +1180,13 @@ async def reenviar_invitacion(familia_id: str, request: Request, body: ReenviarI
 
 
 # ─── Admin ────────────────────────────────────────────────────────────────────
+
+@app.post("/admin/test-email-libro")
+def test_email_libro(email: str = "fede.giacomozzi@gmail.com", _: None = Depends(_admin_auth)):
+    from pipeline.utils.email import send_libro_listo
+    send_libro_listo(email_comprador=email, nombre_familia="Familia García", signed_url="https://ethosbios.com")
+    return {"ok": True, "message": "Email libro listo enviado"}
+
 
 @app.post("/admin/test-email")
 def test_email(email: str = "test@raices.app", _: None = Depends(_admin_auth)):
