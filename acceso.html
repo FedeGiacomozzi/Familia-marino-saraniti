@@ -3,100 +3,107 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Acceder — Ethos Bios</title>
+<title>Acceso — Ethos Bios</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Mulish:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Mulish:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Mulish',sans-serif;background:#fdf8f2;color:#3d2b0a;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px}
-.card{background:#fff;border:0.5px solid #e8d9b8;border-radius:16px;padding:2.5rem 2rem;max-width:420px;width:100%;text-align:center}
-.wordmark{font-family:'Cormorant Garamond',serif;font-size:28px;color:#C4956A;margin-bottom:8px;font-weight:500;letter-spacing:0.02em}
-.tagline{font-size:12px;letter-spacing:0.14em;text-transform:uppercase;color:#9a7b5a;margin-bottom:2rem;font-weight:600}
-h1{font-family:'Cormorant Garamond',serif;font-size:26px;font-weight:500;margin-bottom:8px;color:#2C1A0E}
-.sub{font-size:14px;color:#9a7b5a;line-height:1.65;margin-bottom:2rem}
-.field{text-align:left;margin-bottom:1.25rem}
-.field label{display:block;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:#9a7b5a;margin-bottom:6px;font-weight:600}
-.field input{
-  width:100%;border:0.5px solid #e8d9b8;border-radius:8px;padding:13px 14px;
-  font-family:'Mulish',sans-serif;font-size:15px;color:#3d2b0a;background:#fff;
-  transition:border-color .15s;outline:none;-webkit-appearance:none
+:root{
+  --bg:#fdf8f2;--surface:#fff;--border:#e8d9b8;
+  --dark:#2C1A0E;--accent:#C4956A;--text:#3d2b0a;--muted:#9a7b5a;
+  --cream:#F5EDD8;
 }
-.field input:focus{border-color:#C4956A}
-.btn{
-  width:100%;background:#2C1A0E;color:#F5EDD8;border:none;padding:14px;
-  border-radius:8px;font-family:'Mulish',sans-serif;font-size:14px;font-weight:700;
-  cursor:pointer;letter-spacing:0.05em;transition:opacity .15s;margin-top:4px
-}
+body{font-family:'Mulish',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
+
+/* Header */
+.hdr{background:var(--dark);padding:14px 20px;display:flex;align-items:center}
+.hdr-wordmark{font-family:'Cormorant Garamond',serif;font-size:22px;color:var(--cream);letter-spacing:0.04em;font-weight:500}
+
+/* Main */
+.main{flex:1;display:flex;align-items:center;justify-content:center;padding:40px 20px}
+.card{background:var(--surface);border:0.5px solid var(--border);border-radius:16px;padding:2.5rem 2rem;max-width:440px;width:100%}
+
+h1{font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:400;color:var(--dark);margin-bottom:8px}
+.sub{font-size:14px;color:var(--muted);line-height:1.6;margin-bottom:24px}
+
+label{display:block;font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+input[type=email]{width:100%;border:0.5px solid var(--border);border-radius:8px;padding:12px 14px;font-family:'Mulish',sans-serif;font-size:14px;color:var(--text);background:var(--bg);outline:none;transition:border-color .15s;margin-bottom:14px;-webkit-appearance:none}
+input[type=email]:focus{border-color:var(--accent)}
+
+.btn{width:100%;background:var(--dark);color:var(--cream);border:none;padding:13px;border-radius:8px;font-family:'Mulish',sans-serif;font-size:14px;font-weight:700;cursor:pointer;letter-spacing:0.04em;transition:opacity .15s}
 .btn:hover:not(:disabled){opacity:.88}
-.btn:disabled{opacity:.45;cursor:not-allowed}
-.msg{font-size:14px;margin-top:1rem;padding:13px 14px;border-radius:8px;display:none;text-align:left;line-height:1.5}
-.msg.ok{background:#EAF3DE;color:#3B6D11}
-.msg.err{background:#FAEEDA;color:#854F0B}
-.divider{border:none;border-top:0.5px solid #e8d9b8;margin:1.75rem 0}
-.footer-link{font-size:13px;color:#9a7b5a}
-.footer-link a{color:#C4956A;text-decoration:none;font-weight:600}
-.footer-link a:hover{text-decoration:underline}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+
+.msg{font-size:13px;line-height:1.6;padding:12px 14px;border-radius:8px;margin-top:14px;display:none}
+.msg-ok{background:#EAF3DE;color:#3B6D11;border:0.5px solid #c3dba8}
+.msg-warn{background:#FFF8E0;color:#8B6F0B;border:0.5px solid #e8d49a}
+.msg-err{background:#faeeda;color:#854F0B;border:0.5px solid #e8c4a0}
 </style>
 </head>
 <body>
 
-<div class="card">
-  <p class="wordmark">Ethos Bios</p>
-  <p class="tagline">Libros biográficos familiares</p>
-  <h1>Acceder a mi libro</h1>
-  <p class="sub">Ingresá el email con el que compraste y te enviamos un link de acceso a tu panel.</p>
+<header class="hdr">
+  <span class="hdr-wordmark">Ethos Bios</span>
+</header>
 
-  <form onsubmit="enviar(event)">
-    <div class="field">
-      <label for="email">Tu email</label>
-      <input type="email" id="email" placeholder="nombre@ejemplo.com" autocomplete="email" inputmode="email" required>
-    </div>
-    <button class="btn" id="btn" type="submit">Enviar link de acceso</button>
-  </form>
+<main class="main">
+  <div class="card">
+    <h1>Accedé a tu libro familiar</h1>
+    <p class="sub">Ingresá tu email y te enviamos un link de acceso.</p>
 
-  <div class="msg" id="msg"></div>
+    <label for="email">Email</label>
+    <input type="email" id="email" placeholder="tu@email.com" autocomplete="email" inputmode="email">
+    <button class="btn" id="btn" onclick="enviar()">Enviar link</button>
 
-  <hr class="divider">
-  <p class="footer-link">¿Compraste hace poco? Revisá tu email, el link de bienvenida llega en minutos.<br><br>
-    <a href="/">Volver al inicio</a>
-  </p>
-</div>
+    <div class="msg msg-ok" id="msg-ok">Si el email está registrado, recibirás el link en breve.</div>
+    <div class="msg msg-warn" id="msg-warn">Esperá unos minutos antes de intentar de nuevo.</div>
+    <div class="msg msg-err" id="msg-err">Hubo un problema. Intentá de nuevo.</div>
+  </div>
+</main>
 
 <script>
-async function enviar(e) {
-  e.preventDefault();
+function ocultarMensajes() {
+  ['msg-ok','msg-warn','msg-err'].forEach(function(id) {
+    document.getElementById(id).style.display = 'none';
+  });
+}
+
+function mostrar(id) {
+  ocultarMensajes();
+  document.getElementById(id).style.display = 'block';
+}
+
+async function enviar() {
   const email = document.getElementById('email').value.trim();
   if (!email) return;
   const btn = document.getElementById('btn');
   btn.disabled = true;
   btn.textContent = 'Enviando…';
-  mostrarMsg('', '');
-
+  ocultarMensajes();
   try {
     const res = await fetch('/auth/request-link', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({email}),
+      body: JSON.stringify({email: email})
     });
-    await res.json();
-    mostrarMsg('Si tu email está registrado, el link llega en segundos. Revisá también la carpeta de spam.', 'ok');
-    btn.textContent = 'Enviado ✓';
-    btn.disabled = true;
+    if (res.status === 429) {
+      mostrar('msg-warn');
+    } else if (res.ok) {
+      mostrar('msg-ok');
+    } else {
+      mostrar('msg-err');
+    }
   } catch (_) {
-    mostrarMsg('Hubo un problema al enviar. Intentá de nuevo en un momento.', 'err');
+    mostrar('msg-err');
+  } finally {
     btn.disabled = false;
-    btn.textContent = 'Enviar link de acceso';
+    btn.textContent = 'Enviar link';
   }
 }
 
-function mostrarMsg(txt, tipo) {
-  const el = document.getElementById('msg');
-  el.textContent = txt;
-  el.className = 'msg' + (tipo ? ' ' + tipo : '');
-  el.style.display = txt ? 'block' : 'none';
-}
-
-document.getElementById('email').focus();
+document.getElementById('email').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') enviar();
+});
 </script>
 </body>
 </html>

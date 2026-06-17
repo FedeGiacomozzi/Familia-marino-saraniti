@@ -55,6 +55,10 @@
     {
       "source": "/terminos",
       "destination": "/terminos.html"
+    },
+    {
+      "source": "/acceso",
+      "destination": "/acceso.html"
     }
   ]
 }

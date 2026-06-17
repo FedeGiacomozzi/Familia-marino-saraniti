@@ -672,22 +672,15 @@ class AudioRequest(BaseModel):
 
 
 def _enviar_email_generando(familia_id: str, job_id: str) -> None:
-    """Stub: notifica al comprador que el libro está siendo generado."""
     from pipeline.utils import firestore as fs
+    from pipeline.utils.email import send_generando
     familia = fs.get_familia(familia_id) or {}
-    comprador = familia.get("comprador", {})
-    comprador_email = comprador.get("email", "")
-    comprador_nombre = comprador.get("nombre", "")
-    logger.info(
-        "[email-generando] familia_id=%s job_id=%s email=%s nombre=%s",
-        familia_id, job_id, comprador_email, comprador_nombre,
-    )
-    # TODO: integrar proveedor de email (SendGrid / Resend)
-    # Asunto: "¡Todos grabaron! Tu libro está siendo creado."
-    # Cuerpo:
-    #   - ¡Todos los integrantes grabaron! Tu libro familiar está siendo creado.
-    #   - Seguí el progreso en: /mi-familia?id={familia_id}
-    #   - Tiempo estimado: ~40 minutos
+    comprador = familia.get('comprador', {})
+    comprador_email = comprador.get('email', '')
+    nombre_familia = familia.get('nombre', 'tu familia')
+    logger.info('[email-generando] familia_id=%s job_id=%s email=%s', familia_id, job_id, comprador_email)
+    if comprador_email:
+        send_generando(email_comprador=comprador_email, nombre_familia=nombre_familia, familia_id=familia_id)
 
 
 def _check_y_trigger(familia_id: str) -> None:

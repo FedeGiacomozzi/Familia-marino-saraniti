@@ -144,3 +144,15 @@ def send_recordatorio(
         _send(key, email_integrante, f"{nombre_familia} te está esperando", html)
     except Exception as exc:  # noqa: BLE001
         logger.warning("Error enviando recordatorio a %s: %s", email_integrante, exc)
+
+
+def send_generando(email_comprador: str, nombre_familia: str, familia_id: str) -> None:
+    key = _get_key()
+    if not key:
+        return
+    dashboard_url = 'https://ethosbios.com/mi-familia'
+    html = f'''<html><body style="font-family:sans-serif;color:#3d2b0a;max-width:560px;margin:0 auto;padding:24px"><p style="font-family:Georgia,serif;font-size:22px;margin-bottom:16px">Ethos Bios</p><h2 style="font-weight:400;margin-bottom:8px">¡Todos grabaron!</h2><p style="color:#9a7b5a;margin-bottom:20px">Todos los integrantes de <strong>{nombre_familia}</strong> ya compartieron sus historias.</p><p style="margin-bottom:20px">Estamos creando tu libro familiar. El proceso tarda aproximadamente <strong>30 a 40 minutos</strong>. Te avisaremos por email cuando el PDF esté listo para descargar.</p><a href="{dashboard_url}" style="display:inline-block;background:#2C1A0E;color:#F5EDD8;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px">Seguir el progreso</a><p style="margin-top:32px;font-size:12px;color:#b89a7a">Ethos Bios · hola@ethosbios.com</p></body></html>'''
+    try:
+        _send(key, email_comprador, f'¡Todos grabaron! Tu libro está siendo creado — {nombre_familia}', html)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning('Error enviando generando a %s: %s', email_comprador, exc)
