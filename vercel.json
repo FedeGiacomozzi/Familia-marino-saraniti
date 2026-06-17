@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/",
+      "destination": "/landing.html"
+    },
+    {
       "source": "/r/:path*",
       "destination": "https://familia-pipeline-776445604502.southamerica-east1.run.app/r/:path*"
     },
@@ -47,6 +51,10 @@
     {
       "source": "/audio/:path*",
       "destination": "https://familia-pipeline-776445604502.southamerica-east1.run.app/audio/:path*"
+    },
+    {
+      "source": "/pago/:path*",
+      "destination": "https://familia-pipeline-776445604502.southamerica-east1.run.app/pago/:path*"
     },
     {
       "source": "/privacidad",

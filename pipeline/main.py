@@ -1181,6 +1181,103 @@ async def reenviar_invitacion(familia_id: str, request: Request, body: ReenviarI
 
 # ─── Admin ────────────────────────────────────────────────────────────────────
 
+# ─── Endpoints de pago ───────────────────────────────────────────────────────
+
+class CheckoutRequest(BaseModel):
+    nombre_familia: str
+    email_comprador: str
+    nombre_comprador: str = ''
+    integrantes: list[dict]
+    pack: str = 'familiar'
+
+_PRECIOS = {'esencial': 59, 'familiar': 79, 'extendido': 129}
+_MAX_INTEG = {'esencial': 2, 'familiar': 4, 'extendido': 8}
+
+def _calcular_total(pack: str, n_integrantes: int) -> int:
+    base = _PRECIOS.get(pack, 79)
+    max_inc = _MAX_INTEG.get(pack, 4)
+    extra = max(0, n_integrantes - max_inc)
+    return base + extra * 8
+
+def _crear_familia_checkout(req: CheckoutRequest) -> str:
+    from pipeline.utils import firestore as fs
+    from google.cloud import firestore as _firestore
+    familia_id = uuid.uuid4().hex[:8]
+    db = fs._db()
+    db.collection('familias').document(familia_id).set({
+        'nombre': req.nombre_familia,
+        'comprador': {'email': req.email_comprador, 'nombre': req.nombre_comprador, 'es_tambien_retratado': False},
+        'estado': 'checkout',
+        'pack': req.pack,
+        'pais': 'argentina',
+        'fecha_compra': _firestore.SERVER_TIMESTAMP,
+        'acepta_tyc': True,
+        'acepta_tyc_timestamp': datetime.utcnow().isoformat(),
+    })
+    for ing in req.integrantes:
+        fs.add_integrante(familia_id=familia_id, nombre=ing.get('nombre', ''), relacion_con_comprador='integrante')
+    return familia_id
+
+@app.post('/pago/crear-checkout')
+@limiter.limit('10/hour')
+async def crear_checkout_mp(request: Request, req: CheckoutRequest):
+    mp_token = os.environ.get('MP_ACCESS_TOKEN', '')
+    if not mp_token or mp_token == 'placeholder_mp':
+        raise HTTPException(status_code=503, detail='MercadoPago no configurado')
+    familia_id = _crear_familia_checkout(req)
+    total = _calcular_total(req.pack, len(req.integrantes))
+    base = _recording_base()
+    payload = {
+        'items': [{'title': f'Ethos Bios — {req.nombre_familia}', 'quantity': 1, 'unit_price': total, 'currency_id': 'USD'}],
+        'payer': {'email': req.email_comprador},
+        'external_reference': familia_id,
+        'back_urls': {'success': f'{base}/gracias?familia_id={familia_id}', 'failure': f'{base}/gracias?familia_id={familia_id}&error=1', 'pending': f'{base}/gracias?familia_id={familia_id}&pending=1'},
+        'auto_return': 'approved',
+        'notification_url': f'{base}/webhook/mercadopago',
+    }
+    try:
+        resp = httpx.post('https://api.mercadopago.com/checkout/preferences', headers={'Authorization': f'Bearer {mp_token}', 'Content-Type': 'application/json'}, json=payload, timeout=15)
+        resp.raise_for_status()
+        data = resp.json()
+        return {'familia_id': familia_id, 'init_point': data.get('init_point'), 'sandbox_init_point': data.get('sandbox_init_point')}
+    except Exception as exc:
+        logger.error('[mp-checkout] error: %s', exc)
+        raise HTTPException(status_code=502, detail='Error al crear preferencia MP')
+
+@app.post('/pago/crear-stripe-checkout')
+@limiter.limit('10/hour')
+async def crear_checkout_stripe(request: Request, req: CheckoutRequest):
+    stripe_key = os.environ.get('STRIPE_SECRET_KEY', '')
+    if not stripe_key or stripe_key == 'placeholder_stripe':
+        raise HTTPException(status_code=503, detail='Stripe no configurado')
+    familia_id = _crear_familia_checkout(req)
+    total = _calcular_total(req.pack, len(req.integrantes))
+    base = _recording_base()
+    payload = {
+        'payment_method_types[]': 'card',
+        'line_items[0][price_data][currency]': 'usd',
+        'line_items[0][price_data][product_data][name]': f'Ethos Bios — {req.nombre_familia}',
+        'line_items[0][price_data][unit_amount]': total * 100,
+        'line_items[0][quantity]': '1',
+        'mode': 'payment',
+        'client_reference_id': familia_id,
+        'customer_email': req.email_comprador,
+        'success_url': f'{base}/gracias?familia_id={familia_id}',
+        'cancel_url': f'{base}/#precios',
+        'metadata[familia_id]': familia_id,
+    }
+    try:
+        resp = httpx.post('https://api.stripe.com/v1/checkout/sessions', headers={'Authorization': f'Bearer {stripe_key}'}, data=payload, timeout=15)
+        resp.raise_for_status()
+        data = resp.json()
+        return {'familia_id': familia_id, 'checkout_url': data.get('url')}
+    except Exception as exc:
+        logger.error('[stripe-checkout] error: %s', exc)
+        raise HTTPException(status_code=502, detail='Error al crear sesión Stripe')
+
+
+# ─── Admin ────────────────────────────────────────────────────────────────────
+
 @app.post("/admin/test-email-libro")
 def test_email_libro(email: str = "fede.giacomozzi@gmail.com", _: None = Depends(_admin_auth)):
     from pipeline.utils.email import send_libro_listo
