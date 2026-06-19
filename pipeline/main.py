@@ -991,6 +991,56 @@ def _generar_access_token_familia(familia_id: str) -> None:
     _enviar_email_bienvenida(familia_id)
 
 
+def _procesar_upsell_integrante(upsell_token: str) -> None:
+    """Agrega el integrante al libro y envía email. Idempotente via flag procesado."""
+    from pipeline.utils import firestore as fs
+    from pipeline.utils.email import send_integrante_agregado
+
+    checkout = fs.get_upsell_checkout(upsell_token)
+    if not checkout:
+        logger.warning("[upsell] checkout no encontrado: %s", upsell_token)
+        return
+
+    if checkout.get("procesado"):
+        logger.info("[upsell] ya procesado, skipping idempotente: %s", upsell_token)
+        return
+
+    familia_id = checkout["familia_id"]
+    nombre = checkout["nombre"]
+    relacion = checkout["relacion"]
+
+    familia = fs.get_familia(familia_id)
+    if not familia:
+        logger.warning("[upsell] familia no encontrada: %s", familia_id)
+        return
+
+    _, token_unico = fs.add_integrante(
+        familia_id=familia_id,
+        nombre=nombre,
+        relacion_con_comprador=relacion,
+    )
+
+    fs.mark_upsell_checkout_procesado(upsell_token)
+    logger.info("[upsell] integrante '%s' agregado a familia=%s token=%s", nombre, familia_id, token_unico)
+
+    comprador = familia.get("comprador", {})
+    email_comprador = comprador.get("email", "")
+    nombre_familia = familia.get("nombre", "")
+    base = _recording_base()
+    token_url = f"{base}/r/{token_unico}"
+
+    if email_comprador:
+        try:
+            send_integrante_agregado(
+                email_comprador=email_comprador,
+                nombre_familia=nombre_familia,
+                nombre_integrante=nombre,
+                token_url=token_url,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("[upsell] error enviando email: %s", exc)
+
+
 @app.post("/webhook/stripe")
 async def webhook_stripe(request: Request):
     payload = await request.body()
@@ -1011,12 +1061,18 @@ async def webhook_stripe(request: Request):
 
     if event.get("type") == "checkout.session.completed":
         session = event.get("data", {}).get("object", {})
-        familia_id = (
-            session.get("metadata", {}).get("familia_id")
-            or session.get("client_reference_id")
-        )
-        if familia_id:
-            _generar_access_token_familia(familia_id)
+        metadata = session.get("metadata", {})
+        if metadata.get("tipo") == "upsell_integrante":
+            upsell_token = metadata.get("upsell_token", "")
+            if upsell_token:
+                _procesar_upsell_integrante(upsell_token)
+        else:
+            familia_id = (
+                metadata.get("familia_id")
+                or session.get("client_reference_id")
+            )
+            if familia_id:
+                _generar_access_token_familia(familia_id)
 
     return {"ok": True}
 
@@ -1040,9 +1096,12 @@ def _handle_mp_payment(payment_id: str) -> None:
 
         payment = resp.json()
         if payment.get("status") == "approved":
-            familia_id = payment.get("external_reference")
-            if familia_id:
-                _generar_access_token_familia(familia_id)
+            external_reference = payment.get("external_reference", "")
+            if external_reference.startswith("upsell_integrante:"):
+                upsell_token = external_reference.split(":", 1)[1]
+                _procesar_upsell_integrante(upsell_token)
+            elif external_reference:
+                _generar_access_token_familia(external_reference)
     except Exception as exc:  # noqa: BLE001
         logger.warning("[webhook-mp] excepción procesando pago %s: %s", payment_id, exc)
 

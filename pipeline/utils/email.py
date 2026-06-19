@@ -146,6 +146,31 @@ def send_recordatorio(
         logger.warning("Error enviando recordatorio a %s: %s", email_integrante, exc)
 
 
+def send_integrante_agregado(
+    email_comprador: str,
+    nombre_familia: str,
+    nombre_integrante: str,
+    token_url: str,
+) -> None:
+    key = _get_key()
+    if not key:
+        return
+
+    html = f'''<html><body style="font-family:sans-serif;color:#3d2b0a;max-width:560px;margin:0 auto;padding:24px">
+<p style="font-family:Georgia,serif;font-size:22px;margin-bottom:16px">Ethos Bios</p>
+<h2 style="font-weight:400;margin-bottom:8px">Nuevo integrante agregado</h2>
+<p style="color:#9a7b5a;margin-bottom:20px">Acabás de agregar a <strong>{nombre_integrante}</strong> al libro de <strong>{nombre_familia}</strong>.</p>
+<p style="margin-bottom:20px">Ya puede empezar a grabar sus historias usando el link de abajo. Podés compartírselo directamente.</p>
+<a href="{token_url}" style="display:inline-block;background:#2C1A0E;color:#F5EDD8;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px">{nombre_integrante} — empezar a grabar ↗</a>
+<p style="margin-top:32px;font-size:12px;color:#b89a7a">Ethos Bios · hola@ethosbios.com</p>
+</body></html>'''
+
+    try:
+        _send(key, email_comprador, f"Nuevo integrante agregado — {nombre_familia}", html)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Error enviando integrante_agregado a %s: %s", email_comprador, exc)
+
+
 def send_generando(email_comprador: str, nombre_familia: str, familia_id: str) -> None:
     key = _get_key()
     if not key:
