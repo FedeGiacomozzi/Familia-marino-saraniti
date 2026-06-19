@@ -16,7 +16,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import httpx
-from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from itsdangerous import BadSignature, URLSafeTimedSerializer
@@ -1204,20 +1204,29 @@ def get_me(request: Request):
 # ─── Familia: link de acceso (usado por /gracias) ────────────────────────────
 
 @app.get("/familia/{familia_id}/link-acceso")
-def familia_link_acceso(familia_id: str, request: Request):
-    """Return the access link for a familia. Requires active session for that familia."""
+def familia_link_acceso(
+    familia_id: str,
+    request: Request,
+    dt: str | None = Query(default=None),
+):
+    """
+    Retorna el link de acceso. Acepta dos mecanismos de auth:
+    - dt (display_token): token de un solo uso generado al checkout (30 min). Para gracias.html.
+    - Cookie de sesión: para usuarios ya autenticados.
+    """
     from pipeline.utils import firestore as fs
 
-    cookie_value = request.cookies.get(_SESSION_COOKIE, "")
-    if not cookie_value:
-        raise HTTPException(status_code=401, detail="No autenticado")
-
-    session_familia_id = _verify_session(cookie_value)
-    if not session_familia_id:
-        raise HTTPException(status_code=401, detail="Sesión inválida o expirada")
-
-    if session_familia_id != familia_id:
-        raise HTTPException(status_code=403, detail="No autorizado")
+    if dt:
+        # validate sin consumir: el poll puede repetirse hasta que el webhook genere el access_token
+        if not fs.validate_temp_token(dt, familia_id):
+            raise HTTPException(status_code=401, detail="Token de acceso inválido o expirado")
+    else:
+        cookie_value = request.cookies.get(_SESSION_COOKIE, "")
+        if not cookie_value:
+            raise HTTPException(status_code=401, detail="No autenticado")
+        session_familia_id = _verify_session(cookie_value)
+        if not session_familia_id or session_familia_id != familia_id:
+            raise HTTPException(status_code=403, detail="No autorizado")
 
     token = fs.get_access_token(familia_id)
     if token is None:
@@ -1344,10 +1353,12 @@ def _calcular_total(pack: str, n_integrantes: int) -> int:
     extra = max(0, n_integrantes - max_inc)
     return base + extra * 8
 
-def _crear_familia_checkout(req: CheckoutRequest) -> str:
+def _crear_familia_checkout(req: CheckoutRequest) -> tuple[str, str]:
+    """Crea familia en Firestore para el checkout. Retorna (familia_id, display_token)."""
     from pipeline.utils import firestore as fs
     from google.cloud import firestore as _firestore
     familia_id = uuid.uuid4().hex[:16]
+    display_token = uuid.uuid4().hex
     db = fs._db()
     db.collection('familias').document(familia_id).set({
         'nombre': req.nombre_familia,
@@ -1361,7 +1372,9 @@ def _crear_familia_checkout(req: CheckoutRequest) -> str:
     })
     for ing in req.integrantes:
         fs.add_integrante(familia_id=familia_id, nombre=ing.get('nombre', ''), relacion_con_comprador='integrante')
-    return familia_id
+    # Token de un solo uso (30 min) para que gracias.html pueda mostrar el link de acceso
+    fs.create_temp_token(display_token, familia_id, ttl_minutes=30)
+    return familia_id, display_token
 
 @app.post('/pago/crear-checkout')
 @limiter.limit('10/hour')
@@ -1369,14 +1382,14 @@ async def crear_checkout_mp(request: Request, req: CheckoutRequest):
     mp_token = os.environ.get('MP_ACCESS_TOKEN', '')
     if not mp_token or mp_token == 'placeholder_mp':
         raise HTTPException(status_code=503, detail='MercadoPago no configurado')
-    familia_id = _crear_familia_checkout(req)
+    familia_id, display_token = _crear_familia_checkout(req)
     total = _calcular_total(req.pack, len(req.integrantes))
     base = _recording_base()
     payload = {
         'items': [{'title': f'Ethos Bios — {req.nombre_familia}', 'quantity': 1, 'unit_price': total, 'currency_id': 'USD'}],
         'payer': {'email': req.email_comprador},
         'external_reference': familia_id,
-        'back_urls': {'success': f'{base}/gracias?familia_id={familia_id}', 'failure': f'{base}/gracias?familia_id={familia_id}&error=1', 'pending': f'{base}/gracias?familia_id={familia_id}&pending=1'},
+        'back_urls': {'success': f'{base}/gracias?familia_id={familia_id}&dt={display_token}', 'failure': f'{base}/gracias?familia_id={familia_id}&error=1', 'pending': f'{base}/gracias?familia_id={familia_id}&pending=1'},
         'auto_return': 'approved',
         'notification_url': f'{base}/webhook/mercadopago',
     }
@@ -1395,7 +1408,7 @@ async def crear_checkout_stripe(request: Request, req: CheckoutRequest):
     stripe_key = os.environ.get('STRIPE_SECRET_KEY', '')
     if not stripe_key or stripe_key == 'placeholder_stripe':
         raise HTTPException(status_code=503, detail='Stripe no configurado')
-    familia_id = _crear_familia_checkout(req)
+    familia_id, display_token = _crear_familia_checkout(req)
     total = _calcular_total(req.pack, len(req.integrantes))
     base = _recording_base()
     payload = {
@@ -1407,7 +1420,7 @@ async def crear_checkout_stripe(request: Request, req: CheckoutRequest):
         'mode': 'payment',
         'client_reference_id': familia_id,
         'customer_email': req.email_comprador,
-        'success_url': f'{base}/gracias?familia_id={familia_id}',
+        'success_url': f'{base}/gracias?familia_id={familia_id}&dt={display_token}',
         'cancel_url': f'{base}/#precios',
         'metadata[familia_id]': familia_id,
     }

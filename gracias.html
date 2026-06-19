@@ -82,19 +82,24 @@ let _link = null;
 let _pollAttempts = 0;
 const MAX_ATTEMPTS = 15;  // 15 × 2s = 30 segundos máximo
 
-function getFamiliaId() {
+function getParams() {
   const params = new URLSearchParams(location.search);
-  return params.get('familia_id') || params.get('collection_id') || null;
+  const familiaId = params.get('familia_id') || params.get('collection_id') || null;
+  const dt = params.get('dt') || null;
+  return { familiaId, dt };
 }
 
-async function pollLink(familiaId) {
+async function pollLink(familiaId, dt) {
   _pollAttempts++;
   try {
-    const res = await fetch(`${API}/familia/${familiaId}/link-acceso`);
+    const url = dt
+      ? `${API}/familia/${familiaId}/link-acceso?dt=${encodeURIComponent(dt)}`
+      : `${API}/familia/${familiaId}/link-acceso`;
+    const res = await fetch(url);
     if (!res.ok) throw new Error('Error ' + res.status);
     const data = await res.json();
     if (data.disponible && data.link) {
-      mostrarLink(data.link);
+      mostrarLink(data.link, familiaId);
       return;
     }
   } catch (_) {}
@@ -103,17 +108,15 @@ async function pollLink(familiaId) {
     mostrarError();
     return;
   }
-  setTimeout(() => pollLink(familiaId), 2000);
+  setTimeout(() => pollLink(familiaId, dt), 2000);
 }
 
-function mostrarLink(link) {
+function mostrarLink(link, familiaId) {
   _link = link;
   document.getElementById('loading').style.display = 'none';
   document.getElementById('link-display').textContent = link;
   document.getElementById('link-section').style.display = 'block';
 
-  // Pre-populate the onboarding link with familia_id if present
-  const familiaId = getFamiliaId();
   if (familiaId) {
     const btn = document.getElementById('btn-onboarding');
     btn.href = `/onboarding?familia_id=${familiaId}`;
@@ -137,7 +140,6 @@ async function copiarLink() {
       document.getElementById('copied-msg').style.display = 'none';
     }, 3000);
   } catch (_) {
-    // Fallback: select the text
     const el = document.getElementById('link-display');
     const range = document.createRange();
     range.selectNodeContents(el);
@@ -150,12 +152,12 @@ async function copiarLink() {
 
 // Init
 (function() {
-  const familiaId = getFamiliaId();
+  const { familiaId, dt } = getParams();
   if (!familiaId) {
     mostrarError();
     return;
   }
-  pollLink(familiaId);
+  pollLink(familiaId, dt);
 })();
 </script>
 </body>

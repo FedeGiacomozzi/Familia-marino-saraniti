@@ -502,6 +502,58 @@ def get_access_token(familia_id: str) -> str | None:
     return token
 
 
+# ─── Temp tokens (display_token para gracias, onboarding_token para onboarding) ──
+
+def create_temp_token(token: str, familia_id: str, ttl_minutes: int) -> None:
+    """Store a short-lived single-purpose token. Used for pre-login endpoints."""
+    from datetime import datetime, timezone, timedelta
+    expires_at = (datetime.now(timezone.utc) + timedelta(minutes=ttl_minutes)).isoformat()
+    _db().collection("temp_tokens").document(token).set({
+        "familia_id": familia_id,
+        "expires_at": expires_at,
+    })
+
+
+def consume_temp_token(token: str, familia_id: str) -> bool:
+    """Validate and DELETE a temp token (single-use). Returns True if valid for that familia."""
+    from datetime import datetime, timezone
+    doc = _db().collection("temp_tokens").document(token).get()
+    if not doc.exists:
+        return False
+    data = doc.to_dict()
+    if data.get("familia_id") != familia_id:
+        return False
+    try:
+        expires_at = datetime.fromisoformat(data["expires_at"])
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        if datetime.now(timezone.utc) > expires_at:
+            doc.reference.delete()
+            return False
+    except Exception:
+        return False
+    doc.reference.delete()
+    return True
+
+
+def validate_temp_token(token: str, familia_id: str) -> bool:
+    """Validate a temp token WITHOUT consuming it (multi-use within TTL)."""
+    from datetime import datetime, timezone
+    doc = _db().collection("temp_tokens").document(token).get()
+    if not doc.exists:
+        return False
+    data = doc.to_dict()
+    if data.get("familia_id") != familia_id:
+        return False
+    try:
+        expires_at = datetime.fromisoformat(data["expires_at"])
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        return datetime.now(timezone.utc) <= expires_at
+    except Exception:
+        return False
+
+
 def get_familia_by_email(email: str) -> tuple[str, dict] | None:
     """Find familia by comprador email. Returns (familia_id, data) or None."""
     docs = (
