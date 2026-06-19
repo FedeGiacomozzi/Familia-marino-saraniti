@@ -646,7 +646,7 @@ def crear_familia(req: FamiliaRequest):
 
 
 @app.post("/familia/{familia_id}/integrantes", status_code=201)
-def agregar_integrante(familia_id: str, req: IntegranteRequest):
+def agregar_integrante(familia_id: str, req: IntegranteRequest, _: None = Depends(_admin_auth)):
     from pipeline.utils import firestore as fs
 
     if not fs.get_familia(familia_id):
@@ -663,7 +663,7 @@ def agregar_integrante(familia_id: str, req: IntegranteRequest):
 
 
 @app.get("/familia/{familia_id}")
-def get_familia_detail(familia_id: str):
+def get_familia_detail(familia_id: str, _: None = Depends(_admin_auth)):
     from pipeline.utils import firestore as fs
 
     familia = fs.get_familia(familia_id)
@@ -1204,9 +1204,20 @@ def get_me(request: Request):
 # ─── Familia: link de acceso (usado por /gracias) ────────────────────────────
 
 @app.get("/familia/{familia_id}/link-acceso")
-def familia_link_acceso(familia_id: str):
-    """Return the access link for a familia once payment is confirmed."""
+def familia_link_acceso(familia_id: str, request: Request):
+    """Return the access link for a familia. Requires active session for that familia."""
     from pipeline.utils import firestore as fs
+
+    cookie_value = request.cookies.get(_SESSION_COOKIE, "")
+    if not cookie_value:
+        raise HTTPException(status_code=401, detail="No autenticado")
+
+    session_familia_id = _verify_session(cookie_value)
+    if not session_familia_id:
+        raise HTTPException(status_code=401, detail="Sesión inválida o expirada")
+
+    if session_familia_id != familia_id:
+        raise HTTPException(status_code=403, detail="No autorizado")
 
     token = fs.get_access_token(familia_id)
     if token is None:
@@ -1228,6 +1239,14 @@ async def reenviar_invitacion(familia_id: str, request: Request, body: ReenviarI
     """Reenvía el link de grabación por email al integrante identificado por su token."""
     from pipeline.utils import firestore as fs
     from pipeline.utils.email import send_recordatorio
+
+    cookie_value = request.cookies.get(_SESSION_COOKIE, "")
+    if not cookie_value:
+        raise HTTPException(status_code=401, detail="No autenticado")
+
+    session_familia_id = _verify_session(cookie_value)
+    if not session_familia_id or session_familia_id != familia_id:
+        raise HTTPException(status_code=403, detail="No autorizado")
 
     familia = fs.get_familia(familia_id)
     if not familia:
