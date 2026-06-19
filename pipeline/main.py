@@ -119,6 +119,17 @@ def _verify_session(cookie_value: str) -> str | None:
 
 # ─── Stripe webhook signature verification ───────────────────────────────────
 
+def _verify_mp_signature(data_id: str, x_request_id: str, ts: str, v1: str, secret: str) -> bool:
+    """Verify MercadoPago webhook v2 HMAC-SHA256 signature."""
+    signed_payload = f"id:{data_id};request-id:{x_request_id};ts:{ts};"
+    expected = hmac.new(
+        secret.encode("utf-8"),
+        signed_payload.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+    return hmac.compare_digest(expected, v1)
+
+
 def _verify_stripe_signature(payload: bytes, sig_header: str, secret: str) -> bool:
     timestamp: int | None = None
     v1_sigs: list[str] = []
@@ -1002,7 +1013,24 @@ def _handle_mp_payment(payment_id: str) -> None:
 
 @app.post("/webhook/mercadopago")
 async def webhook_mercadopago(request: Request):
-    # MercadoPago sends both modern webhooks (JSON body) and legacy IPN (query params).
+    mp_secret = os.environ.get("MP_WEBHOOK_SECRET", "")
+    if not mp_secret:
+        logger.warning("[webhook-mp] MP_WEBHOOK_SECRET no configurado, rechazando webhook")
+        raise HTTPException(status_code=401, detail="Webhook no configurado")
+
+    x_sig = request.headers.get("x-signature", "")
+    x_request_id = request.headers.get("x-request-id", "")
+    ts = ""
+    v1 = ""
+    for part in x_sig.split(","):
+        if "=" not in part:
+            continue
+        k, val = part.split("=", 1)
+        if k.strip() == "ts":
+            ts = val.strip()
+        elif k.strip() == "v1":
+            v1 = val.strip()
+
     topic = request.query_params.get("topic", "")
     payment_id_query = request.query_params.get("id", "")
 
@@ -1010,6 +1038,12 @@ async def webhook_mercadopago(request: Request):
         body = await request.json()
     except Exception:
         body = {}
+
+    data_id = str(body.get("data", {}).get("id") or payment_id_query or "")
+
+    if not _verify_mp_signature(data_id, x_request_id, ts, v1, mp_secret):
+        logger.warning("[webhook-mp] firma inválida, rechazando")
+        raise HTTPException(status_code=401, detail="Firma de webhook inválida")
 
     event_type = body.get("type", "") or topic
     payment_id = body.get("data", {}).get("id") or (payment_id_query if topic == "payment" else "")
