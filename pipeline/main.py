@@ -269,7 +269,7 @@ class PipelineRequest(BaseModel):
 
 
 @app.post("/run/pipeline")
-def run_pipeline(req: PipelineRequest):
+def run_pipeline(req: PipelineRequest, _: None = Depends(_admin_auth)):
     result = orchestrator.run(
         nombres=req.nombres,
         pais=req.pais,
@@ -291,7 +291,7 @@ def run_pipeline(req: PipelineRequest):
 
 
 @app.post("/run/pipeline/async")
-def run_pipeline_async(req: PipelineRequest):
+def run_pipeline_async(req: PipelineRequest, _: None = Depends(_admin_auth)):
     from pipeline.utils import firestore as fs
     from pipeline.utils.tasks import enqueue_pipeline
     job_id = str(uuid.uuid4())
@@ -353,7 +353,7 @@ class TranscriberRequest(BaseModel):
 
 
 @app.post("/run/transcriber")
-def run_transcriber(req: TranscriberRequest):
+def run_transcriber(req: TranscriberRequest, _: None = Depends(_admin_auth)):
     result = transcriber.run(req.row_indices, req.pais)
     return result
 
@@ -365,7 +365,7 @@ class NombresRequest(BaseModel):
 
 
 @app.post("/run/voice")
-def run_voice(req: NombresRequest):
+def run_voice(req: NombresRequest, _: None = Depends(_admin_auth)):
     result = voice_agent.run(req.nombres)
     return result
 
@@ -373,7 +373,7 @@ def run_voice(req: NombresRequest):
 # ─── Paso 3: Chapters ─────────────────────────────────────────────────────────
 
 @app.post("/run/chapters")
-def run_chapters(req: NombresRequest):
+def run_chapters(req: NombresRequest, _: None = Depends(_admin_auth)):
     result = chapter_agent.run(req.nombres)
     return {"chapters": {k: len(v) for k, v in result.items()}}
 
@@ -385,7 +385,7 @@ class EditorRequest(BaseModel):
 
 
 @app.post("/run/editor")
-def run_editor(req: EditorRequest):
+def run_editor(req: EditorRequest, _: None = Depends(_admin_auth)):
     from pipeline.agents import editor_agent
 
     personas_meta = []
@@ -421,7 +421,7 @@ class LayoutRequest(BaseModel):
 
 
 @app.post("/run/layout")
-def run_layout(req: LayoutRequest):
+def run_layout(req: LayoutRequest, _: None = Depends(_admin_auth)):
     from pipeline.agents import editor_agent
 
     personas_meta = []
