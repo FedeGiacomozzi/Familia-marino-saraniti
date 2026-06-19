@@ -83,9 +83,33 @@ def get_integrantes(familia_id: str) -> list[dict]:
 
 def get_integrante_by_token(token: str) -> tuple[str, str, dict] | None:
     """
-    Search all familias for an integrante whose token_unico matches.
-    Returns (familia_id, integrante_id, data) or None if not found.
+    Resolve a token to (familia_id, integrante_id, data) in O(1) via tokens/ collection.
+    Falls back to full scan with a warning if the token is not indexed (legacy tokens).
+    Returns None if not found.
     """
+    import logging
+    logger = logging.getLogger(__name__)
+
+    token_doc = _db().collection("tokens").document(token).get()
+    if token_doc.exists:
+        ref = token_doc.to_dict()
+        familia_id = ref.get("familia_id", "")
+        integrante_id = ref.get("integrante_id", "")
+        integrante_doc = (
+            _db()
+            .collection("familias")
+            .document(familia_id)
+            .collection("integrantes")
+            .document(integrante_id)
+            .get()
+        )
+        if integrante_doc.exists:
+            data = integrante_doc.to_dict()
+            data["id"] = integrante_doc.id
+            return familia_id, integrante_id, data
+
+    # Fallback: full scan for legacy tokens not yet in tokens/ collection
+    logger.warning("[tokens] token %s no encontrado en colección tokens/, haciendo scan completo", token)
     familias = _db().collection("familias").stream()
     for familia_doc in familias:
         matches = (
@@ -354,7 +378,8 @@ def add_integrante(
     """Agrega un integrante a la familia. Retorna (integrante_id, token_unico)."""
     integrante_id = _uuid.uuid4().hex[:8]
     token = str(_uuid.uuid4())
-    _db().collection("familias").document(familia_id).collection("integrantes").document(integrante_id).set({
+    db = _db()
+    db.collection("familias").document(familia_id).collection("integrantes").document(integrante_id).set({
         "nombre": nombre,
         "relacion_con_comprador": relacion_con_comprador,
         "token_unico": token,
@@ -365,6 +390,11 @@ def add_integrante(
         "foto_url": "",
         "porcentaje_avance": 0,
         "ultimo_acceso": None,
+    })
+    # Índice plano para resolución O(1)
+    db.collection("tokens").document(token).set({
+        "familia_id": familia_id,
+        "integrante_id": integrante_id,
     })
     return integrante_id, token
 
