@@ -490,7 +490,7 @@ async def onboarding(request: Request, req: OnboardingRequest):
     from google.cloud import firestore as _firestore
     from pipeline.utils import firestore as fs
 
-    familia_id = uuid.uuid4().hex[:8]
+    familia_id = uuid.uuid4().hex[:16]
     db = fs._db()
 
     # Upsert familia
@@ -1347,7 +1347,7 @@ def _calcular_total(pack: str, n_integrantes: int) -> int:
 def _crear_familia_checkout(req: CheckoutRequest) -> str:
     from pipeline.utils import firestore as fs
     from google.cloud import firestore as _firestore
-    familia_id = uuid.uuid4().hex[:8]
+    familia_id = uuid.uuid4().hex[:16]
     db = fs._db()
     db.collection('familias').document(familia_id).set({
         'nombre': req.nombre_familia,

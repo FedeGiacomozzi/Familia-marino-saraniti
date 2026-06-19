@@ -352,8 +352,8 @@ def get_relaciones(familia_id: str) -> list[dict]:
 # ─── Onboarding: crear familia e integrantes ─────────────────────────────────
 
 def create_familia(nombre: str, comprador: dict, pack: str, pais: str = "argentina") -> str:
-    """Crea un doc de familia y retorna el familia_id (8 chars del UUID)."""
-    familia_id = _uuid.uuid4().hex[:8]
+    """Crea un doc de familia y retorna el familia_id (16 chars del UUID = 64 bits)."""
+    familia_id = _uuid.uuid4().hex[:16]
     _db().collection("familias").document(familia_id).set({
         "nombre": nombre,
         "comprador": comprador,
