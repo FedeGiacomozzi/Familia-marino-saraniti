@@ -965,7 +965,11 @@ async def webhook_stripe(request: Request):
     sig_header = request.headers.get("stripe-signature", "")
     secret = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
 
-    if secret and not _verify_stripe_signature(payload, sig_header, secret):
+    if not secret:
+        logger.error("[webhook-stripe] STRIPE_WEBHOOK_SECRET no configurado, rechazando webhook")
+        raise HTTPException(status_code=500, detail="Webhook no configurado")
+
+    if not _verify_stripe_signature(payload, sig_header, secret):
         raise HTTPException(status_code=400, detail="Firma de webhook inválida")
 
     try:
