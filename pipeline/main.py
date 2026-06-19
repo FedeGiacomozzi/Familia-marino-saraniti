@@ -891,6 +891,48 @@ def token_completar(token: str):
 
 # ─── Webhooks de pago ────────────────────────────────────────────────────────
 
+def _enviar_email_bienvenida(familia_id: str) -> None:
+    """Send welcome email with per-member recording links. Idempotent via email_bienvenida_enviado flag."""
+    from pipeline.utils import firestore as fs
+    from pipeline.utils.email import send_bienvenida
+
+    familia = fs.get_familia(familia_id)
+    if not familia:
+        logger.warning("[email-bienvenida] familia no encontrada: %s", familia_id)
+        return
+
+    if familia.get("email_bienvenida_enviado"):
+        logger.info("[email-bienvenida] ya enviado para familia=%s, skipping", familia_id)
+        return
+
+    comprador = familia.get("comprador", {})
+    email_comprador = comprador.get("email", "")
+    nombre_familia = familia.get("nombre", "tu familia")
+
+    if not email_comprador:
+        logger.warning("[email-bienvenida] sin email para familia=%s", familia_id)
+        return
+
+    integrantes = fs.get_integrantes(familia_id)
+    base = _recording_base()
+    tokens = [
+        {"nombre": i.get("nombre", ""), "url": f"{base}/r/{i.get('token_unico', '')}"}
+        for i in integrantes
+        if i.get("token_unico") and not i.get("es_menor")
+    ]
+
+    if not tokens:
+        logger.warning("[email-bienvenida] sin tokens para familia=%s", familia_id)
+        return
+
+    try:
+        send_bienvenida(email_comprador=email_comprador, nombre_familia=nombre_familia, tokens=tokens)
+        fs._db().collection("familias").document(familia_id).update({"email_bienvenida_enviado": True})
+        logger.info("[email-bienvenida] enviado a %s para familia=%s", email_comprador, familia_id)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[email-bienvenida] error para familia=%s: %s", familia_id, exc)
+
+
 def _generar_access_token_familia(familia_id: str) -> None:
     """Generate and persist access_token (UUID4, 90 days) for a familia."""
     from pipeline.utils import firestore as fs
@@ -903,6 +945,7 @@ def _generar_access_token_familia(familia_id: str) -> None:
     expires_at = datetime.now(timezone.utc) + timedelta(days=90)
     fs.set_access_token(familia_id, token, expires_at)
     logger.info("[webhook] access_token generado para familia=%s expira=%s", familia_id, expires_at.date())
+    _enviar_email_bienvenida(familia_id)
 
 
 @app.post("/webhook/stripe")
@@ -1322,6 +1365,32 @@ async def crear_checkout_stripe(request: Request, req: CheckoutRequest):
 
 
 # ─── Admin ────────────────────────────────────────────────────────────────────
+
+@app.post("/admin/test-bienvenida")
+def test_bienvenida(familia_id: str, email: str | None = None, _: None = Depends(_admin_auth)):
+    """Test send_bienvenida() with real Firestore data. Does NOT set email_bienvenida_enviado flag."""
+    from pipeline.utils import firestore as fs
+    from pipeline.utils.email import send_bienvenida
+
+    familia = fs.get_familia(familia_id)
+    if not familia:
+        raise HTTPException(status_code=404, detail=f"Familia no encontrada: {familia_id}")
+
+    comprador = familia.get("comprador", {})
+    email_dest = email or comprador.get("email", "")
+    nombre_familia = familia.get("nombre", "tu familia")
+
+    integrantes = fs.get_integrantes(familia_id)
+    base = _recording_base()
+    tokens = [
+        {"nombre": i.get("nombre", ""), "url": f"{base}/r/{i.get('token_unico', '')}"}
+        for i in integrantes
+        if i.get("token_unico") and not i.get("es_menor")
+    ]
+
+    send_bienvenida(email_comprador=email_dest, nombre_familia=nombre_familia, tokens=tokens)
+    return {"ok": True, "email": email_dest, "tokens_count": len(tokens), "base_url": base}
+
 
 @app.post("/admin/test-email-libro")
 def test_email_libro(email: str = "fede.giacomozzi@gmail.com", _: None = Depends(_admin_auth)):
