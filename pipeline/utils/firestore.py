@@ -569,6 +569,30 @@ def get_familia_by_email(email: str) -> tuple[str, dict] | None:
     return None
 
 
+# ─── Upsell checkouts ────────────────────────────────────────────────────────
+
+def create_upsell_checkout(upsell_token: str, familia_id: str, nombre: str, relacion: str) -> None:
+    from datetime import datetime, timezone
+    _db().collection("upsell_checkouts").document(upsell_token).set({
+        "familia_id": familia_id,
+        "nombre": nombre,
+        "relacion": relacion,
+        "procesado": False,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+
+
+def get_upsell_checkout(upsell_token: str) -> dict | None:
+    doc = _db().collection("upsell_checkouts").document(upsell_token).get()
+    if not doc.exists:
+        return None
+    return doc.to_dict()
+
+
+def mark_upsell_checkout_procesado(upsell_token: str) -> None:
+    _db().collection("upsell_checkouts").document(upsell_token).update({"procesado": True})
+
+
 def check_and_record_rate_limit(key: str, max_count: int, window_seconds: int) -> bool:
     """
     Check rate limit for a key. Records the hit if allowed.

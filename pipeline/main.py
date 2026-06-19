@@ -1378,6 +1378,7 @@ class CheckoutRequest(BaseModel):
 
 _PRECIOS = {'esencial': 59, 'familiar': 79, 'extendido': 129}
 _MAX_INTEG = {'esencial': 2, 'familiar': 4, 'extendido': 8}
+_PRECIO_UPSELL = 8  # USD por integrante extra
 
 def _calcular_total(pack: str, n_integrantes: int) -> int:
     base = _PRECIOS.get(pack, 79)
@@ -1433,6 +1434,108 @@ async def crear_checkout_mp(request: Request, req: CheckoutRequest):
     except Exception as exc:
         logger.error('[mp-checkout] error: %s', exc)
         raise HTTPException(status_code=502, detail='Error al crear preferencia MP')
+
+class UpsellIntegranteRequest(BaseModel):
+    nombre: str
+    relacion_con_comprador: str = 'integrante'
+
+
+def _session_auth_familia(request: Request, familia_id: str):
+    """Verifica sesión y que corresponda al familia_id del path. Retorna familia o lanza HTTP error."""
+    from pipeline.utils import firestore as fs
+    cookie_value = request.cookies.get(_SESSION_COOKIE, "")
+    if not cookie_value:
+        raise HTTPException(status_code=401, detail="No autenticado")
+    session_familia_id = _verify_session(cookie_value)
+    if not session_familia_id or session_familia_id != familia_id:
+        raise HTTPException(status_code=403, detail="No autorizado")
+    familia = fs.get_familia(familia_id)
+    if not familia:
+        raise HTTPException(status_code=404, detail="Familia no encontrada")
+    return familia
+
+
+@app.post('/familia/{familia_id}/upsell-integrante/crear-checkout')
+@limiter.limit('10/hour')
+async def upsell_crear_checkout_mp(familia_id: str, request: Request, req: UpsellIntegranteRequest):
+    """Crea preferencia MP para agregar un integrante extra (USD 8). Requiere sesión del comprador."""
+    from pipeline.utils import firestore as fs
+    familia = _session_auth_familia(request, familia_id)
+    mp_token = os.environ.get('MP_ACCESS_TOKEN', '')
+    if not mp_token or mp_token == 'placeholder_mp':
+        raise HTTPException(status_code=503, detail='MercadoPago no configurado')
+
+    upsell_token = uuid.uuid4().hex
+    fs.create_upsell_checkout(upsell_token, familia_id, req.nombre, req.relacion_con_comprador)
+
+    base = _recording_base()
+    nombre_familia = familia.get('nombre', '')
+    email_comprador = familia.get('comprador', {}).get('email', '')
+    import urllib.parse
+    nombre_enc = urllib.parse.quote(req.nombre)
+    payload = {
+        'items': [{'title': f'Ethos Bios — {nombre_familia} (+1 integrante: {req.nombre})', 'quantity': 1, 'unit_price': _PRECIO_UPSELL, 'currency_id': 'USD'}],
+        'payer': {'email': email_comprador},
+        'external_reference': f'upsell_integrante:{upsell_token}',
+        'back_urls': {
+            'success': f'{base}/mi-familia?upsell=ok&nombre={nombre_enc}',
+            'failure': f'{base}/mi-familia?upsell=error',
+            'pending': f'{base}/mi-familia?upsell=pendiente',
+        },
+        'auto_return': 'approved',
+        'notification_url': f'{base}/webhook/mercadopago',
+    }
+    try:
+        resp = httpx.post('https://api.mercadopago.com/checkout/preferences', headers={'Authorization': f'Bearer {mp_token}', 'Content-Type': 'application/json'}, json=payload, timeout=15)
+        resp.raise_for_status()
+        data = resp.json()
+        return {'checkout_url': data.get('init_point'), 'sandbox_checkout_url': data.get('sandbox_init_point')}
+    except Exception as exc:
+        logger.error('[upsell-mp] error: %s', exc)
+        raise HTTPException(status_code=502, detail='Error al crear preferencia MP')
+
+
+@app.post('/familia/{familia_id}/upsell-integrante/crear-stripe-checkout')
+@limiter.limit('10/hour')
+async def upsell_crear_checkout_stripe(familia_id: str, request: Request, req: UpsellIntegranteRequest):
+    """Crea sesión Stripe para agregar un integrante extra (USD 8). Requiere sesión del comprador."""
+    from pipeline.utils import firestore as fs
+    familia = _session_auth_familia(request, familia_id)
+    stripe_key = os.environ.get('STRIPE_SECRET_KEY', '')
+    if not stripe_key or stripe_key == 'placeholder_stripe':
+        raise HTTPException(status_code=503, detail='Stripe no configurado')
+
+    upsell_token = uuid.uuid4().hex
+    fs.create_upsell_checkout(upsell_token, familia_id, req.nombre, req.relacion_con_comprador)
+
+    base = _recording_base()
+    nombre_familia = familia.get('nombre', '')
+    email_comprador = familia.get('comprador', {}).get('email', '')
+    import urllib.parse
+    nombre_enc = urllib.parse.quote(req.nombre)
+    payload = {
+        'payment_method_types[]': 'card',
+        'line_items[0][price_data][currency]': 'usd',
+        'line_items[0][price_data][product_data][name]': f'Ethos Bios — {nombre_familia} (+1 integrante: {req.nombre})',
+        'line_items[0][price_data][unit_amount]': str(_PRECIO_UPSELL * 100),
+        'line_items[0][quantity]': '1',
+        'mode': 'payment',
+        'customer_email': email_comprador,
+        'success_url': f'{base}/mi-familia?upsell=ok&nombre={nombre_enc}',
+        'cancel_url': f'{base}/mi-familia',
+        'metadata[tipo]': 'upsell_integrante',
+        'metadata[upsell_token]': upsell_token,
+        'metadata[familia_id]': familia_id,
+    }
+    try:
+        resp = httpx.post('https://api.stripe.com/v1/checkout/sessions', headers={'Authorization': f'Bearer {stripe_key}'}, data=payload, timeout=15)
+        resp.raise_for_status()
+        data = resp.json()
+        return {'checkout_url': data.get('url')}
+    except Exception as exc:
+        logger.error('[upsell-stripe] error: %s', exc)
+        raise HTTPException(status_code=502, detail='Error al crear sesión Stripe')
+
 
 @app.post('/pago/crear-stripe-checkout')
 @limiter.limit('10/hour')
