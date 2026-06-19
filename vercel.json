@@ -67,6 +67,10 @@
     {
       "source": "/acceso",
       "destination": "/acceso.html"
+    },
+    {
+      "source": "/mi-familia",
+      "destination": "/mi-familia.html"
     }
   ]
 }

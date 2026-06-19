@@ -1179,6 +1179,51 @@ async def reenviar_invitacion(familia_id: str, request: Request, body: ReenviarI
     return {"ok": True}
 
 
+# ─── Panel familia: progreso por integrante ──────────────────────────────────
+
+@app.get("/familia/{familia_id}/progreso")
+def familia_progreso(familia_id: str, request: Request):
+    """
+    Devuelve el progreso de cada integrante de la familia.
+    Requiere cookie de sesión válida correspondiente a esta familia.
+    """
+    from pipeline.utils import firestore as fs
+
+    cookie_value = request.cookies.get(_SESSION_COOKIE, "")
+    if not cookie_value:
+        raise HTTPException(status_code=401, detail="No autenticado")
+
+    session_familia_id = _verify_session(cookie_value)
+    if not session_familia_id:
+        raise HTTPException(status_code=401, detail="Sesión inválida o expirada")
+
+    if session_familia_id != familia_id:
+        raise HTTPException(status_code=403, detail="No autorizado")
+
+    familia = fs.get_familia(familia_id)
+    if not familia:
+        raise HTTPException(status_code=404, detail="Familia no encontrada")
+
+    integrantes = fs.get_integrantes(familia_id)
+    integrantes_progreso = []
+    for i in integrantes:
+        integrante_id = i.get("id", "")
+        estado = i.get("estado", "pendiente")
+        preguntas_respondidas = len(fs.get_respuestas(familia_id, integrante_id))
+        integrantes_progreso.append({
+            "nombre": i.get("nombre", ""),
+            "preguntas_respondidas": preguntas_respondidas,
+            "preguntas_total": 16,
+            "estado": estado,
+        })
+
+    return {
+        "familia_id": familia_id,
+        "nombre_familia": familia.get("nombre", ""),
+        "integrantes": integrantes_progreso,
+    }
+
+
 # ─── Admin ────────────────────────────────────────────────────────────────────
 
 # ─── Endpoints de pago ───────────────────────────────────────────────────────
@@ -1289,12 +1334,13 @@ def test_email_libro(email: str = "fede.giacomozzi@gmail.com", _: None = Depends
 def test_email(email: str = "test@raices.app", _: None = Depends(_admin_auth)):
     from pipeline.utils.email import send_bienvenida
 
+    base = _recording_base()
     send_bienvenida(
         email_comprador=email,
         nombre_familia="Familia García",
         tokens=[
-            {"nombre": "Abuela Rosa", "url": "https://example.com/grabar/abc123"},
-            {"nombre": "Tío Carlos", "url": "https://example.com/grabar/def456"},
+            {"nombre": "Abuela Rosa", "url": f"{base}/r/test-token-abc123"},
+            {"nombre": "Tío Carlos", "url": f"{base}/r/test-token-def456"},
         ],
     )
-    return {"ok": True, "message": "Email de prueba enviado"}
+    return {"ok": True, "message": "Email de prueba enviado", "base_url": base}
