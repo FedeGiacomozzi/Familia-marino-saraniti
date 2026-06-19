@@ -546,13 +546,32 @@ async def onboarding(request: Request, req: OnboardingRequest):
             "token": token,
         })
 
-    return {"familia_id": familia_id, "tokens": tokens}
+    # Token de onboarding (60 min, multi-uso) para foto-portada y tokens-estado pre-login
+    from pipeline.utils import firestore as _fs_ot
+    onboarding_token = uuid.uuid4().hex
+    _fs_ot.create_temp_token(onboarding_token, familia_id, ttl_minutes=60)
+
+    return {"familia_id": familia_id, "tokens": tokens, "onboarding_token": onboarding_token}
 
 
 @app.post("/familia/{familia_id}/foto-portada")
-async def foto_portada(familia_id: str, file: UploadFile = File(...)):
+async def foto_portada(
+    familia_id: str,
+    request: Request,
+    file: UploadFile = File(...),
+    ot: str | None = Query(default=None),
+):
     """Sube la foto de portada del libro a GCS y guarda la URL en Firestore."""
     from pipeline.utils import firestore as fs, storage as st
+
+    if ot:
+        if not fs.validate_temp_token(ot, familia_id):
+            raise HTTPException(status_code=401, detail="Token de onboarding inválido o expirado")
+    else:
+        cookie_value = request.cookies.get(_SESSION_COOKIE, "")
+        session_familia_id = _verify_session(cookie_value) if cookie_value else None
+        if not session_familia_id or session_familia_id != familia_id:
+            raise HTTPException(status_code=401, detail="No autenticado")
 
     if not fs.get_familia(familia_id):
         raise HTTPException(status_code=404, detail=f"Familia no encontrada: {familia_id}")
@@ -575,9 +594,22 @@ async def foto_portada(familia_id: str, file: UploadFile = File(...)):
 
 
 @app.get("/familia/{familia_id}/tokens-estado")
-def tokens_estado(familia_id: str):
-    """Devuelve estado actual de cada token para el dashboard de onboarding.html."""
+def tokens_estado(
+    familia_id: str,
+    request: Request,
+    ot: str | None = Query(default=None),
+):
+    """Devuelve estado actual de cada token. Requiere onboarding_token (ot) o sesión autenticada."""
     from pipeline.utils import firestore as fs
+
+    if ot:
+        if not fs.validate_temp_token(ot, familia_id):
+            raise HTTPException(status_code=401, detail="Token de onboarding inválido o expirado")
+    else:
+        cookie_value = request.cookies.get(_SESSION_COOKIE, "")
+        session_familia_id = _verify_session(cookie_value) if cookie_value else None
+        if not session_familia_id or session_familia_id != familia_id:
+            raise HTTPException(status_code=401, detail="No autenticado")
 
     if not fs.get_familia(familia_id):
         raise HTTPException(status_code=404, detail=f"Familia no encontrada: {familia_id}")
