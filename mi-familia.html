@@ -88,6 +88,31 @@ body{font-family:'Mulish',sans-serif;background:var(--bg);color:var(--text);min-
 
 /* Footer */
 .dash-footer{font-size:11px;color:var(--muted);text-align:right;padding:0 2px}
+
+/* Upsell banner */
+.upsell-banner{background:var(--success-bg);border:0.5px solid #c3dba8;border-radius:12px;padding:14px 18px;margin-bottom:20px;display:none;font-size:14px;color:var(--success-text);line-height:1.5}
+.upsell-banner.error{background:#fff0f0;border-color:#f5b8b8;color:#b00}
+
+/* Add-member button */
+.btn-add-member{display:flex;align-items:center;gap:8px;width:100%;padding:12px 16px;background:none;border:none;border-top:0.5px solid var(--border);cursor:pointer;font-family:'Mulish',sans-serif;font-size:13px;font-weight:600;color:var(--accent);text-align:left;transition:background .15s}
+.btn-add-member:hover{background:var(--cream)}
+.btn-add-member svg{flex-shrink:0}
+
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(44,26,14,.45);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
+.modal-overlay.open{display:flex}
+.modal{background:var(--surface);border-radius:14px;padding:28px 24px;width:100%;max-width:400px;box-shadow:0 8px 32px rgba(44,26,14,.18)}
+.modal-title{font-family:'Cormorant Garamond',serif;font-size:22px;color:var(--dark);font-weight:500;margin-bottom:6px}
+.modal-sub{font-size:13px;color:var(--muted);margin-bottom:22px;line-height:1.5}
+.modal label{display:block;font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:5px}
+.modal input,.modal select{width:100%;padding:10px 12px;border:0.5px solid var(--border);border-radius:8px;font-family:'Mulish',sans-serif;font-size:14px;color:var(--dark);background:var(--bg);margin-bottom:16px;outline:none;transition:border-color .15s}
+.modal input:focus,.modal select:focus{border-color:var(--accent)}
+.modal-actions{display:flex;gap:10px;margin-top:4px}
+.btn-cancel{flex:1;padding:11px;border:0.5px solid var(--border);border-radius:8px;background:none;font-family:'Mulish',sans-serif;font-size:14px;font-weight:600;color:var(--muted);cursor:pointer;transition:background .15s}
+.btn-cancel:hover{background:var(--cream)}
+.btn-pay{flex:2;padding:11px;border:none;border-radius:8px;background:var(--dark);color:var(--cream);font-family:'Mulish',sans-serif;font-size:14px;font-weight:700;cursor:pointer;transition:opacity .15s}
+.btn-pay:hover:not(:disabled){opacity:.88}
+.btn-pay:disabled{opacity:.45;cursor:not-allowed}
 </style>
 </head>
 <body>
@@ -154,19 +179,77 @@ body{font-family:'Mulish',sans-serif;background:var(--bg);color:var(--text);min-
     </a>
   </div>
 
+  <!-- Upsell banner (visible después de pago o error) -->
+  <div class="upsell-banner" id="upsell-banner"></div>
+
   <!-- Integrantes -->
   <div class="card">
     <div class="card-hdr"><span class="card-hdr-txt">Integrantes</span></div>
     <div id="ing-list"></div>
+    <button class="btn-add-member" id="btn-add-member" onclick="abrirModalUpsell()" style="display:none">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Agregar integrante — USD 8
+    </button>
   </div>
 
   <p class="dash-footer" id="dash-footer"></p>
+</div>
+
+<!-- Modal agregar integrante -->
+<div class="modal-overlay" id="modal-overlay" onclick="cerrarModalUpsell(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <p class="modal-title">Agregar integrante</p>
+    <p class="modal-sub">Se cobra USD 8 una sola vez. El nuevo integrante recibirá su link de grabación por email.</p>
+    <label for="upsell-nombre">Nombre completo</label>
+    <input type="text" id="upsell-nombre" placeholder="Ej: María García" autocomplete="off">
+    <label for="upsell-relacion">Relación con el comprador</label>
+    <select id="upsell-relacion">
+      <option value="integrante">Integrante</option>
+      <option value="madre">Madre</option>
+      <option value="padre">Padre</option>
+      <option value="hijo">Hijo</option>
+      <option value="hija">Hija</option>
+      <option value="esposo">Esposo</option>
+      <option value="esposa">Esposa</option>
+      <option value="cónyuge">Cónyuge</option>
+      <option value="abuelo">Abuelo</option>
+      <option value="abuela">Abuela</option>
+      <option value="tío">Tío</option>
+      <option value="tía">Tía</option>
+    </select>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="cerrarModalUpsell()">Cancelar</button>
+      <button class="btn-pay" id="btn-pay" onclick="iniciarUpsell()">Ir a pagar →</button>
+    </div>
+  </div>
 </div>
 
 <script>
 let _familiaId = null;
 let _tokens = [];
 let _pollTimer = null;
+
+// ── Upsell banner on return from checkout ───────────────────────────────────
+(function checkUpsellReturn() {
+  const params = new URLSearchParams(location.search);
+  const estado = params.get('upsell');
+  if (!estado) return;
+  const banner = document.getElementById('upsell-banner');
+  const nombre = params.get('nombre') || 'el nuevo integrante';
+  if (estado === 'ok') {
+    banner.textContent = `¡Pago recibido! ${nombre} ya fue agregado al libro y le va a llegar un mail con su link de grabación.`;
+    banner.style.display = 'block';
+  } else if (estado === 'pendiente') {
+    banner.textContent = 'El pago está siendo procesado. En unos minutos el integrante aparecerá en la lista.';
+    banner.style.display = 'block';
+  } else if (estado === 'error') {
+    banner.className = 'upsell-banner error';
+    banner.textContent = 'El pago no pudo completarse. Podés intentarlo nuevamente.';
+    banner.style.display = 'block';
+  }
+  // Clean URL without reload
+  history.replaceState({}, '', '/mi-familia');
+})();
 
 async function cargar() {
   try {
@@ -185,6 +268,7 @@ async function cargar() {
 
     document.getElementById('dash').style.display = 'block';
     document.getElementById('familia-nombre').textContent = d.nombre_familia;
+    document.getElementById('btn-add-member').style.display = 'flex';
 
     if (d.foto_portada_url) {
       const img = document.getElementById('cover-photo');
@@ -204,8 +288,11 @@ async function cargar() {
       }
     }
 
+    // Poll más frecuente si venimos de un upsell reciente
+    const fromUpsell = document.getElementById('upsell-banner').style.display !== 'none';
+    const interval = fromUpsell ? 5000 : 30000;
     if (d.libro_status !== 'listo') {
-      _pollTimer = setInterval(poll, 30000);
+      _pollTimer = setInterval(poll, interval);
     }
   } catch (_) {
     document.getElementById('unauth').style.display = 'block';
@@ -349,6 +436,68 @@ function svgEmail() {
 
 function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── Modal upsell ─────────────────────────────────────────────────────────────
+function abrirModalUpsell() {
+  document.getElementById('upsell-nombre').value = '';
+  document.getElementById('upsell-relacion').value = 'integrante';
+  document.getElementById('modal-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('upsell-nombre').focus(), 100);
+}
+
+function cerrarModalUpsell(e) {
+  if (e && e.target !== document.getElementById('modal-overlay')) return;
+  document.getElementById('modal-overlay').classList.remove('open');
+}
+
+async function iniciarUpsell() {
+  const nombre = document.getElementById('upsell-nombre').value.trim();
+  if (!nombre) {
+    document.getElementById('upsell-nombre').focus();
+    return;
+  }
+  const relacion = document.getElementById('upsell-relacion').value;
+  const btn = document.getElementById('btn-pay');
+  btn.disabled = true;
+  btn.textContent = 'Procesando…';
+
+  try {
+    // Try MP first; fall back to Stripe if not configured
+    let checkoutUrl = null;
+    const mpRes = await fetch(`/familia/${_familiaId}/upsell-integrante/crear-checkout`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({nombre, relacion_con_comprador: relacion}),
+      credentials: 'include',
+    });
+    if (mpRes.ok) {
+      const data = await mpRes.json();
+      checkoutUrl = data.checkout_url;
+    } else if (mpRes.status === 503) {
+      // MP not configured — try Stripe
+      const stripeRes = await fetch(`/familia/${_familiaId}/upsell-integrante/crear-stripe-checkout`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({nombre, relacion_con_comprador: relacion}),
+        credentials: 'include',
+      });
+      if (stripeRes.ok) {
+        const data = await stripeRes.json();
+        checkoutUrl = data.checkout_url;
+      }
+    }
+
+    if (checkoutUrl) {
+      window.location.href = checkoutUrl;
+    } else {
+      throw new Error('Sin checkout disponible');
+    }
+  } catch (_) {
+    btn.disabled = false;
+    btn.textContent = 'Ir a pagar →';
+    alert('No se pudo iniciar el pago. Intentalo de nuevo.');
+  }
 }
 
 cargar();
