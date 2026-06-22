@@ -307,6 +307,18 @@ header .logo {
 }
 
 .timer.hidden { display: none; }
+.timer.warning { color: #e67e22; }
+
+.aviso-tiempo {
+  font-size: 12px;
+  color: var(--accent);
+  background: #fdf6ed;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  text-align: center;
+}
 
 .btn-enviar {
   display: inline-flex;
@@ -711,6 +723,9 @@ header .logo {
 const TOKEN = new URLSearchParams(location.search).get('token');
 const API_BASE = 'https://familia-pipeline-776445604502.southamerica-east1.run.app';
 
+const LIMIT_SECS = 300; // 5 minutos — backend rechaza archivos >25 MB (~5 min webm/opus)
+const WARN_SECS  = 270; // 4:30 — cambia el contador a naranja como advertencia
+
 const BLOQUES = [
   { titulo: 'De dónde venís',       sub: 'El punto de partida de tu historia', preguntas: [1,2,3] },
   { titulo: 'Los que te formaron',  sub: 'La gente que estuvo antes que vos',  preguntas: [4,5,6] },
@@ -826,6 +841,7 @@ function renderBloque(idx) {
       <h2 class="bloque-titulo">${bloque.titulo}</h2>
       <p class="bloque-sub">${bloque.sub}</p>
     </div>
+    <p class="aviso-tiempo">⏱ Tenés hasta 5 minutos por pregunta. Hablá tranquilo/a, no hay apuro.</p>
   `;
 
   bloque.preguntas.forEach((pid, i) => {
@@ -910,12 +926,19 @@ async function startGrabar(pid) {
     let secs = 0;
     const timerEl = document.getElementById(`timer-${pid}`);
     timerEl.classList.remove('hidden');
+    timerEl.classList.remove('warning');
     timerEl.textContent = '00:00';
     const interval = setInterval(() => {
       secs++;
       const m = String(Math.floor(secs / 60)).padStart(2, '0');
       const s = String(secs % 60).padStart(2, '0');
       timerEl.textContent = `${m}:${s}`;
+      if (secs >= WARN_SECS) timerEl.classList.add('warning');
+      if (secs >= LIMIT_SECS) {
+        clearInterval(interval);
+        stopGrabar(pid);
+        setStatus(pid, 'Grabación completada. Podés escucharla antes de enviar.', 'ok');
+      }
     }, 1000);
     state[pid].timerInterval = interval;
 
