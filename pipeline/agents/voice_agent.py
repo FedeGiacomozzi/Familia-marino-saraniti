@@ -10,6 +10,7 @@ from datetime import datetime
 import anthropic
 
 from pipeline.utils import sheets
+from pipeline.utils.retry import call_with_retry
 
 MODEL = "claude-opus-4-7"
 
@@ -63,11 +64,13 @@ def _build_perfil(client: anthropic.Anthropic, nombre: str, transcripciones: lis
         for t in transcripciones
     )
 
-    message = client.messages.create(
+    message = call_with_retry(
+        client.messages.create,
         model=MODEL,
         max_tokens=8192,
         system=_SYSTEM,
         messages=[{"role": "user", "content": _PROMPT_TEMPLATE.format(nombre=nombre, bloques=bloques)}],
+        label=f"claude/voz/{nombre}",
     )
 
     perfil = _parse_json_response(message.content[0].text)
@@ -86,7 +89,7 @@ def _analyze_persona(client: anthropic.Anthropic, nombre: str) -> dict:
 def run(nombres: list[str]) -> dict[str, dict]:
     """Analyze each persona and return {nombre: perfil_dict}. Saves to Sheets."""
     from concurrent.futures import ThreadPoolExecutor, as_completed
-    client = anthropic.Anthropic()
+    client = anthropic.Anthropic(timeout=120.0)
     results = {}
 
     def _tarea(nombre):
@@ -113,7 +116,7 @@ def run_from_firestore(familia_id: str, nombres: list[str]) -> dict[str, dict]:
     from concurrent.futures import ThreadPoolExecutor, as_completed
     from pipeline.utils import firestore as fs
 
-    client = anthropic.Anthropic()
+    client = anthropic.Anthropic(timeout=120.0)
     integrantes = fs.get_integrantes(familia_id)
     integrante_by_nombre = {p["nombre"].lower(): p for p in integrantes}
     results = {}

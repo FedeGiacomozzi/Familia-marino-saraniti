@@ -200,7 +200,7 @@ def run(
         try:
             from concurrent.futures import ThreadPoolExecutor, as_completed
             import anthropic as _anthropic
-            client = _anthropic.Anthropic()
+            client = _anthropic.Anthropic(timeout=120.0)
 
             adultos_meta = [pm for pm in personas_meta if not pm.get("es_menor")]
             for pm in personas_meta:

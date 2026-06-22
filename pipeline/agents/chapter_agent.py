@@ -5,6 +5,7 @@ Genera un capítulo narrativo de 3200–3800 palabras por persona.
 import anthropic
 
 from pipeline.utils import sheets
+from pipeline.utils.retry import call_with_retry
 
 MODEL = "claude-opus-4-7"
 
@@ -105,11 +106,13 @@ def generar_capitulo(client: anthropic.Anthropic, persona: dict) -> str:
         frases_propias_lista=frases_propias_lista,
     )
 
-    message = client.messages.create(
+    message = call_with_retry(
+        client.messages.create,
         model=MODEL,
         max_tokens=5000,
         system=_SYSTEM,
         messages=[{"role": "user", "content": prompt}],
+        label=f"claude/capitulo/{nombre}",
     )
 
     capitulo = message.content[0].text.strip()
@@ -119,7 +122,7 @@ def generar_capitulo(client: anthropic.Anthropic, persona: dict) -> str:
 
 def run(nombres: list[str]) -> dict[str, str]:
     """Standalone: generate chapters for each nombre. Returns {nombre: capitulo_str}."""
-    client = anthropic.Anthropic()
+    client = anthropic.Anthropic(timeout=120.0)
     results = {}
 
     try:

@@ -9,6 +9,7 @@ import tempfile
 from openai import OpenAI
 
 from pipeline.utils import sheets
+from pipeline.utils.retry import call_with_retry
 
 # Regional vocabulary hints to nudge Whisper's acoustic model.
 # These are NOT for analysis — voice_agent handles linguistic profiling.
@@ -76,7 +77,7 @@ def run(row_indices: list[int], pais: str = "argentina") -> dict:
     """
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
-    client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+    client = OpenAI(api_key=os.environ["OPENAI_API_KEY"], timeout=60.0)
     prompt = _get_prompt(pais)
     all_rows = sheets.get_all_rows()
 
@@ -91,11 +92,13 @@ def run(row_indices: list[int], pais: str = "argentina") -> dict:
         try:
             sheets.download_drive_file(audio_url, tmp_path)
             with open(tmp_path, "rb") as audio_file:
-                result = client.audio.transcriptions.create(
+                result = call_with_retry(
+                    client.audio.transcriptions.create,
                     model="whisper-1",
                     file=audio_file,
                     language="es",
                     prompt=prompt,
+                    label="whisper/fila",
                 )
             sheets.save_transcription(row_idx, result.text.strip())
             return True
@@ -130,7 +133,7 @@ def run_from_firestore(familia_id: str, pais: str = "argentina") -> dict:
     from concurrent.futures import ThreadPoolExecutor, as_completed
     from pipeline.utils import firestore as fs, storage as gcs_storage
 
-    client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+    client = OpenAI(api_key=os.environ["OPENAI_API_KEY"], timeout=60.0)
     prompt = _get_prompt(pais)
 
     # Recolectar tareas pendientes en todos los integrantes
@@ -155,11 +158,13 @@ def run_from_firestore(familia_id: str, pais: str = "argentina") -> dict:
         try:
             gcs_storage.download_from_gcs(audio_url, tmp_path)
             with open(tmp_path, "rb") as audio_file:
-                result = client.audio.transcriptions.create(
+                result = call_with_retry(
+                    client.audio.transcriptions.create,
                     model="whisper-1",
                     file=audio_file,
                     language="es",
                     prompt=prompt,
+                    label="whisper/firestore",
                 )
             fs.save_transcripcion(familia_id, integrante_id, pregunta_id, result.text.strip())
             return True

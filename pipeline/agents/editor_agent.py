@@ -10,6 +10,8 @@ from dataclasses import dataclass, field
 
 import anthropic
 
+from pipeline.utils.retry import call_with_retry
+
 MODEL = "claude-opus-4-7"
 
 PALABRAS_PROHIBIDAS = [
@@ -80,11 +82,13 @@ Devolvé SOLO JSON válido:
 Solo JSON. Sin markdown.
 """
 
-    message = client.messages.create(
+    message = call_with_retry(
+        client.messages.create,
         model=MODEL,
         max_tokens=1024,
         system=_SYSTEM_EDITOR,
         messages=[{"role": "user", "content": prompt}],
+        label="claude/editor/orden",
     )
 
     text = message.content[0].text.strip()
@@ -130,11 +134,13 @@ La transición debe:
 Solo el texto de la transición. Sin títulos ni notas.
 """
 
-    message = client.messages.create(
+    message = call_with_retry(
+        client.messages.create,
         model=MODEL,
         max_tokens=512,
         system=_SYSTEM_EDITOR,
         messages=[{"role": "user", "content": prompt}],
+        label=f"claude/editor/transicion/{nombre_a}-{nombre_b}",
     )
 
     return message.content[0].text.strip()
@@ -267,19 +273,23 @@ El epílogo debe:
 Solo el texto del epílogo.
 """
 
-    prologo_msg = client.messages.create(
+    prologo_msg = call_with_retry(
+        client.messages.create,
         model=MODEL,
         max_tokens=1024,
         system=_SYSTEM_EDITOR,
         messages=[{"role": "user", "content": prologo_prompt}],
+        label="claude/editor/prologo",
     )
     prologo = prologo_msg.content[0].text.strip()
 
-    epilogo_msg = client.messages.create(
+    epilogo_msg = call_with_retry(
+        client.messages.create,
         model=MODEL,
         max_tokens=1024,
         system=_SYSTEM_EDITOR,
         messages=[{"role": "user", "content": epilogo_prompt}],
+        label="claude/editor/epilogo",
     )
     epilogo = epilogo_msg.content[0].text.strip()
 
@@ -299,7 +309,7 @@ def run(
     fallecidos: list from sheets.get_fallecidos()
     Returns a BookManuscript.
     """
-    client = anthropic.Anthropic()
+    client = anthropic.Anthropic(timeout=120.0)
     manuscript = BookManuscript(capitulos=capitulos)
 
     # 1. Determinar orden
