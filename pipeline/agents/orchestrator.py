@@ -2,6 +2,7 @@
 Orchestrator: coordina los 5 agentes del pipeline de extremo a extremo.
 """
 
+import logging
 from dataclasses import dataclass, field
 
 from pipeline.agents import (
@@ -13,6 +14,8 @@ from pipeline.agents import (
 )
 from pipeline.agents.editor_agent import BookManuscript
 from pipeline.utils import sheets
+
+logger = logging.getLogger(__name__)
 
 STEPS = ["transcriber", "voice", "chapters", "editor", "layout"]
 
@@ -126,9 +129,9 @@ def run(
                 for p in _fs_integrantes
             ]
             fallecidos = sheets.get_fallecidos(integrantes)
-            print(f"[orchestrator] Datos de familia cargados desde Firestore: {len(integrantes)} integrantes")
+            logger.info("[orchestrator] familia=%s datos cargados desde Firestore: %d integrantes", familia_id, len(integrantes))
         except Exception as e:
-            print(f"[orchestrator] Firestore no disponible, usando Sheets: {e}")
+            logger.warning("[orchestrator] familia=%s Firestore no disponible, usando Sheets: %s", familia_id, e)
             _fs_integrantes = []
 
     if not integrantes:
@@ -137,7 +140,7 @@ def run(
             relaciones = sheets.get_familia_relaciones()
             fallecidos = sheets.get_fallecidos(integrantes)
         except Exception as e:
-            print(f"[orchestrator] Advertencia: no se pudieron cargar datos de familia: {e}")
+            logger.warning("[orchestrator] familia=%s no se pudieron cargar datos: %s", familia_id, e)
             integrantes, relaciones, fallecidos = [], [], []
 
     personas_meta = _build_personas_meta(nombres, integrantes, relaciones)
@@ -147,11 +150,11 @@ def run(
     adultos = [p["nombre"] for p in personas_meta if not p.get("es_menor")]
 
     if menores:
-        print(f"[orchestrator] Menores detectados (sin capítulo automático): {menores}")
+        logger.info("[orchestrator] familia=%s menores detectados (sin capítulo): %s", familia_id, menores)
 
     # ── Paso 1: Transcriber ───────────────────────────────────────────────────
     if start_idx <= 0:
-        print("[orchestrator] Paso 1: transcripción de audios...")
+        logger.info("[orchestrator] familia=%s job=%s paso 1: transcripción", familia_id, from_job_id)
         try:
             if familia_id and _fs_integrantes:
                 result.transcriber = transcriber.run_from_firestore(familia_id, pais)
@@ -161,14 +164,14 @@ def run(
                     result.errores.append("No se encontraron filas en el Sheet para los nombres dados")
                     return result
                 result.transcriber = transcriber.run(row_indices, pais)
-            print(f"  → {result.transcriber}")
+            logger.info("[orchestrator] familia=%s transcripción: %s", familia_id, result.transcriber)
         except Exception as e:
             result.errores.append(f"transcriber: {e}")
             return result
 
     # ── Paso 2: Voice agent ───────────────────────────────────────────────────
     if start_idx <= 1:
-        print("[orchestrator] Paso 2: análisis de voz...")
+        logger.info("[orchestrator] familia=%s paso 2: análisis de voz", familia_id)
         try:
             if familia_id and _fs_integrantes:
                 result.voice = voice_agent.run_from_firestore(familia_id, adultos)
@@ -188,15 +191,15 @@ def run(
             prev_job = fs_mod.get_job(from_job_id)
             if prev_job and prev_job.get("result", {}).get("chapters"):
                 result.chapters = prev_job["result"]["chapters"]
-                print(f"[orchestrator] Capítulos cargados desde job {from_job_id}: {list(result.chapters.keys())}")
+                logger.info("[orchestrator] familia=%s capítulos cargados desde job %s: %s", familia_id, from_job_id, list(result.chapters.keys()))
             else:
-                print(f"[orchestrator] Advertencia: job {from_job_id} no tiene capítulos guardados")
+                logger.warning("[orchestrator] familia=%s job %s no tiene capítulos guardados", familia_id, from_job_id)
         except Exception as e:
-            print(f"[orchestrator] No se pudieron cargar capítulos de job anterior: {e}")
+            logger.warning("[orchestrator] familia=%s no se pudieron cargar capítulos de job %s: %s", familia_id, from_job_id, e)
 
     # ── Paso 3: Chapter agent ─────────────────────────────────────────────────
     if start_idx <= 2:
-        print("[orchestrator] Paso 3: generación de capítulos (paralelo)...")
+        logger.info("[orchestrator] familia=%s paso 3: generación de capítulos (paralelo)", familia_id)
         try:
             from concurrent.futures import ThreadPoolExecutor, as_completed
             import anthropic as _anthropic
@@ -238,7 +241,7 @@ def run(
                         from pipeline.utils import firestore as fs_mod
                         fs_mod.save_capitulo(familia_id, fs_data["id"], cap)
                     except Exception as _e:
-                        print(f"[orchestrator] No se pudo guardar capítulo en Firestore para {nombre}: {_e}")
+                        logger.warning("[orchestrator] familia=%s no se pudo guardar capítulo para %s: %s", familia_id, nombre, _e)
 
                 return nombre, cap, None
 
@@ -261,7 +264,7 @@ def run(
 
     # ── Paso 4: Editor agent ──────────────────────────────────────────────────
     if start_idx <= 3:
-        print("[orchestrator] Paso 4: edición del manuscrito...")
+        logger.info("[orchestrator] familia=%s paso 4: edición del manuscrito", familia_id)
         try:
             if start_idx > 2:
                 for pm in personas_meta:
@@ -295,13 +298,13 @@ def run(
 
     # ── Paso 5: Layout agent ──────────────────────────────────────────────────
     if start_idx <= 4:
-        print("[orchestrator] Paso 5: generación del PDF...")
+        logger.info("[orchestrator] familia=%s paso 5: generación del PDF", familia_id)
         try:
             manuscript = result._manuscript or result.editor
 
             # Fallback: si solo_desde=layout, cargar capítulos guardados y armar manuscrito mínimo
             if manuscript is None:
-                print("[orchestrator] Manuscrito no disponible — cargando capítulos guardados...")
+                logger.warning("[orchestrator] familia=%s manuscrito no disponible — cargando capítulos guardados", familia_id)
                 adultos_meta = [pm for pm in personas_meta if not pm.get("es_menor")]
                 for pm in adultos_meta:
                     nombre = pm["nombre"]
@@ -356,13 +359,13 @@ def run(
                 todos_integrantes=todos_integrantes,
             )
             result.layout = pdf_path
-            print(f"  → PDF generado: {pdf_path}")
+            logger.info("[orchestrator] familia=%s PDF generado: %s", familia_id, pdf_path)
 
             if upload_to_gcs and pdf_path:
                 import os
                 filename = os.path.basename(pdf_path)
                 gcs_url = sheets.upload_to_gcs(pdf_path, filename, "application/pdf")
-                print(f"  → Subido a GCS: {gcs_url}")
+                logger.info("[orchestrator] familia=%s subido a GCS: %s", familia_id, gcs_url)
                 result.layout = gcs_url
 
                 if familia_id:
@@ -370,9 +373,9 @@ def run(
                         from pipeline.utils import firestore as fs_mod
                         fs_mod.save_libro_url(familia_id, gcs_url)
                         fs_mod.update_familia_estado(familia_id, "entregado")
-                        print(f"  → URL y estado guardados en Firestore para familia {familia_id}")
+                        logger.info("[orchestrator] familia=%s URL y estado guardados en Firestore", familia_id)
                     except Exception as _e:
-                        print(f"[orchestrator] No se pudo guardar en Firestore: {_e}")
+                        logger.warning("[orchestrator] familia=%s no se pudo guardar en Firestore: %s", familia_id, _e)
 
         except Exception as e:
             result.errores.append(f"layout_agent: {e}")
