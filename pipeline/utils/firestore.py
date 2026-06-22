@@ -430,6 +430,23 @@ def update_job_error(job_id: str, error: str) -> None:
     })
 
 
+def update_job_alerta_enviada(job_id: str) -> None:
+    _db().collection("jobs").document(job_id).update({"alerta_enviada": True})
+
+
+def marcar_pipeline_fallido(job_id: str, familia_id: str, etapa: str, error: str) -> None:
+    from datetime import datetime, timezone
+    _db().collection("familias").document(familia_id).update({
+        "estado": "pipeline_fallido",
+        "pipeline_error": {
+            "job_id": job_id,
+            "etapa": etapa,
+            "mensaje": error,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        },
+    })
+
+
 def get_job(job_id: str) -> dict | None:
     doc = _db().collection("jobs").document(job_id).get()
     if not doc.exists:

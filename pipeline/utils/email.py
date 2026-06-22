@@ -171,6 +171,29 @@ def send_integrante_agregado(
         logger.warning("Error enviando integrante_agregado a %s: %s", email_comprador, exc)
 
 
+def send_alerta_admin(familia_id: str, job_id: str, etapa: str, error: str) -> None:
+    key = _get_key()
+    if not key:
+        return
+    admin_email = os.environ.get("ADMIN_EMAIL", "fede.giacomozzi@gmail.com")
+    html = f"""<html><body style="font-family:sans-serif;color:#3d2b0a;max-width:560px;margin:0 auto;padding:24px">
+<p style="font-family:Georgia,serif;font-size:22px;margin-bottom:16px">Ethos Bios</p>
+<h2 style="font-weight:400;margin-bottom:8px;color:#c0392b">Pipeline fallido</h2>
+<table style="border-collapse:collapse;width:100%;margin-bottom:20px">
+<tr><td style="padding:8px;background:#fdf0f0;font-weight:700;width:120px">Familia ID</td><td style="padding:8px;background:#fdf0f0"><code>{familia_id}</code></td></tr>
+<tr><td style="padding:8px;font-weight:700">Etapa</td><td style="padding:8px">{etapa}</td></tr>
+<tr><td style="padding:8px;background:#fdf0f0;font-weight:700">Job ID</td><td style="padding:8px;background:#fdf0f0"><code>{job_id}</code></td></tr>
+</table>
+<p style="margin-bottom:8px;font-weight:700">Error:</p>
+<pre style="background:#f5f5f5;padding:12px;border-radius:4px;font-size:13px;overflow-x:auto;white-space:pre-wrap">{error}</pre>
+<p style="margin-top:32px;font-size:12px;color:#b89a7a">Ethos Bios · hola@ethosbios.com</p>
+</body></html>"""
+    try:
+        _send(key, admin_email, f"[Pipeline fallido] familia={familia_id} etapa={etapa}", html)
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Error enviando alerta admin: %s", exc)
+
+
 def send_generando(email_comprador: str, nombre_familia: str, familia_id: str) -> None:
     key = _get_key()
     if not key:

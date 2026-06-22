@@ -35,9 +35,32 @@ from pipeline.utils import sheets
 
 # ─── Async job store (Firestore) ─────────────────────────────────────────────
 
+def _enviar_alerta_pipeline_fallido(job_id: str, familia_id: str, errores: list[str]) -> None:
+    from pipeline.utils import firestore as fs
+    from pipeline.utils.email import send_alerta_admin
+
+    job = fs.get_job(job_id)
+    if job and job.get("alerta_enviada"):
+        logger.info("[alerta-pipeline] ya enviada para job=%s, skipping", job_id)
+        return
+
+    first_error = errores[0] if errores else "desconocida"
+    etapa = first_error.split(":")[0].split("/")[0]
+    error_detalle = "\n".join(errores[:5])
+
+    try:
+        fs.marcar_pipeline_fallido(job_id, familia_id, etapa, error_detalle)
+        send_alerta_admin(familia_id=familia_id, job_id=job_id, etapa=etapa, error=error_detalle)
+        fs.update_job_alerta_enviada(job_id)
+        logger.error("[alerta-pipeline] enviada para job=%s familia=%s etapa=%s", job_id, familia_id, etapa)
+    except Exception as exc:  # noqa: BLE001
+        logger.error("[alerta-pipeline] error enviando alerta para job=%s: %s", job_id, exc)
+
+
 def _run_pipeline_job(job_id: str, req_dict: dict) -> None:
     from pipeline.utils import firestore as fs
     fs.update_job_status(job_id, "running")
+    familia_id_job = req_dict.get("familia_id")
     try:
         result = orchestrator.run(
             nombres=req_dict["nombres"],
@@ -45,7 +68,7 @@ def _run_pipeline_job(job_id: str, req_dict: dict) -> None:
             solo_desde=req_dict["solo_desde"],
             familia=req_dict["familia"],
             upload_to_gcs=req_dict["upload_to_gcs"],
-            familia_id=req_dict.get("familia_id"),
+            familia_id=familia_id_job,
             from_job_id=req_dict.get("from_job_id"),
         )
         payload = {
@@ -63,7 +86,6 @@ def _run_pipeline_job(job_id: str, req_dict: dict) -> None:
             "errores": result.errores,
         }
         fs.update_job_done(job_id, payload)
-        familia_id_job = req_dict.get("familia_id")
         if familia_id_job and result.ok:
             layout_url = result.layout or ""
             if layout_url.startswith("gs://"):
@@ -82,8 +104,12 @@ def _run_pipeline_job(job_id: str, req_dict: dict) -> None:
                     logger.info('[email-libro-listo] enviado a %s', comprador_email)
             except Exception as exc:  # noqa: BLE001
                 logger.warning('[email-libro-listo] error: %s', exc)
+        elif familia_id_job and not result.ok:
+            _enviar_alerta_pipeline_fallido(job_id, familia_id_job, result.errores)
     except Exception as exc:  # noqa: BLE001
         fs.update_job_error(job_id, str(exc))
+        if familia_id_job:
+            _enviar_alerta_pipeline_fallido(job_id, familia_id_job, [str(exc)])
 
 def _admin_auth(x_admin_key: str = Header(...)) -> None:
     pwd = os.environ.get("ADMIN_PASSWORD", "")
