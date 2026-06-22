@@ -723,8 +723,9 @@ header .logo {
 const TOKEN = new URLSearchParams(location.search).get('token');
 const API_BASE = 'https://familia-pipeline-776445604502.southamerica-east1.run.app';
 
-const LIMIT_SECS = 300; // 5 minutos — backend rechaza archivos >25 MB (~5 min webm/opus)
-const WARN_SECS  = 270; // 4:30 — cambia el contador a naranja como advertencia
+const LIMIT_SECS    = 300;                  // 5 minutos — backend rechaza archivos >25 MB
+const WARN_SECS     = 270;                  // 4:30 — cambia el contador a naranja
+const MAX_FOTO_BYTES = 10 * 1024 * 1024;   // 10 MB — backend rechaza fotos más grandes
 
 const BLOQUES = [
   { titulo: 'De dónde venís',       sub: 'El punto de partida de tu historia', preguntas: [1,2,3] },
@@ -787,11 +788,20 @@ async function init() {
 function onFotoSeleccionada(input) {
   const file = input.files && input.files[0];
   if (!file) return;
+  if (file.size > MAX_FOTO_BYTES) {
+    input.value = '';
+    const st = document.getElementById('foto-status');
+    st.textContent = 'La foto es muy grande. Usá una imagen menor a 10 MB.';
+    st.style.color = 'var(--error)';
+    return;
+  }
   const reader = new FileReader();
   reader.onload = e => {
     document.getElementById('foto-preview-img').src = e.target.result;
     document.getElementById('foto-preview-wrap').style.display = 'block';
-    document.getElementById('foto-status').textContent = file.name;
+    const st = document.getElementById('foto-status');
+    st.textContent = file.name;
+    st.style.color = '';
     document.getElementById('foto-label').style.opacity = '0.5';
   };
   reader.readAsDataURL(file);
