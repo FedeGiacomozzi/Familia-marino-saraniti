@@ -602,12 +602,28 @@ async def foto_portada(
     if not fs.get_familia(familia_id):
         raise HTTPException(status_code=404, detail=f"Familia no encontrada: {familia_id}")
 
+    # Validar MIME type
+    content_type = (file.content_type or "").split(";")[0].strip().lower()
+    if content_type not in _ALLOWED_IMAGE_TYPES:
+        raise HTTPException(
+            status_code=415,
+            detail=f"Tipo de archivo no permitido: {content_type!r}. Se aceptan: {', '.join(sorted(_ALLOWED_IMAGE_TYPES))}",
+        )
+
+    # Leer y validar tamaño
+    file_bytes = await file.read()
+    if len(file_bytes) > _MAX_IMAGE_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Imagen demasiado grande ({len(file_bytes) / 1024 / 1024:.1f} MB). Máximo permitido: 10 MB.",
+        )
+
     filename = file.filename or "portada.jpg"
     ext = filename.rsplit(".", 1)[-1] if "." in filename else "jpg"
     blob_name = f"{familia_id}/portada.{ext}"
 
     with tempfile.NamedTemporaryFile(suffix=f".{ext}", delete=False) as tmp:
-        tmp.write(await file.read())
+        tmp.write(file_bytes)
         tmp_path = tmp.name
 
     try:
@@ -814,8 +830,23 @@ def recibir_audio(token: str, req: AudioRequest):
 
     familia_id, integrante_id, _ = match
 
+    # Validar MIME type
+    mime = req.mime_type.split(";")[0].strip().lower()
+    if mime not in _ALLOWED_AUDIO_TYPES:
+        raise HTTPException(
+            status_code=415,
+            detail=f"Tipo de archivo no permitido: {mime!r}. Se aceptan: {', '.join(sorted(_ALLOWED_AUDIO_TYPES))}",
+        )
+
+    # Decodificar y validar tamaño
     audio_bytes = base64.b64decode(req.audio_base64)
-    ext = req.mime_type.split("/")[-1].split(";")[0]
+    if len(audio_bytes) > _MAX_AUDIO_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Archivo demasiado grande ({len(audio_bytes) / 1024 / 1024:.1f} MB). Máximo permitido: 25 MB.",
+        )
+
+    ext = mime.split("/")[-1]
     blob_name = (
         f"{familia_id}/{integrante_id}_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}.{ext}"
     )
@@ -859,12 +890,28 @@ async def token_foto(token: str, foto: UploadFile = File(...)):
         raise HTTPException(status_code=404, detail="Token inválido o no encontrado")
     familia_id, integrante_id, _ = match
 
+    # Validar MIME type
+    content_type = (foto.content_type or "").split(";")[0].strip().lower()
+    if content_type not in _ALLOWED_IMAGE_TYPES:
+        raise HTTPException(
+            status_code=415,
+            detail=f"Tipo de archivo no permitido: {content_type!r}. Se aceptan: {', '.join(sorted(_ALLOWED_IMAGE_TYPES))}",
+        )
+
+    # Leer y validar tamaño
+    foto_bytes = await foto.read()
+    if len(foto_bytes) > _MAX_IMAGE_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Imagen demasiado grande ({len(foto_bytes) / 1024 / 1024:.1f} MB). Máximo permitido: 10 MB.",
+        )
+
     filename = foto.filename or "foto.jpg"
     ext = filename.rsplit(".", 1)[-1] if "." in filename else "jpg"
     blob_name = f"{familia_id}/{integrante_id}/foto.{ext}"
 
     with tempfile.NamedTemporaryFile(suffix=f".{ext}", delete=False) as tmp:
-        tmp.write(await foto.read())
+        tmp.write(foto_bytes)
         tmp_path = tmp.name
 
     try:
@@ -881,6 +928,9 @@ _ALLOWED_AUDIO_TYPES = {
     "audio/ogg", "audio/wav", "audio/x-m4a",
 }
 _MAX_AUDIO_BYTES = 25 * 1024 * 1024  # 25 MB
+
+_ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
+_MAX_IMAGE_BYTES = 10 * 1024 * 1024  # 10 MB
 
 
 @app.post("/token/{token}/respuesta")
