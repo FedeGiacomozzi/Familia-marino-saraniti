@@ -50,36 +50,33 @@ section{padding:80px 24px}
 .paso h3{font-family:'Cormorant Garamond',serif;font-size:18px;margin-bottom:0.5rem}
 .paso p{font-size:14px;color:#9a7b5a;line-height:1.6}
 
-/* ── MUESTRA / QUOTE ── */
-#historia{background:#2C1A0E}
-#historia .section-title{color:#F5EDD8}
-#historia .section-eyebrow{color:#C4956A}
-.historia-card{background:#3d2b0a;border:0.5px solid #5a3f20;border-radius:16px;padding:2.5rem;margin-top:2rem;max-width:680px;margin-left:auto;margin-right:auto}
-.historia-quote{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:20px;color:#F5EDD8;line-height:1.6;margin-bottom:1.5rem}
-.historia-meta{font-size:13px;color:#9a7b5a;border-top:0.5px solid #5a3f20;padding-top:1rem}
+/* ── PREVIEW DEL LIBRO ── */
+#preview{background:#fdf8f2}
+.preview-grid{display:grid;grid-template-columns:1fr 1fr;gap:2rem;margin-top:2.5rem;align-items:start}
+.preview-img{width:100%;border-radius:12px;box-shadow:0 8px 32px rgba(44,26,14,0.18)}
+.preview-caption{font-size:13px;color:#9a7b5a;text-align:center;margin-top:0.75rem}
+@media(max-width:600px){.preview-grid{grid-template-columns:1fr}}
 
 /* ── PRECIOS ── */
-#precios{background:#fdf8f2}
+#precios{background:#fff}
 .precios-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1.5rem;margin-top:3rem}
-.precio-card{background:#fff;border:0.5px solid #e8d9b8;border-radius:16px;padding:2rem;position:relative}
+.precio-card{background:#fdf8f2;border:0.5px solid #e8d9b8;border-radius:16px;padding:2rem;position:relative}
 .precio-card.destacado{border-color:#C4956A;box-shadow:0 0 0 2px #C4956A}
 .precio-badge{position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:#C4956A;color:#fff;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;padding:4px 16px;border-radius:100px;white-space:nowrap}
 .precio-pack{font-size:12px;letter-spacing:0.15em;text-transform:uppercase;color:#9a7b5a;margin-bottom:0.5rem}
 .precio-monto{font-family:'Cormorant Garamond',serif;font-size:48px;color:#2C1A0E;line-height:1;margin-bottom:0.25rem}
 .precio-monto sup{font-size:24px;vertical-align:top;margin-top:10px;display:inline-block}
+.precio-tachado{font-size:20px;color:#9a7b5a;text-decoration:line-through;margin-left:4px;font-family:'Mulish',sans-serif}
 .precio-desc{font-size:13px;color:#9a7b5a;margin-bottom:1.5rem}
 .precio-features{list-style:none;margin-bottom:1.5rem}
 .precio-features li{font-size:14px;padding:6px 0;border-bottom:0.5px solid #f0e8d8;color:#3d2b0a}
 .precio-features li:last-child{border:none}
 .precio-features li::before{content:"✓ ";color:#C4956A;font-weight:700}
-.btn-comprar{width:100%;background:#2C1A0E;color:#F5EDD8;border:none;padding:14px;border-radius:8px;font-family:'Mulish',sans-serif;font-size:14px;font-weight:700;cursor:pointer;letter-spacing:0.04em;transition:background 0.2s}
+.btn-comprar{display:block;width:100%;background:#2C1A0E;color:#F5EDD8;border:none;padding:14px;border-radius:8px;font-family:'Mulish',sans-serif;font-size:14px;font-weight:700;cursor:pointer;letter-spacing:0.04em;transition:background 0.2s;text-decoration:none;text-align:center}
 .btn-comprar:hover{background:#3d2b0a}
-.btn-comprar.stripe{background:#635BFF}
-.btn-comprar.stripe:hover{background:#4b44c7}
-.precio-extra{font-size:12px;color:#9a7b5a;text-align:center;margin-top:0.75rem}
 
 /* ── FAQ ── */
-#faq{background:#fff}
+#faq{background:#fdf8f2}
 .faq-list{max-width:680px;margin:2rem auto 0}
 .faq-item{border-bottom:0.5px solid #e8d9b8;padding:1.25rem 0}
 .faq-q{font-family:'Cormorant Garamond',serif;font-size:17px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:1rem}
@@ -95,33 +92,7 @@ footer{background:#2C1A0E;padding:48px 24px;text-align:center}
 .footer-links{margin-top:1.5rem;display:flex;gap:1.5rem;justify-content:center;flex-wrap:wrap}
 .footer-links a{font-size:13px;color:#9a7b5a;text-decoration:none}
 
-/* ── MODAL DE CHECKOUT ── */
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:200;display:flex;align-items:center;justify-content:center;padding:24px;opacity:0;pointer-events:none;transition:opacity 0.2s}
-.modal-overlay.visible{opacity:1;pointer-events:all}
-.modal{background:#fff;border-radius:16px;padding:2rem;max-width:480px;width:100%;max-height:90vh;overflow-y:auto}
-.modal h2{font-family:'Cormorant Garamond',serif;font-size:22px;margin-bottom:0.25rem}
-.modal-sub{font-size:14px;color:#9a7b5a;margin-bottom:1.5rem}
-.form-group{margin-bottom:1rem}
-.form-group label{display:block;font-size:13px;color:#9a7b5a;margin-bottom:4px}
-.form-group input{width:100%;border:0.5px solid #e8d9b8;border-radius:8px;padding:10px 12px;font-family:'Mulish',sans-serif;font-size:14px;color:#3d2b0a;background:#fff}
-.form-group input:focus{outline:none;border-color:#C4956A}
-.modal-integrantes{margin:1rem 0}
-.integrante-row{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-bottom:8px;align-items:center}
-.integrante-row input{border:0.5px solid #e8d9b8;border-radius:8px;padding:8px 10px;font-family:'Mulish',sans-serif;font-size:13px;width:100%}
-.btn-add-ing{background:none;border:0.5px dashed #e8d9b8;border-radius:8px;padding:8px;font-size:13px;color:#9a7b5a;cursor:pointer;width:100%;margin-bottom:1rem}
-.btn-remove{background:none;border:none;cursor:pointer;color:#9a7b5a;font-size:16px;padding:4px}
-.modal-divider{border:none;border-top:0.5px solid #e8d9b8;margin:1.25rem 0}
-.payment-options{display:flex;flex-direction:column;gap:10px}
-.btn-pay{width:100%;padding:14px;border:none;border-radius:8px;font-family:'Mulish',sans-serif;font-size:14px;font-weight:700;cursor:pointer;letter-spacing:0.03em}
-.btn-pay.mp{background:#009EE3;color:#fff}
-.btn-pay.stripe{background:#635BFF;color:#fff}
-.payment-nota{font-size:11px;color:#9a7b5a;text-align:center;margin-top:0.5rem}
-.modal-close{float:right;background:none;border:none;font-size:20px;cursor:pointer;color:#9a7b5a;margin-top:-4px}
-#modal-loading{text-align:center;padding:2rem;display:none}
-#modal-loading p{font-size:14px;color:#9a7b5a;margin-top:1rem}
-
 @media(max-width:600px){
-  .integrante-row{grid-template-columns:1fr 1fr auto}
   .precios-grid{grid-template-columns:1fr}
 }
 </style>
@@ -142,12 +113,12 @@ footer{background:#2C1A0E;padding:48px 24px;text-align:center}
   <div>
     <p class="hero-eyebrow">Ethos Bios · Libros biográficos</p>
     <h1>El libro que<br><em>tu familia</em><br>merece tener</h1>
-    <p class="hero-sub">Grabamos las historias de cada integrante. Nosotros las convertimos en un libro biográfico único, impreso o digital.</p>
+    <p class="hero-sub">Cada integrante graba sus historias hablando, desde el celular. Nosotros las convertimos en un libro biográfico único, diseñado y escrito por nosotros. Vos lo recibís para siempre.</p>
     <div class="hero-actions">
-      <a href="/onboarding.html" class="btn-primary">Empezar ahora</a>
+      <a href="#precios" class="btn-primary">Empezar ahora</a>
       <a href="#como-funciona" class="btn-ghost">Cómo funciona</a>
     </div>
-    <p class="hero-nota">Sin instalaciones · Desde el celular · Entrega en 15 días</p>
+    <p class="hero-nota">Sin instalaciones · Desde el celular · 100% digital · Para toda la familia</p>
   </div>
 </div>
 
@@ -175,21 +146,28 @@ footer{background:#2C1A0E;padding:48px 24px;text-align:center}
       </div>
       <div class="paso">
         <div class="paso-num">4</div>
-        <h3>Recibís el libro</h3>
-        <p>PDF de alta calidad listo para imprimir, o versión impresa enviada a tu domicilio.</p>
+        <h3>Recibís tu libro</h3>
+        <p>Un PDF de alta calidad, diseñado como un libro de verdad. Llega a tu email, listo para leer y compartir con toda la familia. No se pierde, no se rompe, lo tienen todos.</p>
       </div>
     </div>
   </div>
 </section>
 
-<!-- FRAGMENTO DE HISTORIA -->
-<section id="historia">
+<!-- PREVIEW DEL LIBRO -->
+<section id="preview">
   <div class="container">
-    <p class="section-eyebrow">Una muestra</p>
-    <h2 class="section-title" style="color:#F5EDD8">Así queda escrita<br>una historia</h2>
-    <div class="historia-card">
-      <p class="historia-quote">"Llegué a Buenos Aires con una valija y las direcciones de dos parientes que casi no conocía. No sabía que me iba a quedar cuarenta años. Creo que nadie sabe esas cosas cuando empieza."</p>
-      <p class="historia-meta">Jorge Mariño · Capítulo I: De dónde venís</p>
+    <p class="section-eyebrow">El producto</p>
+    <h2 class="section-title">Así llega tu libro</h2>
+    <p class="section-sub">No es un PDF cualquiera ni un documento de Word. Es un libro diseñado de verdad: portada, capítulos, tipografía cuidada y el árbol genealógico de tu familia generado automáticamente. Lo recibís en alta calidad, listo para leer en el celular, la compu o la tablet, y para compartir con toda la familia al instante.</p>
+    <div class="preview-grid">
+      <div>
+        <img src="images/portada.png" alt="Portada del libro biográfico familiar" class="preview-img">
+        <p class="preview-caption">Portada personalizada con el apellido de tu familia</p>
+      </div>
+      <div>
+        <img src="images/interior.png" alt="Página interior del libro biográfico" class="preview-img">
+        <p class="preview-caption">Cada capítulo, escrito y diseñado como un libro de verdad</p>
+      </div>
     </div>
   </div>
 </section>
@@ -204,46 +182,42 @@ footer{background:#2C1A0E;padding:48px 24px;text-align:center}
 
       <div class="precio-card">
         <p class="precio-pack">Esencial</p>
-        <p class="precio-monto"><sup>US$</sup>59</p>
-        <p class="precio-desc">Hasta 2 integrantes</p>
+        <p class="precio-monto"><sup>US$</sup>29</p>
+        <p class="precio-desc">Hasta 4 integrantes</p>
         <ul class="precio-features">
-          <li>2 capítulos biográficos</li>
+          <li>4 capítulos biográficos</li>
           <li>16 preguntas por persona</li>
           <li>PDF de alta calidad</li>
-          <li>Entrega en ~10 días</li>
+          <li>Árbol genealógico incluido</li>
         </ul>
-        <button class='btn-comprar' onclick='abrirModal("esencial", 59, 2)'>Empezar →</button>
+        <a href="HOTMART_LINK_ESENCIAL" class="btn-comprar">Quiero mi libro →</a>
       </div>
 
       <div class="precio-card destacado">
         <span class="precio-badge">Más elegido</span>
         <p class="precio-pack">Familiar</p>
-        <p class="precio-monto"><sup>US$</sup>79</p>
-        <p class="precio-desc">Hasta 4 integrantes</p>
+        <p class="precio-monto"><sup>US$</sup>35 <span class="precio-tachado">US$49</span></p>
+        <p class="precio-desc">Hasta 6 integrantes</p>
         <ul class="precio-features">
-          <li>4 capítulos biográficos</li>
+          <li>6 capítulos biográficos</li>
           <li>Árbol genealógico incluido</li>
           <li>Introducción y cierre editorial</li>
-          <li>PDF + opción de impresión</li>
-          <li>Entrega en ~15 días</li>
+          <li>PDF de alta calidad</li>
         </ul>
-        <button class='btn-comprar' onclick='abrirModal("familiar", 79, 4)'>Empezar →</button>
-        <p class="precio-extra">+ US$8 por integrante extra</p>
+        <a href="HOTMART_LINK_FAMILIAR" class="btn-comprar">Quiero mi libro →</a>
       </div>
 
       <div class="precio-card">
         <p class="precio-pack">Extendido</p>
-        <p class="precio-monto"><sup>US$</sup>129</p>
-        <p class="precio-desc">Hasta 8 integrantes</p>
+        <p class="precio-monto"><sup>US$</sup>55</p>
+        <p class="precio-desc">Hasta 10 integrantes</p>
         <ul class="precio-features">
-          <li>8 capítulos biográficos</li>
+          <li>10 capítulos biográficos</li>
           <li>Árbol genealógico completo</li>
           <li>Introducción y cierre editorial</li>
-          <li>PDF + libro impreso incluido</li>
-          <li>Entrega en ~20 días</li>
+          <li>PDF de alta calidad</li>
         </ul>
-        <button class='btn-comprar' onclick='abrirModal("extendido", 129, 8)'>Empezar →</button>
-        <p class="precio-extra">+ US$8 por integrante extra</p>
+        <a href="HOTMART_LINK_EXTENDIDO" class="btn-comprar">Quiero mi libro →</a>
       </div>
 
     </div>
@@ -269,16 +243,12 @@ footer{background:#2C1A0E;padding:48px 24px;text-align:center}
         <p class="faq-a">En el idioma en que grabe cada persona. Si mezclan idiomas, el capítulo se escribe en español neutro, que es lo más cómodo para toda la familia.</p>
       </div>
       <div class="faq-item">
-        <p class="faq-q">¿Puedo pedir el libro impreso?</p>
-        <p class="faq-a">Sí. Todos los planes incluyen PDF. Los planes Familiar y Extendido incluyen opción de impresión con envío a Argentina. Para otros países, coordinamos el envío por separado.</p>
+        <p class="faq-q">¿El libro es digital o impreso?</p>
+        <p class="faq-a">Tu libro es 100% digital: un PDF de alta calidad, diseñado como un libro real, que recibís por email. Esto tiene una gran ventaja: lo puede tener toda la familia al mismo tiempo, en cualquier dispositivo, sin que se pierda ni se deteriore. Lo leés en el celular, lo guardás para siempre y lo compartís con quien quieras al instante.</p>
       </div>
       <div class="faq-item">
         <p class="faq-q">¿Qué pasa con los audios y la privacidad?</p>
         <p class="faq-a">Los audios se usan solo para transcribir y redactar el capítulo. No se comparten con terceros. Los guardamos encriptados durante el proceso y los eliminamos a los 90 días de la entrega.</p>
-      </div>
-      <div class="faq-item">
-        <p class="faq-q">¿Puedo pagar en pesos argentinos?</p>
-        <p class="faq-a">Sí, con Mercado Pago podés pagar en pesos al tipo de cambio del momento. También aceptamos tarjetas internacionales vía Stripe.</p>
       </div>
     </div>
   </div>
@@ -296,164 +266,10 @@ footer{background:#2C1A0E;padding:48px 24px;text-align:center}
   </div>
 </footer>
 
-<!-- MODAL DE CHECKOUT -->
-<div class="modal-overlay" id="modal-overlay" onclick="cerrarModal(event)">
-  <div class="modal" id="modal">
-    <button class="modal-close" onclick="cerrarModal()">×</button>
-    <h2 id="modal-titulo">Comenzar libro</h2>
-    <p class="modal-sub" id="modal-sub">Completá los datos y elegí cómo pagar.</p>
-
-    <div id="modal-form">
-      <div class="form-group">
-        <label>Tu nombre</label>
-        <input type="text" id="inp-nombre-comp" placeholder="María García">
-      </div>
-      <div class="form-group">
-        <label>Tu email (para recibir el libro)</label>
-        <input type="email" id="inp-email-comp" placeholder="maria@email.com">
-      </div>
-      <div class="form-group">
-        <label>Nombre para el libro de la familia</label>
-        <input type="text" id="inp-nombre-fam" placeholder="Familia García">
-      </div>
-
-      <div class="modal-integrantes">
-        <p style="font-size:13px;color:#9a7b5a;margin-bottom:8px">Integrantes que van a grabar:</p>
-        <div id="lista-integrantes-modal"></div>
-        <button class="btn-add-ing" onclick="agregarIntegranteModal()">+ Agregar integrante</button>
-      </div>
-
-      <hr class="modal-divider">
-
-      <p style="font-size:13px;font-weight:700;margin-bottom:12px">Elegí cómo pagar:</p>
-      <div class="payment-options">
-        <button class="btn-pay mp" onclick="pagar('mp')">
-          💳 Pagar con Mercado Pago <span id="mp-precio"></span>
-        </button>
-        <button class="btn-pay stripe" onclick="pagar('stripe')">
-          💳 Pagar con tarjeta internacional <span id="stripe-precio"></span>
-        </button>
-      </div>
-      <p class="payment-nota">Pago 100% seguro · SSL · Sin datos guardados</p>
-    </div>
-
-    <div id="modal-loading">
-      <div style="font-size:32px">⏳</div>
-      <p>Preparando tu checkout seguro…</p>
-    </div>
-  </div>
-</div>
-
 <script>
-const API = '';  // misma origin
-let _pack = 'familiar';
-let _precio_base = 79;
-let _max_integ = 4;
-
-function abrirModal(pack, precio, maxInteg) {
-  _pack = pack;
-  _precio_base = precio;
-  _max_integ = maxInteg;
-  document.getElementById('modal-titulo').textContent = 'Comenzar libro — Pack ' + pack.charAt(0).toUpperCase() + pack.slice(1);
-  actualizarPrecioModal();
-  if (document.getElementById('lista-integrantes-modal').children.length === 0) {
-    agregarIntegranteModal();
-    agregarIntegranteModal();
-  }
-  document.getElementById('modal-overlay').classList.add('visible');
-}
-
-function cerrarModal(e) {
-  if (!e || e.target === document.getElementById('modal-overlay')) {
-    document.getElementById('modal-overlay').classList.remove('visible');
-  }
-}
-
-function agregarIntegranteModal() {
-  const lista = document.getElementById('lista-integrantes-modal');
-  const row = document.createElement('div');
-  row.className = 'integrante-row';
-  row.innerHTML = `
-    <input type="text" placeholder="Nombre" class="ing-nombre-m">
-    <input type="email" placeholder="Email (opcional)" class="ing-email-m">
-    <button class="btn-remove" onclick="this.parentElement.remove();actualizarPrecioModal()">×</button>
-  `;
-  lista.appendChild(row);
-  actualizarPrecioModal();
-}
-
-function actualizarPrecioModal() {
-  const n = document.getElementById('lista-integrantes-modal').children.length;
-  const extra = Math.max(0, n - _max_integ);
-  const total = _precio_base + extra * 8;
-  document.getElementById('mp-precio').textContent = `— US$${total}`;
-  document.getElementById('stripe-precio').textContent = `— US$${total}`;
-}
-
-function recolectarDatosModal() {
-  const nombre_comp = document.getElementById('inp-nombre-comp').value.trim();
-  const email_comp  = document.getElementById('inp-email-comp').value.trim();
-  const nombre_fam  = document.getElementById('inp-nombre-fam').value.trim();
-  if (!nombre_comp || !email_comp || !nombre_fam) {
-    alert('Completá tu nombre, email y el nombre de la familia.');
-    return null;
-  }
-  const rows = document.getElementById('lista-integrantes-modal').querySelectorAll('.integrante-row');
-  const integrantes = [];
-  for (const row of rows) {
-    const nombre = row.querySelector('.ing-nombre-m').value.trim();
-    const email  = row.querySelector('.ing-email-m').value.trim();
-    if (!nombre) { alert('Completá el nombre de cada integrante.'); return null; }
-    integrantes.push({ nombre, email });
-  }
-  if (integrantes.length === 0) { alert('Agregá al menos un integrante.'); return null; }
-  return { nombre_comp, email_comp, nombre_fam, integrantes };
-}
-
-async function pagar(gateway) {
-  const datos = recolectarDatosModal();
-  if (!datos) return;
-
-  document.getElementById('modal-form').style.display = 'none';
-  document.getElementById('modal-loading').style.display = 'block';
-
-  const endpoint = gateway === 'mp'
-    ? '/pago/crear-checkout'
-    : '/pago/crear-stripe-checkout';
-
-  try {
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        nombre_familia:   datos.nombre_fam,
-        email_comprador:  datos.email_comp,
-        nombre_comprador: datos.nombre_comp,
-        integrantes:      datos.integrantes,
-        pack:             _pack,
-      }),
-    });
-    const json = await res.json();
-    if (!res.ok) throw new Error(json.detail || 'Error del servidor');
-
-    const url = json.init_point || json.sandbox_init_point || json.checkout_url;
-    if (url) {
-      window.location.href = url;
-    } else {
-      throw new Error('No se recibió URL de pago');
-    }
-  } catch (err) {
-    alert('Error al crear el pago: ' + err.message);
-    document.getElementById('modal-form').style.display = 'block';
-    document.getElementById('modal-loading').style.display = 'none';
-  }
-}
-
-// FAQ accordion
 document.querySelectorAll('.faq-q').forEach(q => {
   q.addEventListener('click', () => {
-    const item = q.parentElement;
-    item.classList.toggle('open');
+    q.parentElement.classList.toggle('open');
   });
 });
 </script>
