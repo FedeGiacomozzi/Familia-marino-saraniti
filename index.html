@@ -527,7 +527,7 @@ footer{background:var(--ink2);border-top:1px solid rgba(184,146,74,.08);padding:
 @media(max-width:900px){
   nav{padding:14px 20px}
   .nlinks{display:none}
-  .hero-content{padding:0 28px 60px}
+  .hero-content{padding:0 28px 60px}.bm-wrap{display:grid;grid-template-columns:1fr 1fr}
   .wrap{padding:0 24px}
   .video-grid,.fam-head,.como-head,.faq-grid{grid-template-columns:1fr;gap:36px}
   .steps{grid-template-columns:1fr 1fr;gap:12px}
@@ -697,7 +697,7 @@ footer{background:var(--ink2);border-top:1px solid rgba(184,146,74,.08);padding:
       <div class="bm"><div class="bm-n">16</div><div class="bm-l">preguntas</div></div>
       <div class="bm"><div class="bm-n">24</div><div class="bm-l">horas</div></div>
       <div class="bm"><div class="bm-n">0</div><div class="bm-l">instalaciones</div></div>
-      <div class="bm"><div class="bm-n">∞</div><div class="bm-l">generaciones</div></div>
+      <div class="bm bm-last"><div class="bm-n">∞</div><div class="bm-l">generaciones</div></div>
     </div>
     <div style="margin-top:36px">
       <a class="btn-g" href="https://pay.hotmart.com/D106470872S" target="_blank" rel="noopener">Empezar ahora →</a>
@@ -815,7 +815,7 @@ footer{background:var(--ink2);border-top:1px solid rgba(184,146,74,.08);padding:
         <a class="pcta pcta-out" href="https://pay.hotmart.com/E106470974U" target="_blank" rel="noopener">Empezar →</a>
       </div>
     </div>
-    <p class="p-upsell r">¿Más integrantes? <strong>+ US$8 por persona extra</strong></p>
+    
   </div>
 </section>
 
@@ -1117,7 +1117,7 @@ function buildSum(){
   document.getElementById('msum').innerHTML=`
     <div class="msrow"><span>${p.label.split('·')[0].trim()}</span><span class="msval">US$${p.base}</span></div>
     <div class="msrow"><span>Integrantes</span><span class="msval">${members.length||1}</span></div>
-    ${extra>0?`<div class="msrow"><span>${extra} extra × US$8</span><span class="msval">US$${extra*8}</span></div>`:''}
+    
     <div class="msrow"><span>Total</span><span class="msval">US$${total}</span></div>
   `;
 }
