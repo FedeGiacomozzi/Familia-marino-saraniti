@@ -268,7 +268,7 @@ nav.s{background:rgba(15,10,6,.88);backdrop-filter:blur(16px);border-bottom:1px 
 .sparkle{position:absolute;border-radius:50%;background:var(--gold);pointer-events:none;animation:sparkleAnim var(--sd) ease-in-out var(--ss) infinite}
 .book-tagline{font-family:var(--serif);font-size:1.3rem;font-style:italic;color:rgba(240,232,220,.6);text-align:center;margin-bottom:8px}
 .book-meta-strip{display:flex;gap:0;margin-top:20px}
-.bm{padding:12px 16px;border-right:1px solid rgba(184,146,74,.1);text-align:center;background:rgba(184,146,74,.04);flex:0 0 50%}
+.bm{padding:12px 16px;border-right:1px solid rgba(184,146,74,.1);text-align:center;background:rgba(184,146,74,.04);flex:1 1 auto}
 .bm:last-child{border-right:none}
 .bm-n{font-family:var(--serif);font-size:1.4rem;font-weight:300;color:var(--gold);line-height:1}
 .bm-l{font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:rgba(240,232,220,.25);margin-top:4px}
@@ -527,7 +527,7 @@ footer{background:var(--ink2);border-top:1px solid rgba(184,146,74,.08);padding:
 @media(max-width:900px){
   nav{padding:14px 20px}
   .nlinks{display:none}
-  .hero-content{padding:0 28px 60px}.bm-wrap{display:grid;grid-template-columns:1fr 1fr}
+  .hero-content{padding:0 28px 60px}.book-meta-strip{flex-wrap:wrap}.bm{flex:0 0 50%!important}
   .wrap{padding:0 24px}
   .video-grid,.fam-head,.como-head,.faq-grid{grid-template-columns:1fr;gap:36px}
   .steps{grid-template-columns:1fr 1fr;gap:12px}
