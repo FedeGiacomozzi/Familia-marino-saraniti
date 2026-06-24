@@ -1277,7 +1277,7 @@ def _crear_familia_hotmart(email: str, nombre: str, pack: str, transaction: str)
 @app.post("/webhook/hotmart")
 async def webhook_hotmart(request: Request):
     hottok = request.headers.get("x-hotmart-hottok", "")
-    expected = os.environ.get("ADMIN_PASSWORD", "")
+    expected = os.environ.get("HOTMART_HOTTOK", "")
     if not expected or hottok != expected:
         logger.warning("[webhook-hotmart] hottok inválido, rechazando")
         raise HTTPException(status_code=401, detail="No autorizado")
