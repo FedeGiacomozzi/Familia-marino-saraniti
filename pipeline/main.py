@@ -1225,6 +1225,91 @@ async def webhook_mercadopago(request: Request):
     return {"ok": True}
 
 
+# ─── Webhook Hotmart ──────────────────────────────────────────────────────────
+
+_HOTMART_PACK_MAP: dict[str, str] = {
+    "recuerdo": "recuerdo",
+    "legado": "legado",
+    "bios": "bios",
+}
+
+
+def _hotmart_pack(product_name: str) -> str:
+    lower = product_name.lower()
+    for key, pack in _HOTMART_PACK_MAP.items():
+        if key in lower:
+            return pack
+    return "familiar"
+
+
+def _crear_familia_hotmart(email: str, nombre: str, pack: str, transaction: str) -> str:
+    from google.cloud import firestore as _firestore
+    from pipeline.utils import firestore as fs
+
+    familia_id = uuid.uuid4().hex[:16]
+    nombre_familia = f"Familia {nombre.split()[0]}" if nombre else "Mi Familia"
+    fs._db().collection("familias").document(familia_id).set({
+        "nombre": nombre_familia,
+        "comprador": {
+            "email": email,
+            "nombre": nombre,
+            "es_tambien_retratado": False,
+        },
+        "estado": "onboarding",
+        "pack": pack,
+        "pais": "argentina",
+        "fecha_compra": _firestore.SERVER_TIMESTAMP,
+        "fecha_entrega": None,
+        "origen": "hotmart",
+        "hotmart_transaction": transaction,
+    })
+    fs.add_integrante(
+        familia_id=familia_id,
+        nombre=nombre or email,
+        relacion_con_comprador="comprador",
+        es_comprador=True,
+    )
+    _generar_access_token_familia(familia_id)
+    logger.info("[webhook-hotmart] familia=%s email=%s pack=%s transaction=%s", familia_id, email, pack, transaction)
+    return familia_id
+
+
+@app.post("/webhook/hotmart")
+async def webhook_hotmart(request: Request):
+    hottok = request.headers.get("x-hotmart-hottok", "")
+    expected = os.environ.get("ADMIN_PASSWORD", "")
+    if not expected or hottok != expected:
+        logger.warning("[webhook-hotmart] hottok inválido, rechazando")
+        raise HTTPException(status_code=401, detail="No autorizado")
+
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="JSON inválido")
+
+    event = body.get("event", "")
+    if event != "PURCHASE_APPROVED":
+        logger.info("[webhook-hotmart] evento ignorado: %s", event)
+        return {"ok": True}
+
+    data = body.get("data", {})
+    buyer = data.get("buyer", {})
+    product = data.get("product", {})
+
+    email = (buyer.get("email") or "").strip().lower()
+    nombre = (buyer.get("name") or "").strip()
+    product_name = product.get("name", "")
+    transaction = data.get("purchase", {}).get("transaction", "")
+
+    if not email:
+        logger.warning("[webhook-hotmart] PURCHASE_APPROVED sin email")
+        raise HTTPException(status_code=422, detail="Sin email de comprador")
+
+    pack = _hotmart_pack(product_name)
+    familia_id = _crear_familia_hotmart(email, nombre, pack, transaction)
+    return {"ok": True, "familia_id": familia_id}
+
+
 # ─── Auth: magic link ─────────────────────────────────────────────────────────
 
 @app.get("/auth/{token}")
