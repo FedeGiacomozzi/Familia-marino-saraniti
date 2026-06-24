@@ -773,7 +773,7 @@ footer{background:var(--ink2);border-top:1px solid rgba(184,146,74,.08);padding:
     </div>
     <div class="pgrid">
       <div class="pcard r">
-        <p class="pname">Esencial</p>
+        <p class="pname">Recuerdo</p>
         <div class="pprice"><sup>US$</sup>29</div>
         <p class="pold"></p>
         <p style="font-size:.78rem;color:var(--muted);margin-bottom:24px">Hasta 4 integrantes</p>
@@ -787,7 +787,7 @@ footer{background:var(--ink2);border-top:1px solid rgba(184,146,74,.08);padding:
       </div>
       <div class="pcard feat r d1">
         <span class="pbadge">Más elegido</span>
-        <p class="pname">Familiar</p>
+        <p class="pname">Legado</p>
         <div class="pprice"><sup>US$</sup>35</div>
         <p class="pold">antes US$49</p>
         <p style="font-size:.78rem;color:rgba(240,232,220,.35);margin-bottom:24px">Hasta 6 integrantes</p>
@@ -801,7 +801,7 @@ footer{background:var(--ink2);border-top:1px solid rgba(184,146,74,.08);padding:
         <a href="#" class="pcta pcta-gold" onclick="openModal('familiar');return false">Empezar →</a>
       </div>
       <div class="pcard r d2">
-        <p class="pname">Extendido</p>
+        <p class="pname">Bios</p>
         <div class="pprice"><sup>US$</sup>55</div>
         <p class="pold"></p>
         <p style="font-size:.78rem;color:var(--muted);margin-bottom:24px">Hasta 10 integrantes</p>
@@ -956,7 +956,7 @@ footer{background:var(--ink2);border-top:1px solid rgba(184,146,74,.08);padding:
     <button class="mclose" onclick="closeModal()">×</button>
     <h2 class="mtitle">Tu libro familiar</h2>
     <p class="msub">3 pasos. Menos de 5 minutos.</p>
-    <span class="mptag" id="modal-badge">Plan Familiar · US$35</span>
+    <span class="mptag" id="modal-badge">Plan Legado · US$35</span>
     <div class="sdots"><div class="sdot active" id="sd1"></div><div class="sdot" id="sd2"></div><div class="sdot" id="sd3"></div></div>
     <div class="fpanel active" id="sp1">
       <label class="fl">Tu nombre</label><input type="text" class="fi" id="f-name" placeholder="María García" autocomplete="name">
@@ -1073,9 +1073,9 @@ function faq(btn){
 
 // ── MODAL
 const PLANS={
-  esencial:{label:'Plan Esencial · US$29',base:29,max:4},
-  familiar:{label:'Plan Familiar · US$35',base:35,max:6},
-  extendido:{label:'Plan Extendido · US$55',base:55,max:10}
+  esencial:{label:'Plan Recuerdo · US$29',base:29,max:4},
+  familiar:{label:'Plan Legado · US$35',base:35,max:6},
+  extendido:{label:'Plan Bios · US$55',base:55,max:10}
 };
 let cur='familiar';
 function openModal(p){
