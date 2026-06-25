@@ -1444,6 +1444,15 @@ function escAttr(str) {
 // Inicializar
 // ─────────────────────────────────────────────────────────────────────
 
+// Esta página es solo para uso interno de admin.
+// Sin el parámetro ?admin=1 se redirige a la landing.
+(function() {
+  const p = new URLSearchParams(location.search);
+  if (!p.has('admin')) {
+    window.location.replace('/');
+  }
+})();
+
 // Listeners para sincronización comprador → primer integrante
 document.getElementById('nombre_comprador').addEventListener('input', onCompradorInput);
 document.getElementById('email_comprador').addEventListener('input', onCompradorInput);

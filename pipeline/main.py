@@ -507,7 +507,7 @@ def _recording_base() -> str:
 
 @app.post("/onboarding", status_code=201)
 @limiter.limit("5/hour")
-async def onboarding(request: Request, req: OnboardingRequest):
+async def onboarding(request: Request, req: OnboardingRequest, _: None = Depends(_admin_auth)):
     """
     Crea la familia e integrantes en Firestore y devuelve los tokens de grabación.
     familia_id siempre generado en servidor. Tokens generados en servidor vía add_integrante().
@@ -697,7 +697,7 @@ class IntegranteRequest(BaseModel):
 
 
 @app.post("/familia", status_code=201)
-def crear_familia(req: FamiliaRequest):
+def crear_familia(req: FamiliaRequest, _: None = Depends(_admin_auth)):
     from pipeline.utils import firestore as fs
 
     familia_id = fs.create_familia(
