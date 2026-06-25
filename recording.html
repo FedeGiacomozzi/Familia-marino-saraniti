@@ -568,6 +568,81 @@ header .logo {
 .btn-consent:hover:not(:disabled) { background: #a87a52; }
 .btn-consent:disabled { opacity: 0.5; cursor: not-allowed; }
 
+/* ── Banner de progreso previo ── */
+.banner-progreso {
+  background: #f0f7e8;
+  border: 1px solid #b5d98a;
+  border-radius: 10px;
+  padding: 14px 18px;
+  margin-bottom: 24px;
+  font-size: 14px;
+  color: var(--success);
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+/* ── Modal de confirmación de regrabar ── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.modal-overlay.hidden { display: none; }
+
+.modal-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 32px 28px 24px;
+  max-width: 400px;
+  width: 100%;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+  text-align: center;
+}
+
+.modal-msg {
+  font-size: 15px;
+  color: var(--text);
+  line-height: 1.65;
+  margin-bottom: 24px;
+}
+
+.modal-btns {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.modal-btns button {
+  border-radius: 999px;
+  padding: 10px 24px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  border: none;
+}
+
+.modal-btns button:first-child {
+  background: transparent;
+  border: 2px solid var(--border);
+  color: var(--text);
+}
+
+.modal-btns button:last-child {
+  background: var(--text);
+  color: white;
+}
+
+.modal-btns button:hover { opacity: 0.82; }
+
 /* ── Responsive tweaks ── */
 @media (max-width: 480px) {
   .welcome-card { padding: 36px 22px 30px; }
@@ -668,9 +743,21 @@ header .logo {
   </div>
 </div>
 
+<!-- ══════════════════ MODAL: CONFIRMAR REGRABAR ══════════════════ -->
+<div id="modal-regrabar" class="modal-overlay hidden">
+  <div class="modal-box">
+    <p class="modal-msg">Ya tenés una respuesta grabada para esta pregunta.<br>¿Querés reemplazarla con una nueva grabación?</p>
+    <div class="modal-btns">
+      <button onclick="cancelarRegrabar()">Cancelar</button>
+      <button onclick="confirmarRegrabar()">Sí, regrabar</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══════════════════ SCREEN 2: PREGUNTAS ══════════════════ -->
 <div id="screen-preguntas" class="screen hidden">
   <div class="container">
+    <div id="banner-progreso" class="banner-progreso hidden"></div>
     <div id="bloque-container"></div>
     <div class="siguiente-wrap">
       <button class="btn-siguiente" id="btn-siguiente" onclick="siguienteBloque()" disabled>
@@ -737,6 +824,7 @@ let nombreFamiliar = '';
 let bloqueActual = 0;
 let state = {};          // state[pregId] = { sent, blob, mediaRecorder, timerInterval }
 let mediaRecorders = {}; // active MediaRecorder per question
+let pidPendienteRegrabar = null;
 
 // ── Init ──
 async function init() {
@@ -755,6 +843,14 @@ async function init() {
     document.title = `Libro de Memorias — ${nombreFamiliar}`;
     document.getElementById('gracias-nombre').textContent = `¡Gracias, ${nombreFamiliar}!`;
     document.getElementById('btn-consent').disabled = false;
+
+    const grabadas = data.preguntas_grabadas || [];
+    grabadas.forEach(pid => { state[pid] = { sent: true }; });
+    if (grabadas.length > 0) {
+      const banner = document.getElementById('banner-progreso');
+      banner.textContent = `Hola ${nombreFamiliar}, ya grabaste ${grabadas.length} de 16 preguntas. Podés continuar desde donde quedaste.`;
+      banner.classList.remove('hidden');
+    }
   } catch {
     document.getElementById('consent-nombre').textContent = 'Este link no es válido.';
   }
@@ -834,20 +930,21 @@ function renderBloque(idx) {
   `;
 
   bloque.preguntas.forEach((pid, i) => {
+    const yaSent = state[pid]?.sent === true;
     html += `
-      <div class="pregunta-card" id="card-${pid}">
+      <div class="pregunta-card ${yaSent ? 'enviada' : ''}" id="card-${pid}">
         <p class="pregunta-label">Pregunta ${pid}</p>
         <p class="pregunta-texto">${PREGUNTAS[pid]}</p>
         <div class="controls">
           <button class="btn-grabar" id="btn-grabar-${pid}" onclick="toggleGrabar(${pid})">
-            <span class="dot"></span> ⏺ Grabar respuesta
+            <span class="dot"></span> ${yaSent ? '✓ Regrabar' : '⏺ Grabar respuesta'}
           </button>
           <span class="timer hidden" id="timer-${pid}">00:00</span>
           <button class="btn-enviar hidden" id="btn-enviar-${pid}" onclick="enviarAudio(${pid})">
             Enviar ✓
           </button>
         </div>
-        <p class="status-line" id="status-${pid}"></p>
+        <p class="status-line ${yaSent ? 'ok' : ''}" id="status-${pid}">${yaSent ? '✓ Respuesta guardada' : ''}</p>
       </div>
     `;
   });
@@ -861,12 +958,15 @@ function renderBloque(idx) {
 
   window.scrollTo({ top: 0, behavior: 'smooth' });
   actualizarProgreso();
+  checkBloqueCompleto();
 }
 
 // ── Recording ──
 async function toggleGrabar(pid) {
   if (state[pid]?.grabando) {
     stopGrabar(pid);
+  } else if (state[pid]?.sent) {
+    mostrarModalRegrabar(pid);
   } else {
     await startGrabar(pid);
   }
@@ -996,6 +1096,30 @@ function actualizarProgreso() {
   document.getElementById('prog-count').textContent = `${enviadas} / ${total}`;
   document.getElementById('prog-fill').style.width = `${pct}%`;
   document.getElementById('prog-pct').textContent = `${pct}%`;
+}
+
+// ── Modal de regrabar ──
+function mostrarModalRegrabar(pid) {
+  pidPendienteRegrabar = pid;
+  document.getElementById('modal-regrabar').classList.remove('hidden');
+}
+
+function cancelarRegrabar() {
+  pidPendienteRegrabar = null;
+  document.getElementById('modal-regrabar').classList.add('hidden');
+}
+
+async function confirmarRegrabar() {
+  document.getElementById('modal-regrabar').classList.add('hidden');
+  const pid = pidPendienteRegrabar;
+  pidPendienteRegrabar = null;
+  state[pid] = { sent: false };
+  document.getElementById(`card-${pid}`).classList.remove('enviada');
+  document.getElementById(`status-${pid}`).textContent = '';
+  document.getElementById(`status-${pid}`).className = 'status-line';
+  const btnGrabar = document.getElementById(`btn-grabar-${pid}`);
+  btnGrabar.innerHTML = '<span class="dot"></span> ⏺ Grabar respuesta';
+  await startGrabar(pid);
 }
 
 // ── Helper ──

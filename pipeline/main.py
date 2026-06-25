@@ -874,11 +874,14 @@ def token_info(token: str):
     match = fs.get_integrante_by_token(token)
     if match is None:
         raise HTTPException(status_code=404, detail="Token inválido o no encontrado")
-    familia_id, _, data = match
+    familia_id, integrante_id, data = match
     familia = fs.get_familia(familia_id)
+    respuestas = fs.get_respuestas(familia_id, integrante_id)
+    preguntas_grabadas = [r["id"] for r in respuestas if r.get("audio_url")]
     return {
         "nombre": data.get("nombre", ""),
         "nombre_familia": familia.get("nombre", "") if familia else "",
+        "preguntas_grabadas": preguntas_grabadas,
     }
 
 
@@ -976,6 +979,9 @@ async def token_respuesta(
 
     fs.save_respuesta(familia_id, integrante_id, pregunta, gs_url)
     fs.update_integrante_estado(familia_id, integrante_id, "en_progreso")
+    respuestas_guardadas = fs.get_respuestas(familia_id, integrante_id)
+    pct = round(len([r for r in respuestas_guardadas if r.get("audio_url")]) / 16 * 100)
+    fs.update_porcentaje_avance(familia_id, integrante_id, pct)
     return {"ok": True}
 
 

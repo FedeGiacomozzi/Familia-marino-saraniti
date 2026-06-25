@@ -163,6 +163,17 @@ def save_respuesta(familia_id: str, integrante_id: str, pregunta_id: str, audio_
     )
 
 
+def update_porcentaje_avance(familia_id: str, integrante_id: str, pct: int) -> None:
+    (
+        _db()
+        .collection("familias")
+        .document(familia_id)
+        .collection("integrantes")
+        .document(integrante_id)
+        .update({"porcentaje_avance": pct})
+    )
+
+
 def update_integrante_foto(familia_id: str, integrante_id: str, foto_url: str) -> None:
     (
         _db()
