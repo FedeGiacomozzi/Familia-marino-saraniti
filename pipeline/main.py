@@ -111,7 +111,7 @@ def _run_pipeline_job(job_id: str, req_dict: dict) -> None:
         if familia_id_job:
             _enviar_alerta_pipeline_fallido(job_id, familia_id_job, [str(exc)])
 
-def _admin_auth(x_admin_key: str = Header(...)) -> None:
+def _admin_auth(x_admin_key: str | None = Header(default=None)) -> None:
     pwd = os.environ.get("ADMIN_PASSWORD", "")
     if not pwd or x_admin_key != pwd:
         raise HTTPException(status_code=401, detail="No autorizado")
@@ -1638,6 +1638,7 @@ def _crear_familia_checkout(req: CheckoutRequest) -> tuple[str, str]:
 @app.post('/pago/crear-checkout')
 @limiter.limit('10/hour')
 async def crear_checkout_mp(request: Request, req: CheckoutRequest):
+    raise HTTPException(status_code=503, detail='Canal de pago no disponible. Comprá en Hotmart.')
     mp_token = os.environ.get('MP_ACCESS_TOKEN', '')
     if not mp_token or mp_token == 'placeholder_mp':
         raise HTTPException(status_code=503, detail='MercadoPago no configurado')
@@ -1685,6 +1686,7 @@ def _session_auth_familia(request: Request, familia_id: str):
 @limiter.limit('10/hour')
 async def upsell_crear_checkout_mp(familia_id: str, request: Request, req: UpsellIntegranteRequest):
     """Crea preferencia MP para agregar un integrante extra (USD 8). Requiere sesión del comprador."""
+    raise HTTPException(status_code=503, detail='Canal de pago no disponible.')
     from pipeline.utils import firestore as fs
     familia = _session_auth_familia(request, familia_id)
     mp_token = os.environ.get('MP_ACCESS_TOKEN', '')
@@ -1725,6 +1727,7 @@ async def upsell_crear_checkout_mp(familia_id: str, request: Request, req: Upsel
 @limiter.limit('10/hour')
 async def upsell_crear_checkout_stripe(familia_id: str, request: Request, req: UpsellIntegranteRequest):
     """Crea sesión Stripe para agregar un integrante extra (USD 8). Requiere sesión del comprador."""
+    raise HTTPException(status_code=503, detail='Canal de pago no disponible.')
     from pipeline.utils import firestore as fs
     familia = _session_auth_familia(request, familia_id)
     stripe_key = os.environ.get('STRIPE_SECRET_KEY', '')
@@ -1766,6 +1769,7 @@ async def upsell_crear_checkout_stripe(familia_id: str, request: Request, req: U
 @app.post('/pago/crear-stripe-checkout')
 @limiter.limit('10/hour')
 async def crear_checkout_stripe(request: Request, req: CheckoutRequest):
+    raise HTTPException(status_code=503, detail='Canal de pago no disponible. Comprá en Hotmart.')
     stripe_key = os.environ.get('STRIPE_SECRET_KEY', '')
     if not stripe_key or stripe_key == 'placeholder_stripe':
         raise HTTPException(status_code=503, detail='Stripe no configurado')
