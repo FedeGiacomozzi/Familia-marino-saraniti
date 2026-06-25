@@ -74,7 +74,7 @@ section{padding:80px 24px}
 .precio-features li{font-size:14px;padding:6px 0;border-bottom:0.5px solid #f0e8d8;color:#3d2b0a}
 .precio-features li:last-child{border:none}
 .precio-features li::before{content:"✓ ";color:#C4956A;font-weight:700}
-.btn-comprar{display:block;width:100%;background:#2C1A0E;color:#F5EDD8;border:none;padding:14px;border-radius:8px;font-family:'Mulish',sans-serif;font-size:14px;font-weight:700;cursor:pointer;letter-spacing:0.04em;transition:background 0.2s;text-align:center;text-decoration:none}
+.btn-comprar{display:block;width:100%;background:#2C1A0E;color:#F5EDD8;border:none;padding:14px;border-radius:8px;font-family:'Mulish',sans-serif;font-size:14px;font-weight:700;cursor:pointer;letter-spacing:0.04em;transition:background 0.2s;text-align:center;text-decoration:none;min-height:48px;display:flex;align-items:center;justify-content:center}
 .btn-comprar:hover{background:#3d2b0a}
 
 /* ── FAQ ── */
@@ -97,6 +97,10 @@ footer{background:#2C1A0E;padding:48px 24px;text-align:center}
 @media(max-width:600px){
   .precios-grid{grid-template-columns:1fr}
   .preview-grid{grid-template-columns:1fr}
+  .hero-actions{flex-direction:column;align-items:stretch}
+  .btn-primary,.btn-ghost{min-height:48px;display:flex;align-items:center;justify-content:center;text-align:center}
+  .pasos{grid-template-columns:1fr}
+  section{padding:60px 20px}
 }
 </style>
 </head>
@@ -178,7 +182,7 @@ footer{background:#2C1A0E;padding:48px 24px;text-align:center}
     <div class="precios-grid">
 
       <div class="precio-card">
-        <p class="precio-pack">Esencial</p>
+        <p class="precio-pack">Recuerdo</p>
         <p class="precio-monto"><sup>US$</sup>29</p>
         <p class="precio-desc">Hasta 4 integrantes</p>
         <ul class="precio-features">
@@ -187,12 +191,12 @@ footer{background:#2C1A0E;padding:48px 24px;text-align:center}
           <li>Árbol genealógico incluido</li>
           <li>PDF diseñado premium</li>
         </ul>
-        <a href="HOTMART_LINK_ESENCIAL" class="btn-comprar">Quiero mi libro →</a>
+        <a href="https://pay.hotmart.com/M106470819T" class="btn-comprar" target="_blank" rel="noopener">Quiero mi libro →</a>
       </div>
 
       <div class="precio-card destacado">
         <span class="precio-badge">Más elegido</span>
-        <p class="precio-pack">Familiar ⭐</p>
+        <p class="precio-pack">Legado ⭐</p>
         <p class="precio-monto"><sup>US$</sup>35</p>
         <p class="precio-antes">Antes: <s>US$49</s></p>
         <p class="precio-desc">Hasta 6 integrantes</p>
@@ -202,11 +206,11 @@ footer{background:#2C1A0E;padding:48px 24px;text-align:center}
           <li>Introducción y cierre editorial</li>
           <li>PDF diseñado premium</li>
         </ul>
-        <a href="HOTMART_LINK_FAMILIAR" class="btn-comprar">Quiero mi libro →</a>
+        <a href="https://pay.hotmart.com/D106470872S" class="btn-comprar" target="_blank" rel="noopener">Quiero mi libro →</a>
       </div>
 
       <div class="precio-card">
-        <p class="precio-pack">Extendido</p>
+        <p class="precio-pack">Bios</p>
         <p class="precio-monto"><sup>US$</sup>55</p>
         <p class="precio-desc">Hasta 10 integrantes</p>
         <ul class="precio-features">
@@ -215,7 +219,7 @@ footer{background:#2C1A0E;padding:48px 24px;text-align:center}
           <li>Introducción y cierre editorial</li>
           <li>PDF diseñado premium</li>
         </ul>
-        <a href="HOTMART_LINK_EXTENDIDO" class="btn-comprar">Quiero mi libro →</a>
+        <a href="https://pay.hotmart.com/E106470974U" class="btn-comprar" target="_blank" rel="noopener">Quiero mi libro →</a>
       </div>
 
     </div>
