@@ -695,7 +695,7 @@ footer{background:var(--ink2);border-top:1px solid rgba(184,146,74,.08);padding:
     <p class="book-tagline">El libro que recibís por mail.</p>
     <div class="book-meta-strip">
       <div class="bm"><div class="bm-n">16</div><div class="bm-l">preguntas</div></div>
-      <div class="bm"><div class="bm-n">24</div><div class="bm-l">horas</div></div>
+      <div class="bm"><div class="bm-n">24</div><div class="bm-l">hs desde que graban</div></div>
       <div class="bm"><div class="bm-n">0</div><div class="bm-l">instalaciones</div></div>
       <div class="bm bm-last"><div class="bm-n">∞</div><div class="bm-l">generaciones</div></div>
     </div>
@@ -710,7 +710,7 @@ footer{background:var(--ink2);border-top:1px solid rgba(184,146,74,.08);padding:
   <div class="trust-row">
     <span class="ti"><span class="td"></span>Sin instalaciones</span>
     <span class="ti"><span class="td"></span>Solo desde el celular</span>
-    <span class="ti"><span class="td"></span>Entrega en menos de 24 hs</span>
+    <span class="ti"><span class="td"></span>Entrega en menos de 24 hs desde que todos graban</span>
     <span class="ti"><span class="td"></span>Pago en pesos o USD</span>
     <span class="ti"><span class="td"></span>100% privado</span>
   </div>
@@ -747,15 +747,53 @@ footer{background:var(--ink2);border-top:1px solid rgba(184,146,74,.08);padding:
       <p class="como-body r d2">Vos comprás. Ellos graban cuando quieren. Nosotros hacemos todo lo demás.</p>
     </div>
     <div class="steps">
-      <div class="step r"><div class="sn">01</div><h3 class="st">Comprás y cargás</h3><p class="sb">Elegís el plan y los nombres. Menos de 3 minutos.</p></div>
-      <div class="step r d1"><div class="sn">02</div><h3 class="st">Ellos reciben un link</h3><p class="sb">Sin app, sin registro. Solo abrir y grabar.</p></div>
-      <div class="step r d2"><div class="sn">03</div><h3 class="st">Nosotros lo hacemos</h3><p class="sb">Transcribimos, redactamos y diseñamos cada capítulo.</p></div>
-      <div class="step r d3"><div class="sn">04</div><h3 class="st">El libro llega por mail</h3><p class="sb">PDF listo para imprimir, con animación de apertura.</p></div>
+      <div class="step r"><div class="sn">01</div><h3 class="st">Elegís el plan</h3><p class="sb">Nos decís quién va a ser el protagonista del libro.</p></div>
+      <div class="step r d1"><div class="sn">02</div><h3 class="st">Ellos graban desde el celular</h3><p class="sb">Responden 16 preguntas hablando. Sin escribir nada.</p></div>
+      <div class="step r d2"><div class="sn">03</div><h3 class="st">Seguís todo en tiempo real</h3><p class="sb">Tenés un panel donde ves quién grabó, quién falta y en qué paso está el libro. Te avisamos por mail en cada etapa.</p></div>
+      <div class="step r d3"><div class="sn">04</div><h3 class="st">Recibís el libro en tu casilla</h3><p class="sb">Cuando todos terminan, un editor personalizado procesa cada respuesta, preserva la voz del protagonista y genera el libro con calidad de escritor profesional. En menos de 24 hs está en tu casilla.</p></div>
     </div>
   </div>
 </section>
 
+<section id="panel-progreso" style="background: #f9f5f0; padding: 80px 24px; text-align: center;">
+  <div style="max-width: 720px; margin: 0 auto;">
+    <p style="text-transform: uppercase; letter-spacing: 2px; font-size: 13px; color: #8B6F47; margin-bottom: 16px;">Transparencia total</p>
+    <h2 style="font-family: 'Cormorant Garamond', serif; font-size: clamp(28px, 5vw, 42px); color: #2C1810; margin-bottom: 20px;">
+      Seguís cada paso en tiempo real
+    </h2>
+    <p style="color: #5C4033; font-size: 17px; line-height: 1.7; margin-bottom: 40px;">
+      Desde que el protagonista empieza a grabar hasta que el libro llega a tu casilla,
+      tenés un panel personal donde ves el progreso. Quién grabó, quién falta,
+      en qué etapa está la producción. Y te avisamos por mail en cada paso.
+    </p>
 
+    <!-- Imagen del panel: subir el screenshot como panel-progreso.png al repo -->
+    <!-- Si no existe el archivo, reemplazar por el div placeholder de abajo -->
+    <img
+      src="/panel-progreso.png"
+      alt="Panel de progreso de Ethos Bios"
+      style="width: 100%; max-width: 600px; border-radius: 16px; box-shadow: 0 8px 40px rgba(0,0,0,0.12); margin-bottom: 40px;"
+      onerror="this.style.display='none'; document.getElementById('panel-placeholder').style.display='flex';"
+    />
+
+    <!-- Placeholder si no hay imagen todavía -->
+    <div id="panel-placeholder" style="display:none; background: #2C1810; border-radius: 16px; padding: 60px 24px; margin-bottom: 40px; align-items: center; justify-content: center; flex-direction: column;">
+      <p style="color: #C9A96E; font-size: 15px; margin: 0;">Vista previa del panel — próximamente</p>
+    </div>
+
+    <div style="display: flex; gap: 24px; justify-content: center; flex-wrap: wrap;">
+      <div style="display: flex; align-items: center; gap: 8px; color: #5C4033; font-size: 15px;">
+        <span>✓</span> Estado de cada grabación
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px; color: #5C4033; font-size: 15px;">
+        <span>✓</span> Etapa de producción del libro
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px; color: #5C4033; font-size: 15px;">
+        <span>✓</span> Notificaciones por mail
+      </div>
+    </div>
+  </div>
+</section>
 
 
 
@@ -781,7 +819,7 @@ footer{background:var(--ink2);border-top:1px solid rgba(184,146,74,.08);padding:
           <li>4 capítulos biográficos</li>
           <li>16 preguntas por persona</li>
           <li>PDF de alta calidad</li>
-          <li>Entrega en menos de 24 hs</li>
+          <li>Entrega en menos de 24 hs desde que todos graban</li>
         </ul>
         <a class="pcta pcta-out" href="https://pay.hotmart.com/M106470819T" target="_blank" rel="noopener">Empezar →</a>
       </div>
@@ -796,7 +834,7 @@ footer{background:var(--ink2);border-top:1px solid rgba(184,146,74,.08);padding:
           <li>Árbol genealógico incluido</li>
           <li>Introducción y cierre editorial</li>
           <li>PDF descargable</li>
-          <li>Entrega en menos de 24 hs</li>
+          <li>Entrega en menos de 24 hs desde que todos graban</li>
         </ul>
         <a class="pcta pcta-gold" href="https://pay.hotmart.com/D106470872S" target="_blank" rel="noopener">Empezar →</a>
       </div>
@@ -810,7 +848,7 @@ footer{background:var(--ink2);border-top:1px solid rgba(184,146,74,.08);padding:
           <li>Árbol genealógico completo</li>
           <li>Introducción y cierre editorial</li>
           <li>PDF descargable</li>
-          <li>Entrega en menos de 24 hs</li>
+          <li>Entrega en menos de 24 hs desde que todos graban</li>
         </ul>
         <a class="pcta pcta-out" href="https://pay.hotmart.com/E106470974U" target="_blank" rel="noopener">Empezar →</a>
       </div>
@@ -914,6 +952,7 @@ footer{background:var(--ink2);border-top:1px solid rgba(184,146,74,.08);padding:
         <div class="fitem"><button class="fq" onclick="faq(this)">¿Cuánto tiempo lleva grabar?<span class="ficon"></span></button><div class="fa"><div class="fa-in">Entre 20 y 40 minutos por persona. Se puede hacer en varias sesiones, no hace falta hacerlo de una.</div></div></div>
         <div class="fitem"><button class="fq" onclick="faq(this)">¿Puedo pagar en pesos?<span class="ficon"></span></button><div class="fa"><div class="fa-in">Sí, con Mercado Pago. También aceptamos tarjetas internacionales vía Stripe.</div></div></div>
         <div class="fitem"><button class="fq" onclick="faq(this)">¿Qué pasa con los audios?<span class="ficon"></span></button><div class="fa"><div class="fa-in">Solo se usan para generar el libro. Los eliminamos a los 90 días de la entrega.</div></div></div>
+        <div class="fitem"><button class="fq" onclick="faq(this)">¿Cuánto tarda en estar listo el libro?<span class="ficon"></span></button><div class="fa"><div class="fa-in">El tiempo depende de cuándo graba el protagonista. Una vez que termina de responder las 16 preguntas, el libro se genera automáticamente. En menos de 24 hs lo tenés en tu casilla. Podés seguir el progreso en tiempo real desde tu panel personal.</div></div></div>
       </div>
     </div>
   </div>
@@ -930,7 +969,7 @@ footer{background:var(--ink2);border-top:1px solid rgba(184,146,74,.08);padding:
     <div class="fin-tags r d3">
       <span class="fin-tag">Sin instalaciones</span>
       <span class="fin-tag">Desde el celular</span>
-      <span class="fin-tag">Entrega en 24 hs</span>
+      <span class="fin-tag">24 hs desde que terminan de grabar</span>
     </div>
   </div>
 </section>
