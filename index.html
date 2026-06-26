@@ -170,7 +170,7 @@ nav.s{background:rgba(15,10,6,.88);backdrop-filter:blur(16px);border-bottom:1px 
 .tree-title em{font-style:italic;color:var(--gold)}
 
 /* ── ÁRBOL CON FOTOS ── */
-.tree-wrap{max-width:760px;margin:0 auto;padding:0 40px}
+.tree-wrap{padding:0 20px}.tree-side-col{color:#8B6F47}@media(max-width:768px){.tree-side-col{display:none}}
 .ftree{display:flex;flex-direction:column;align-items:center;gap:0}
 .ftree-row{
   display:flex;justify-content:center;gap:80px;
@@ -569,6 +569,21 @@ footer{background:var(--ink2);border-top:1px solid rgba(184,146,74,.08);padding:
   <div class="tree-label r">El proceso — en vivo</div>
   <h2 class="tree-title r d1">Cada uno graba desde el celular.<br><em>Nosotros armamos el árbol.</em></h2>
 
+  <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:60px;align-items:center;max-width:1200px;margin:0 auto;padding:0 40px">
+    <div class="tree-side-col" style="text-align:right">
+      <div style="margin-bottom:48px">
+        <p style="font-family:'Cormorant Garamond',serif;font-size:13px;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px">Cada integrante</p>
+        <p style="font-size:15px;line-height:1.6;color:#C9A96E">Responde desde su celular, a su ritmo, cuando quiera.</p>
+      </div>
+      <div style="margin-bottom:48px">
+        <p style="font-family:'Cormorant Garamond',serif;font-size:13px;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px">16 preguntas</p>
+        <p style="font-size:15px;line-height:1.6;color:#C9A96E">Diseñadas para sacar las historias que nunca se cuentan solas.</p>
+      </div>
+      <div>
+        <p style="font-family:'Cormorant Garamond',serif;font-size:13px;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px">Sin escribir</p>
+        <p style="font-size:15px;line-height:1.6;color:#C9A96E">Solo hablan. Nosotros transcribimos y redactamos.</p>
+      </div>
+    </div>
   <div class="tree-wrap">
     <!-- ÁRBOL CON FOTOS REALES — scroll triggered -->
     <div class="ftree" id="ftree">
@@ -649,6 +664,21 @@ footer{background:var(--ink2);border-top:1px solid rgba(184,146,74,.08);padding:
 
     </div><!-- /ftree -->
   </div>
+    <div class="tree-side-col" style="text-align:left">
+      <div style="margin-bottom:48px">
+        <p style="font-family:'Cormorant Garamond',serif;font-size:13px;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px">Editor personalizado</p>
+        <p style="font-size:15px;line-height:1.6;color:#C9A96E">Preserva la voz y el acento de cada integrante.</p>
+      </div>
+      <div style="margin-bottom:48px">
+        <p style="font-family:'Cormorant Garamond',serif;font-size:13px;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px">Un capítulo por persona</p>
+        <p style="font-size:15px;line-height:1.6;color:#C9A96E">Cada integrante tiene su propia historia dentro del libro.</p>
+      </div>
+      <div>
+        <p style="font-family:'Cormorant Garamond',serif;font-size:13px;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px">Listo en 24 hs</p>
+        <p style="font-size:15px;line-height:1.6;color:#C9A96E">Desde que todos terminan de grabar hasta que llega a tu casilla.</p>
+      </div>
+    </div>
+  </div><!-- /tree-cols-grid -->
 </section>
 
 <!-- LIBRO 3D REVEAL -->
