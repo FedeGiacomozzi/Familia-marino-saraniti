@@ -26,6 +26,18 @@ def _ts_to_str(ts) -> str:
         return str(ts)
 
 
+def _to_bool(value) -> bool:
+    """Coerce a Firestore field to bool. Handles real bools and string variants
+    ('true'/'false'/'1'/'0'/'si'/'no') that can sneak in via manual edits."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    if isinstance(value, str):
+        return value.strip().lower() in ("true", "1", "si", "sí", "yes")
+    return bool(value)
+
+
 # ─── Familias ────────────────────────────────────────────────────────────────
 
 def get_familia(familia_id: str) -> dict | None:
@@ -297,12 +309,12 @@ def get_integrantes_para_pipeline(familia_id: str) -> list[dict]:
             "nombre": integrante.get("nombre", ""),
             "fecha_nac": fecha_nac,
             "rol": integrante.get("rol", ""),
-            "es_menor": integrante.get("es_menor", False),
+            "es_menor": _to_bool(integrante.get("es_menor", False)),
             "vive": vive,
             "fecha_fallec": fecha_fallec,
             "foto_url": integrante.get("foto_url", ""),
             "relacion_con_comprador": integrante.get("relacion_con_comprador", ""),
-            "es_comprador": integrante.get("es_comprador", False),
+            "es_comprador": _to_bool(integrante.get("es_comprador", False)),
             "perfil_voz": perfil_voz,
             "transcripcion": integrante.get("transcripcion_completa", ""),
             "capitulo": integrante.get("capitulo", ""),

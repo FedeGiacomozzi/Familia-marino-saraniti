@@ -113,9 +113,17 @@ def run(
     integrantes, relaciones, fallecidos = [], [], []
     _fs_integrantes: list[dict] = []
     if familia_id:
+        # 1. Carga CRÍTICA: integrantes de Firestore. Solo un fallo acá
+        #    invalida el path Firestore.
         try:
             _fs_integrantes = _try_firestore_integrantes(familia_id)
-            relaciones = _try_firestore_relaciones(familia_id)
+        except Exception as e:
+            logger.warning("[orchestrator] familia=%s no se pudieron cargar integrantes de Firestore: %s", familia_id, e)
+            _fs_integrantes = []
+
+        # 2. Enriquecimiento OPCIONAL: relaciones (Firestore) y fallecidos (Sheets).
+        #    Un fallo acá NO debe descartar _fs_integrantes ya cargado.
+        if _fs_integrantes:
             # Convert Firestore format to Sheets format for compatibility
             integrantes = [
                 {
@@ -128,11 +136,17 @@ def run(
                 }
                 for p in _fs_integrantes
             ]
-            fallecidos = sheets.get_fallecidos(integrantes)
+            try:
+                relaciones = _try_firestore_relaciones(familia_id)
+            except Exception as e:
+                logger.warning("[orchestrator] familia=%s no se pudieron cargar relaciones: %s", familia_id, e)
+                relaciones = []
+            try:
+                fallecidos = sheets.get_fallecidos(integrantes)
+            except Exception as e:
+                logger.warning("[orchestrator] familia=%s no se pudieron cargar fallecidos (Sheets): %s", familia_id, e)
+                fallecidos = []
             logger.info("[orchestrator] familia=%s datos cargados desde Firestore: %d integrantes", familia_id, len(integrantes))
-        except Exception as e:
-            logger.warning("[orchestrator] familia=%s Firestore no disponible, usando Sheets: %s", familia_id, e)
-            _fs_integrantes = []
 
     if not integrantes:
         try:
@@ -190,6 +204,8 @@ def run(
         try:
             if familia_id and _fs_integrantes:
                 adultos_fs = [p for p in _fs_integrantes if not p.get("es_menor")]
+                print(f"[DEBUG] _fs_integrantes={[(p['nombre'], p.get('es_menor'), type(p.get('es_menor')).__name__) for p in _fs_integrantes]}", flush=True)
+                print(f"[DEBUG] adultos_fs={[p['nombre'] for p in adultos_fs]}", flush=True)
                 logger.info(
                     "[orchestrator] familia=%s _fs_integrantes=%d adultos_fs=%s",
                     familia_id,
