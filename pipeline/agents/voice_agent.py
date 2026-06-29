@@ -117,6 +117,9 @@ def run_from_firestore(familia_id: str, integrantes: list[dict]) -> dict[str, di
     from concurrent.futures import ThreadPoolExecutor, as_completed
     from pipeline.utils import firestore as fs
 
+    if not integrantes:
+        return {}
+
     client = anthropic.Anthropic(timeout=120.0)
     results = {}
 

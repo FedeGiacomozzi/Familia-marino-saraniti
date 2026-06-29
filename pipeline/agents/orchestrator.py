@@ -190,8 +190,27 @@ def run(
         try:
             if familia_id and _fs_integrantes:
                 adultos_fs = [p for p in _fs_integrantes if not p.get("es_menor")]
+                logger.info(
+                    "[orchestrator] familia=%s _fs_integrantes=%d adultos_fs=%s",
+                    familia_id,
+                    len(_fs_integrantes),
+                    [(p["nombre"], p.get("es_menor")) for p in _fs_integrantes],
+                )
+                if not adultos_fs:
+                    result.errores.append(
+                        f"voice_agent: adultos_fs vacío — integrantes en Firestore: "
+                        f"{[(p['nombre'], p.get('es_menor')) for p in _fs_integrantes]}"
+                    )
+                    return result
                 result.voice = voice_agent.run_from_firestore(familia_id, adultos_fs)
             else:
+                logger.warning(
+                    "[orchestrator] familia=%s sin _fs_integrantes (len=%d), usando Sheets (adultos=%s)",
+                    familia_id, len(_fs_integrantes), adultos,
+                )
+                if not adultos:
+                    result.errores.append("voice_agent: lista de adultos vacía y sin datos Firestore")
+                    return result
                 result.voice = voice_agent.run(adultos)
             errores_voz = [n for n, v in result.voice.items() if "error" in v]
             if errores_voz:
