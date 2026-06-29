@@ -436,8 +436,9 @@ def run(
 
             if upload_to_gcs and pdf_path:
                 import os
+                from pipeline.utils import storage as st
                 filename = os.path.basename(pdf_path)
-                gcs_url = sheets.upload_to_gcs(pdf_path, filename, "application/pdf")
+                gcs_url = st.upload_to_gcs(pdf_path, st.GCS_BUCKET_LIBROS, f"pdfs/{filename}", "application/pdf")
                 logger.info("[orchestrator] familia=%s subido a GCS: %s", familia_id, gcs_url)
                 result.layout = gcs_url
 

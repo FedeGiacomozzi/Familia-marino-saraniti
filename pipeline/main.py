@@ -1834,6 +1834,42 @@ def test_email_libro(email: str = "fede.giacomozzi@gmail.com", _: None = Depends
     return {"ok": True, "message": "Email libro listo enviado"}
 
 
+@app.post("/admin/reenviar-libro")
+def admin_reenviar_libro(
+    familia_id: str,
+    email_override: str | None = None,
+    _: None = Depends(_admin_auth),
+):
+    """Reenvía el email de entrega del libro a la familia. Usa email_override si se especifica."""
+    from pipeline.utils import firestore as fs, storage as st
+    from pipeline.utils.email import send_libro_listo
+
+    familia = fs.get_familia(familia_id)
+    if not familia:
+        raise HTTPException(status_code=404, detail=f"Familia no encontrada: {familia_id}")
+
+    libro_url = familia.get("libro_url", "")
+    if not libro_url:
+        raise HTTPException(status_code=404, detail="No hay libro_url guardada para esta familia")
+
+    comprador = familia.get("comprador", {})
+    email_dest = email_override or comprador.get("email", "")
+    if not email_dest:
+        raise HTTPException(status_code=422, detail="Sin email de destino")
+
+    nombre_familia = familia.get("nombre", "tu familia")
+
+    # Generar signed URL si es gs://, usar directamente si es https://
+    if libro_url.startswith("gs://"):
+        signed = st.get_signed_url(libro_url, expiration_hours=168)
+    else:
+        signed = libro_url
+
+    send_libro_listo(email_comprador=email_dest, nombre_familia=nombre_familia, signed_url=signed)
+    logger.info("[admin-reenviar-libro] email enviado a %s familia=%s url=%s", email_dest, familia_id, libro_url)
+    return {"ok": True, "email": email_dest, "libro_url": libro_url}
+
+
 @app.post("/admin/test-email")
 def test_email(email: str = "test@raices.app", _: None = Depends(_admin_auth)):
     from pipeline.utils.email import send_bienvenida
