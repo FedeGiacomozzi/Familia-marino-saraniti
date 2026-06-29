@@ -108,24 +108,20 @@ def run(nombres: list[str]) -> dict[str, dict]:
     return results
 
 
-def run_from_firestore(familia_id: str, nombres: list[str]) -> dict[str, dict]:
+def run_from_firestore(familia_id: str, integrantes: list[dict]) -> dict[str, dict]:
     """
-    Variante Firestore: lee transcripciones de Firestore, genera perfil de voz,
-    guarda resultado en Firestore. Retorna {nombre: perfil_dict}.
+    Variante Firestore: lee transcripciones de Firestore por integrante_id,
+    genera perfil de voz, guarda resultado en Firestore.
+    Recibe lista de dicts con al menos {id, nombre}. Retorna {nombre: perfil_dict}.
     """
     from concurrent.futures import ThreadPoolExecutor, as_completed
     from pipeline.utils import firestore as fs
 
     client = anthropic.Anthropic(timeout=120.0)
-    integrantes = fs.get_integrantes(familia_id)
-    integrante_by_nombre = {p["nombre"].lower(): p for p in integrantes}
     results = {}
 
-    def _tarea(nombre: str):
-        integrante = integrante_by_nombre.get(nombre.lower())
-        if not integrante:
-            raise ValueError(f"Integrante no encontrado en Firestore: {nombre}")
-
+    def _tarea(integrante: dict):
+        nombre = integrante["nombre"]
         integrante_id = integrante["id"]
         transcripciones = fs.get_transcripciones_integrante(familia_id, integrante_id)
 
@@ -139,10 +135,11 @@ def run_from_firestore(familia_id: str, nombres: list[str]) -> dict[str, dict]:
         fs.save_perfil_voz(familia_id, integrante_id, perfil, transcripcion_completa)
         return nombre, perfil
 
-    with ThreadPoolExecutor(max_workers=min(6, len(nombres))) as executor:
-        futures = {executor.submit(_tarea, n): n for n in nombres}
+    with ThreadPoolExecutor(max_workers=min(6, len(integrantes))) as executor:
+        futures = {executor.submit(_tarea, p): p for p in integrantes}
         for future in as_completed(futures):
-            nombre = futures[future]
+            integrante = futures[future]
+            nombre = integrante["nombre"]
             try:
                 nombre, perfil = future.result()
                 results[nombre] = perfil

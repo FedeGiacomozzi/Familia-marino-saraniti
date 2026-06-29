@@ -143,7 +143,22 @@ def run(
             logger.warning("[orchestrator] familia=%s no se pudieron cargar datos: %s", familia_id, e)
             integrantes, relaciones, fallecidos = [], [], []
 
-    personas_meta = _build_personas_meta(nombres, integrantes, relaciones)
+    if _fs_integrantes:
+        # Firestore path: build personas_meta directly from fs objects — no name lookup
+        personas_meta = [
+            {
+                "nombre": p["nombre"],
+                "fecha_nac": p.get("fecha_nac", ""),
+                "rol": p.get("rol", ""),
+                "fecha_fallec": p.get("fecha_fallec", ""),
+                "vive": p.get("vive", True),
+                "es_menor": p.get("es_menor", False),
+                "familia_ctx": sheets.build_family_context(p["nombre"], integrantes, relaciones),
+            }
+            for p in _fs_integrantes
+        ]
+    else:
+        personas_meta = _build_personas_meta(nombres, integrantes, relaciones)
 
     # Menores: se registran como skip, no se procesan
     menores = [p["nombre"] for p in personas_meta if p.get("es_menor")]
@@ -174,7 +189,8 @@ def run(
         logger.info("[orchestrator] familia=%s paso 2: análisis de voz", familia_id)
         try:
             if familia_id and _fs_integrantes:
-                result.voice = voice_agent.run_from_firestore(familia_id, adultos)
+                adultos_fs = [p for p in _fs_integrantes if not p.get("es_menor")]
+                result.voice = voice_agent.run_from_firestore(familia_id, adultos_fs)
             else:
                 result.voice = voice_agent.run(adultos)
             errores_voz = [n for n, v in result.voice.items() if "error" in v]
@@ -205,49 +221,73 @@ def run(
             import anthropic as _anthropic
             client = _anthropic.Anthropic(timeout=120.0)
 
-            adultos_meta = [pm for pm in personas_meta if not pm.get("es_menor")]
+            # Menores: placeholders (sin llamada a Claude)
             for pm in personas_meta:
                 if pm.get("es_menor"):
                     result.chapters[pm["nombre"]] = f"[MENOR: {pm['nombre']} — capítulo a escribir por padres/tutores]"
 
-            def _generar(pm):
-                nombre = pm["nombre"]
-                # Try Firestore profile first (has transcripcion + perfil_voz from pipeline)
-                fs_data = next(
-                    (p for p in _fs_integrantes if p["nombre"].lower() == nombre.lower()), None
-                ) if _fs_integrantes else None
+            # familia_ctx keyed by nombre (para cualquier path)
+            personas_meta_by_nombre = {pm["nombre"]: pm for pm in personas_meta}
 
-                if fs_data and (fs_data.get("transcripcion") or fs_data.get("perfil_voz")):
-                    perfil_voz = fs_data.get("perfil_voz", {})
-                    transcripcion = fs_data.get("transcripcion", "")
-                else:
+            if _fs_integrantes:
+                # Firestore path: iteramos sobre los objetos directamente, sin lookup por nombre
+                gen_items = []
+                for p in _fs_integrantes:
+                    if p.get("es_menor"):
+                        continue
+                    item = dict(p)
+                    item["familia_ctx"] = personas_meta_by_nombre.get(p["nombre"], {}).get("familia_ctx", {})
+                    gen_items.append(item)
+
+                def _generar(item: dict):
+                    nombre = item["nombre"]
+                    integrante_id = item["id"]
+                    perfil_voz = item.get("perfil_voz", {})
+                    transcripcion = item.get("transcripcion", "")
+
+                    if not perfil_voz and not transcripcion:
+                        return nombre, None, f"chapter_agent/{nombre}: sin transcripcion ni perfil_voz en Firestore"
+
+                    persona = {
+                        "nombre": nombre,
+                        "perfil_voz": perfil_voz,
+                        "transcripcion": transcripcion,
+                        "familia_ctx": item.get("familia_ctx", {}),
+                    }
+                    cap = chapter_agent.generar_capitulo(client, persona)
+
+                    if familia_id and cap:
+                        try:
+                            from pipeline.utils import firestore as fs_mod
+                            fs_mod.save_capitulo(familia_id, integrante_id, cap)
+                        except Exception as _e:
+                            logger.warning("[orchestrator] familia=%s no se pudo guardar capítulo para %s: %s", familia_id, nombre, _e)
+
+                    return nombre, cap, None
+
+            else:
+                # Sheets path: iteramos sobre personas_meta
+                gen_items = [pm for pm in personas_meta if not pm.get("es_menor")]
+
+                def _generar(item: dict):
+                    nombre = item["nombre"]
                     p = sheets.get_profile(nombre)
                     if not p:
-                        return nombre, None, f"chapter_agent/{nombre}: perfil no encontrado"
-                    perfil_voz = p.get("perfil_voz", {})
-                    transcripcion = p.get("transcripcion", "")
+                        return nombre, None, f"chapter_agent/{nombre}: perfil no encontrado en Sheets"
+                    persona = {
+                        "nombre": nombre,
+                        "perfil_voz": p.get("perfil_voz", {}),
+                        "transcripcion": p.get("transcripcion", ""),
+                        "familia_ctx": item.get("familia_ctx", {}),
+                    }
+                    cap = chapter_agent.generar_capitulo(client, persona)
+                    return nombre, cap, None
 
-                persona = {
-                    "nombre": nombre,
-                    "perfil_voz": perfil_voz,
-                    "transcripcion": transcripcion,
-                    "familia_ctx": pm.get("familia_ctx", {}),
-                }
-                cap = chapter_agent.generar_capitulo(client, persona)
-
-                # Save to Firestore if familia_id is set
-                if familia_id and cap and fs_data:
-                    try:
-                        from pipeline.utils import firestore as fs_mod
-                        fs_mod.save_capitulo(familia_id, fs_data["id"], cap)
-                    except Exception as _e:
-                        logger.warning("[orchestrator] familia=%s no se pudo guardar capítulo para %s: %s", familia_id, nombre, _e)
-
-                return nombre, cap, None
-
-            with ThreadPoolExecutor(max_workers=min(6, len(adultos_meta))) as executor:
-                futures = {executor.submit(_generar, pm): pm for pm in adultos_meta}
+            with ThreadPoolExecutor(max_workers=min(6, len(gen_items))) as executor:
+                futures = {executor.submit(_generar, item): item for item in gen_items}
                 for future in as_completed(futures):
+                    item = futures[future]
+                    nombre = item["nombre"]
                     try:
                         nombre, cap, err = future.result()
                         if err:
@@ -255,8 +295,7 @@ def run(
                         else:
                             result.chapters[nombre] = cap
                     except Exception as e:
-                        pm = futures[future]
-                        result.errores.append(f"chapter_agent/{pm['nombre']}: {e}")
+                        result.errores.append(f"chapter_agent/{nombre}: {e}")
 
         except Exception as e:
             result.errores.append(f"chapter_agent: {e}")
@@ -306,14 +345,13 @@ def run(
             if manuscript is None:
                 logger.warning("[orchestrator] familia=%s manuscrito no disponible — cargando capítulos guardados", familia_id)
                 adultos_meta = [pm for pm in personas_meta if not pm.get("es_menor")]
+                fs_integrantes_by_nombre = {p["nombre"]: p for p in _fs_integrantes} if _fs_integrantes else {}
                 for pm in adultos_meta:
                     nombre = pm["nombre"]
                     if nombre in result.chapters:
                         continue
                     if familia_id and _fs_integrantes:
-                        fs_data = next(
-                            (p for p in _fs_integrantes if p["nombre"].lower() == nombre.lower()), None
-                        )
+                        fs_data = fs_integrantes_by_nombre.get(nombre)
                         if fs_data and fs_data.get("capitulo"):
                             result.chapters[nombre] = fs_data["capitulo"]
                     if nombre not in result.chapters:
